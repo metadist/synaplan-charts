@@ -1,0 +1,181 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synaplan.fullname" . }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "synaplan.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "synaplan.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "synaplan.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            # Application URLs
+            - name: APP_URL
+              value: {{ .Values.publicUrl | quote }}
+            - name: SYNAPLAN_URL
+              value: {{ .Values.publicUrl | quote }}
+            - name: FRONTEND_URL
+              value: {{ .Values.publicUrl | quote }}
+            # Database configuration
+            - name: DB_HOST
+              value: {{ .Values.database.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DB_USER
+              value: {{ .Values.database.user | quote }}
+            - name: DB_SERVER_VERSION
+              value: {{ .Values.database.serverVersion | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-credentials
+                  key: password
+            # Triton Inference Server
+            - name: TRITON_SERVER_URL
+              value: {{ .Values.triton.url | quote }}
+            # Ollama (optional)
+            - name: OLLAMA_BASE_URL
+              value: {{ .Values.ollama.baseUrl | quote }}
+            # Mailer configuration
+            - name: MAILER_DSN
+              value: {{ .Values.mailerDsn | quote }}
+            # AI Provider API Keys
+            - name: ANTHROPIC_API_KEY
+              value: {{ .Values.apiKeys.anthropic | quote }}
+            - name: OPENAI_API_KEY
+              value: {{ .Values.apiKeys.openai | quote }}
+            - name: GROQ_API_KEY
+              value: {{ .Values.apiKeys.groq | quote }}
+            - name: GOOGLE_GEMINI_API_KEY
+              value: {{ .Values.apiKeys.googleGemini | quote }}
+            - name: BRAVE_SEARCH_API_KEY
+              value: {{ .Values.apiKeys.braveSearch | quote }}
+            {{- if .Values.oidc.enabled }}
+            # OIDC Authentication
+            - name: OIDC_DISCOVERY_URL
+              value: {{ .Values.oidc.issuerURI | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: OIDC_CLIENT_SECRET
+              {{- if .Values.oidc.clientSecretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.oidc.clientSecretRef | quote }}
+                  key: "client-secret"
+              {{- else }}
+              value: {{ .Values.oidc.clientSecret | quote }}
+              {{- end }}
+            {{- end }}
+            {{- if .Values.tika.enabled }}
+            # Tika Document Processing
+            - name: TIKA_BASE_URL
+              value: {{ .Values.tika.url | quote }}
+            {{- end }}
+            {{- with .Values.env }}
+            # Additional environment variables
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: synaplan-uploads
+              mountPath: /var/www/backend/var/uploads
+            {{- if .Values.customRootCA }}
+            - name: tls
+              mountPath: /usr/local/share/ca-certificates/custom-ca.crt
+              subPath: ca.crt
+              readOnly: true
+            {{- end }}
+            - name: init-scripts
+              mountPath: /docker-entrypoint.d
+              readOnly: true
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: synaplan-uploads
+        {{- if .Values.persistence.uploads.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.uploads.existingClaim | default (printf "%s-uploads-pvc" (include "synaplan.fullname" .)) }}
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+      {{- if .Values.customRootCA }}
+        - name: tls
+          secret:
+            secretName: synaplan-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+      {{- end }}
+        - name: init-scripts
+          configMap:
+            name: {{ include "synaplan.fullname" . }}-init-scripts
+            defaultMode: 0755
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

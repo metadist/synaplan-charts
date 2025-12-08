@@ -1,0 +1,50 @@
+# MariaDB Cluster Configuration for Synaplan
+mariadb:
+  rootPasswordSecretKeyRef:
+    name: mariadb-credentials
+    key: root-password
+  storage:
+    size: 10Gi
+    storageClassName: ""  # Use default storage class
+  replicas: 3
+  galera:
+    enabled: true
+  ## Resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+databases:
+  - name: synaplan
+    characterSet: utf8
+    collate: utf8_general_ci
+    cleanupPolicy: Delete
+    requeueInterval: 10h
+    retryInterval: 30s
+
+users:
+  - name: synaplan
+    passwordSecretKeyRef:
+      name: mariadb-credentials
+      key: password
+    host: "%"
+    cleanupPolicy: Delete
+    requeueInterval: 10h
+    retryInterval: 30s
+
+grants:
+  - name: synaplan
+    privileges:
+      - "ALL PRIVILEGES"
+    database: "*"
+    table: "*"
+    username: synaplan
+    grantOption: true
+    host: "%"
+    cleanupPolicy: Delete
+    requeueInterval: 10h
+    retryInterval: 30s

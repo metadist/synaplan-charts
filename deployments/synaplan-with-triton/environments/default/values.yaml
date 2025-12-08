@@ -1,0 +1,16 @@
+# Default environment configuration
+# Minimal settings - most config is in values templates
+
+cluster:
+  ingressClassName: nginx
+  certIssuer: cluster-issuer
+  customRootCA: false
+
+services:
+  synaplan:
+    url: https://synaplan.local
+    oidc:
+      issuerURI: https://keycloak.local/realms/default
+      clientId: synaplan
+  triton:
+    mode: gpu

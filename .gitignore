@@ -1,0 +1,31 @@
+# Helm
+*.tgz
+dist/
+.deploy
+
+# Temporary files
+*.swp
+*.bak
+*.tmp
+*~
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+*.tmproj
+.claude/
+
+# CI generated files
+/tmp/*-templated.yaml
+
+# Build outputs
+charts/*/ci/templated.yaml
+
+# Deployments - ignore all environment directories except default
+deployments/*/environments/*
+!deployments/*/environments/default/

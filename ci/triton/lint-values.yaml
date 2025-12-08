@@ -1,0 +1,20 @@
+# Minimal values for linting triton chart
+
+replicaCount: 1
+
+image:
+  repository: nvcr.io/nvidia/tritonserver
+  tag: "25.08-pyt-python-py3"
+
+trtllmBuild:
+  enabled: false
+
+models: []
+
+volumes:
+  - name: triton-cache
+    emptyDir: {}
+
+volumeMounts:
+  - name: triton-cache
+    mountPath: /cache

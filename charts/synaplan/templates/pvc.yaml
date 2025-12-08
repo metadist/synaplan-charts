@@ -1,0 +1,17 @@
+{{- if and .Values.persistence.uploads.enabled (not .Values.persistence.uploads.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "synaplan.fullname" . }}-uploads-pvc
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.uploads.accessMode | default "ReadWriteMany" }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.uploads.size | default "10Gi" }}
+  {{- if .Values.persistence.uploads.storageClass }}
+  storageClassName: {{ .Values.persistence.uploads.storageClass }}
+  {{- end }}
+{{- end }}

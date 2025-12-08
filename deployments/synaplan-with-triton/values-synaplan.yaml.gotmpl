@@ -1,0 +1,57 @@
+{{- $synaplanUrl := .Values.services.synaplan.url | required "services.synaplan.url is required" }}
+{{- $synaplanHost := $synaplanUrl | trimPrefix "https://" | trimPrefix "http://" }}
+{{- $tikaConfig := index .Values.services "tika" | default dict }}
+{{- $oidcClientSecretRef := index .Values.services.synaplan.oidc "clientSecretRef" | default "" }}
+{{- $oidcClientSecret := index .Values.services.synaplan.oidc "clientSecret" | default "" }}
+{{- $oidcIssuerURI := index .Values.services.synaplan.oidc "issuerURI" | default "" }}
+
+customRootCA: {{ .Values.cluster.customRootCA }}
+
+publicUrl: {{ $synaplanUrl | quote }}
+
+tritonMode: {{ .Values.services.triton.mode | quote }}
+
+database:
+  host: "mariadb-cluster.synaplan.svc.cluster.local"
+
+triton:
+  url: "triton.synaplan.svc.cluster.local:8001"
+
+{{- if $tikaConfig }}
+tika:
+  enabled: true
+  url: {{ $tikaConfig.url | quote }}
+{{- end }}
+
+oidc:
+  enabled: true
+  {{- if $oidcIssuerURI }}
+  issuerURI: {{ $oidcIssuerURI | quote }}
+  {{- end }}
+  clientId: {{ .Values.services.synaplan.oidc.clientId | quote }}
+  {{- if $oidcClientSecretRef }}
+  clientSecretRef: {{ $oidcClientSecretRef | quote }}
+  {{- else if $oidcClientSecret }}
+  clientSecret: {{ $oidcClientSecret | quote }}
+  {{- end }}
+
+persistence:
+  uploads:
+    enabled: true
+    accessMode: "ReadWriteMany"
+    size: "10Gi"
+
+ingress:
+  enabled: true
+  className: {{ .Values.cluster.ingressClassName | quote }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.cluster.certIssuer | quote }}
+  hosts:
+    - host: {{ $synaplanHost | quote }}
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: synaplan-tls
+      hosts:
+        - {{ $synaplanHost | quote }}
