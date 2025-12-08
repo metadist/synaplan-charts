@@ -1,0 +1,28 @@
+# CPU mode configuration for Triton Inference Server
+
+image:
+  repository: nvcr.io/nvidia/tritonserver
+  pullPolicy: IfNotPresent
+  tag: "25.09-vllm-python-py3"
+
+# Disable TensorRT-LLM build for CPU deployment
+trtllmBuild:
+  enabled: false
+
+# Resource requests for CPU nodes (no GPU)
+resources:
+  requests:
+    cpu: "500m"
+    memory: "4Gi"
+  limits:
+    cpu: "2"
+    memory: "8Gi"
+
+# PyTorch model configuration for CPU inference
+models:
+  - name: mistral-cpu
+    files:
+      - key: config.pbtxt
+        path: config.pbtxt
+      - key: model.py
+        path: 1/model.py

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["nvcr.io/nvidia/tritonserver"],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-pyt-python-py3$",
+      "description": "Triton Server PyTorch variant - only update YY.MM version, keep -pyt-python-py3 suffix"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["nvcr.io/nvidia/tensorrt-llm/release"],
+      "versioning": "semver",
+      "description": "TensorRT-LLM uses semantic versioning"
+    },
+    {
+      "matchDatasources": ["helm"],
+      "groupName": "mariadb-operator",
+      "matchPackageNames": [
+        "mariadb-operator/mariadb-operator-crds",
+        "mariadb-operator/mariadb-operator",
+        "mariadb-operator/mariadb-cluster"
+      ]
+    }
+  ],
+  "helm-values": {
+    "fileMatch": [
+      "charts/.+/values\\.yaml$",
+      "deployments/.+/values-.+\\.yaml$"
+    ]
+  }
+}

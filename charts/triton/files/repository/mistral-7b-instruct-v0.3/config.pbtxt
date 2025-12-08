@@ -1,0 +1,32 @@
+name: "mistral-7b-instruct-v0.3"
+backend: "tensorrtllm"
+max_batch_size: 1
+
+model_transaction_policy {
+  decoupled: true
+}
+
+input [
+  { name: "input_ids", data_type: TYPE_INT32, dims: [-1] },
+  { name: "input_lengths", data_type: TYPE_INT32, dims: [1] },
+  { name: "request_output_len", data_type: TYPE_INT32, dims: [1] },
+  { name: "streaming", data_type: TYPE_BOOL, dims: [1], optional: true }
+
+]
+
+output [
+  { name: "output_ids", data_type: TYPE_INT32, dims: [-1] },
+  { name: "sequence_length", data_type: TYPE_INT32, dims: [1] }
+]
+
+parameters: [
+  { key: "gpt_model_type", value: { string_value: "inflight_fused_batching" } },
+  { key: "engine_dir", value: { string_value: "${MISTRAL_ENGINE_DIR}" } },
+  { key: "gpt_model_path", value: { string_value: "${MISTRAL_ENGINE_DIR}" } },
+  { key: "tokenizer_dir", value: { string_value: "${MISTRAL_WEIGHTS_DIR}" } },
+  { key: "logits_datatype", value: { string_value: "TYPE_FP32" } },
+  { key: "guided_decoding_backend", value: { string_value: "xgrammar" } },
+  { key: "xgrammar_tokenizer_info_path", value: { string_value: "${MISTRAL_ENGINE_DIR}/tokenizer_info/xgrammar_tokenizer_info.json" } },
+  { key: "enable_chunked_context", value: { string_value: "false" } },
+  { key: "normalize_log_probs", value: { string_value: "true" } }
+]

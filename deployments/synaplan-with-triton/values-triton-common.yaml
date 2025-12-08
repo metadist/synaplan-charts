@@ -1,0 +1,11 @@
+# Shared configuration for both CPU and GPU Triton deployments
+
+# HuggingFace model auto-download configuration
+huggingfaceModels:
+  enabled: true
+  models:
+    - source: mistralai/Mistral-7B-Instruct-v0.3
+      name: mistral-7b-instruct-v0.3
+      revision: 0d4b76e1efeb5eb6f6b5e757c79870472e04bd3a
+      ignorePatterns:
+        - "consolidated.safetensors"

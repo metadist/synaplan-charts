@@ -1,0 +1,188 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "triton.fullname" . }}
+  labels:
+    {{- include "triton.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "triton.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "triton.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "triton.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.huggingfaceModels.enabled .Values.trtllmBuild.enabled (gt (len .Values.additionalInitContainers) 0) }}
+      initContainers:
+      {{- end }}
+      {{- with .Values.additionalInitContainers }}
+        {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.huggingfaceModels.enabled }}
+        - name: hf-model-downloader
+          image: "{{ .Values.huggingfaceModels.image.repository }}:{{ .Values.huggingfaceModels.image.tag }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -euo pipefail
+
+              echo "Installing huggingface-hub CLI..."
+              pip install --no-cache-dir huggingface-hub
+
+              {{- range .Values.huggingfaceModels.models }}
+              # Download {{ .source }}
+              MODEL_ID="{{ .source }}"
+              MODEL_DIR="/cache/weights/{{ .name }}"
+              {{- if .revision }}
+              REVISION="{{ .revision }}"
+              {{- else }}
+              REVISION=""
+              {{- end }}
+
+              if [ -d "$MODEL_DIR" ] && [ "$(ls -A $MODEL_DIR)" ]; then
+                echo "Model $MODEL_ID already exists in $MODEL_DIR, skipping download..."
+              else
+                echo "Downloading HuggingFace model: $MODEL_ID to $MODEL_DIR"
+                {{- if .ignorePatterns }}
+                IGNORE_PATTERNS='{{ join "," .ignorePatterns }}'
+                {{- else }}
+                IGNORE_PATTERNS='consolidated.safetensors'
+                {{- end }}
+                if [ -n "$REVISION" ]; then
+                  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', local_dir='$MODEL_DIR', revision='$REVISION', ignore_patterns=['$IGNORE_PATTERNS'])"
+                else
+                  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', local_dir='$MODEL_DIR', ignore_patterns=['$IGNORE_PATTERNS'])"
+                fi
+                echo "Model $MODEL_ID download complete!"
+              fi
+              {{- end }}
+
+              echo "All models downloaded. Contents of /cache:"
+              find /cache -type d | head -20
+          volumeMounts:
+            - name: triton-cache
+              mountPath: /cache
+      {{- end }}
+      {{- if .Values.trtllmBuild.enabled }}
+        - name: trtllm-build
+          image: "{{ .Values.trtllmBuild.image.repository }}:{{ .Values.trtllmBuild.image.tag }}"
+          command: ["/build-models.sh"]
+          volumeMounts:
+            - name: triton-cache
+              mountPath: /cache
+            - name: scripts
+              mountPath: /functions.sh
+              subPath: functions.sh
+            - name: scripts
+              mountPath: /build-models.sh
+              subPath: build-models.sh
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command: ["/init.sh"]
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8000
+            - name: grpc
+              containerPort: 8001
+            - name: metrics
+              containerPort: 8002
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: scripts
+              mountPath: /functions.sh
+              subPath: functions.sh
+            - name: scripts
+              mountPath: /init.sh
+              subPath: init.sh
+            # model repository
+            {{- range .Values.models }}
+            {{- $safeName := regexReplaceAll "[^a-z0-9-]" (lower .name) "-" }}
+            - name: {{ $safeName }}
+              mountPath: /repository.template/{{ .name }}
+            {{- end }}
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ .Release.Name }}-scripts
+            defaultMode: 0755
+      {{- range .Values.models }}
+      {{- $safeName := regexReplaceAll "[^a-z0-9-]" (lower .name) "-" }}
+        - name: {{ $safeName }}
+          configMap:
+            {{- if .existingConfigMap }}
+            name: {{ .existingConfigMap }}
+            {{- else }}
+            name: {{ $.Release.Name }}-model-{{ .name }}
+            {{- end }}
+            items:
+            {{- range .files }}
+              - key: {{ .key }}
+                path: {{ .path }}
+            {{- end }}
+      {{- end }}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

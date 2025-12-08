@@ -1,0 +1,51 @@
+environments:
+  {{ .Environment.Name }}:
+    kubeContext: {{ .Environment.Name }}
+    values:
+      - environments/{{ .Environment.Name }}/*.yaml
+
+---
+
+repositories:
+  - name: mariadb-operator
+    url: https://helm.mariadb.com/mariadb-operator
+
+releases:
+  - name: mariadb-operator-crds
+    namespace: synaplan
+    chart: mariadb-operator/mariadb-operator-crds
+    version: "25.10.2"
+    createNamespace: true
+
+  - name: mariadb-operator
+    namespace: synaplan
+    chart: mariadb-operator/mariadb-operator
+    version: "25.10.2"
+    needs:
+      - synaplan/mariadb-operator-crds
+
+  - name: mariadb-cluster
+    namespace: synaplan
+    chart: mariadb-operator/mariadb-cluster
+    version: "25.10.2"
+    needs:
+      - synaplan/mariadb-operator-crds
+    values:
+      - values-mariadb-cluster.yaml
+
+  - name: synaplan
+    namespace: synaplan
+    chart: ../../charts/synaplan
+    values:
+      - values-synaplan.yaml.gotmpl
+
+  - name: triton
+    namespace: synaplan
+    chart: ../../charts/triton
+    values:
+      - values-triton-common.yaml
+      {{- if eq .Values.services.triton.mode "gpu" }}
+      - values-triton-gpu.yaml
+      {{- else }}
+      - values-triton-cpu.yaml
+      {{- end }}

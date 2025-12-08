@@ -1,0 +1,222 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'synaplan-v*.*.*'
+      - 'triton-v*.*.*'
+  pull_request:
+    branches: [main]
+
+env:
+  HELM_VERSION: v3.14.0
+
+jobs:
+  discover-charts:
+    name: Discover Charts
+    runs-on: ubuntu-latest
+    outputs:
+      charts: ${{ steps.set-matrix.outputs.charts }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Discover chart directories
+        id: set-matrix
+        run: |
+          # Find all directories in charts/ and convert to JSON array
+          CHARTS=$(find charts -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
+          echo "charts=$CHARTS" >> $GITHUB_OUTPUT
+          echo "Discovered charts: $CHARTS"
+
+  lint-and-package:
+    name: Lint and Package Charts
+    runs-on: ubuntu-latest
+    needs: discover-charts
+    strategy:
+      matrix:
+        chart: ${{ fromJson(needs.discover-charts.outputs.charts) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Helm lint
+        run: helm lint charts/${{ matrix.chart }}
+
+      - name: Helm template
+        run: |
+          if [ -f "ci/${{ matrix.chart }}/lint-values.yaml" ]; then
+            helm template charts/${{ matrix.chart }} -f ci/${{ matrix.chart }}/lint-values.yaml > /tmp/${{ matrix.chart }}-templated.yaml
+          else
+            helm template charts/${{ matrix.chart }} > /tmp/${{ matrix.chart }}-templated.yaml
+          fi
+
+      - name: Install kubeconform
+        run: |
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate Kubernetes manifests
+        run: kubeconform -strict -summary /tmp/${{ matrix.chart }}-templated.yaml
+
+      - name: Package chart
+        run: |
+          helm package charts/${{ matrix.chart }} -d /tmp/charts
+
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chart-${{ matrix.chart }}
+          path: /tmp/charts/*.tgz
+          retention-days: 7
+
+  helm-docs-check:
+    name: Verify Helm Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install helm-docs
+        run: |
+          cd /tmp
+          wget https://github.com/norwoodj/helm-docs/releases/download/v1.13.1/helm-docs_1.13.1_Linux_x86_64.tar.gz
+          tar -xzf helm-docs_1.13.1_Linux_x86_64.tar.gz
+          sudo mv helm-docs /usr/local/bin/
+
+      - name: Generate docs
+        run: helm-docs
+
+      - name: Check for changes
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Documentation is out of date. Please run 'helm-docs' and commit the changes."
+            exit 1
+          fi
+
+  test-deployment:
+    name: Test Deployment
+    runs-on: ubuntu-latest
+    needs: lint-and-package
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download chart artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/charts
+
+      - name: List downloaded artifacts
+        run: ls -R /tmp/charts
+
+      # TODO: Set up k3s or kind cluster
+      # TODO: Deploy with helmfile
+      # TODO: Smoke test endpoints
+
+      - name: Placeholder for deployment tests
+        run: |
+          echo "Deployment tests will be implemented here"
+          echo "- Create k3s/kind cluster"
+          echo "- Deploy MariaDB operator"
+          echo "- Deploy charts using helmfile"
+          echo "- Verify all pods are ready"
+          echo "- Smoke test endpoints"
+
+  release:
+    name: Release Charts to GHCR
+    runs-on: ubuntu-latest
+    needs: [lint-and-package, helm-docs-check, test-deployment]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Extract chart name and version from tag
+        id: extract
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+          # Extract chart name (everything before -v) and version (everything after -v)
+          CHART_NAME=${TAG%%-v*}
+          VERSION=${TAG#*-v}
+
+          # Validate chart exists
+          if [ ! -d "charts/$CHART_NAME" ]; then
+            echo "::error::Chart 'charts/$CHART_NAME' does not exist. Valid charts: synaplan, triton"
+            exit 1
+          fi
+
+          echo "chart_name=$CHART_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "✅ Detected chart: $CHART_NAME version: $VERSION"
+
+      - name: Update Chart.yaml version from tag
+        run: |
+          CHART_NAME=${{ steps.extract.outputs.chart_name }}
+          VERSION=${{ steps.extract.outputs.version }}
+          CHART_FILE="charts/$CHART_NAME/Chart.yaml"
+
+          # Update version in Chart.yaml (tag is source of truth)
+          sed -i "s/^version:.*/version: $VERSION/" "$CHART_FILE"
+
+          echo "✅ Updated $CHART_FILE to version: $VERSION"
+          grep "^version:" "$CHART_FILE"
+
+      - name: Package chart with updated version
+        run: |
+          CHART_NAME=${{ steps.extract.outputs.chart_name }}
+          helm package charts/$CHART_NAME
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push chart to GHCR
+        run: |
+          CHART_NAME=${{ steps.extract.outputs.chart_name }}
+          VERSION=${{ steps.extract.outputs.version }}
+
+          # Push to GHCR
+          helm push ${CHART_NAME}-${VERSION}.tgz oci://ghcr.io/${{ github.repository }}
+
+          echo "✅ Chart pushed to ghcr.io/${{ github.repository }}/$CHART_NAME:$VERSION"
+
+  all-checks-passed:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [discover-charts, lint-and-package, helm-docs-check, test-deployment, release]
+    if: always()
+    steps:
+      - name: Verify all jobs succeeded
+        run: |
+          # Always required checks
+          if [ "${{ needs.discover-charts.result }}" != "success" ] || \
+             [ "${{ needs.lint-and-package.result }}" != "success" ] || \
+             [ "${{ needs.helm-docs-check.result }}" != "success" ] || \
+             [ "${{ needs.test-deployment.result }}" != "success" ]; then
+            echo "::error::One or more required checks failed"
+            exit 1
+          fi
+          
+          # Release only required on tags
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            if [ "${{ needs.release.result }}" != "success" ]; then
+              echo "::error::Release failed"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ All checks passed!"

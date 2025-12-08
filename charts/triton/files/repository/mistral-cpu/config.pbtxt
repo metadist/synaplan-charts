@@ -1,0 +1,19 @@
+name: "mistral-cpu"
+backend: "python"
+max_batch_size: 1
+
+model_transaction_policy {
+  decoupled: true
+}
+
+input [
+  { name: "conversation", data_type: TYPE_STRING, dims: [1] },
+  { name: "max_tokens", data_type: TYPE_INT32, dims: [1], optional: true }
+]
+
+output [
+  { name: "text_output", data_type: TYPE_STRING, dims: [1] },
+  { name: "is_final",    data_type: TYPE_BOOL,   dims: [1] }
+]
+
+instance_group [{ count: 1, kind: KIND_CPU }]
