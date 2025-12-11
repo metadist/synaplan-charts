@@ -8,6 +8,10 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  # Using Recreate strategy because:
+  # - GPU resources must be released before new pod can acquire them
+  # - If old instance blocks the GPU, new instance can't start and old one can't terminate
+  # - RollingUpdate would cause deadlock in GPU-bound deployments
   strategy:
     type: Recreate
   selector:
@@ -61,10 +65,18 @@ spec:
               REVISION=""
               {{- end }}
 
-              if [ -d "$MODEL_DIR" ] && [ "$(ls -A $MODEL_DIR)" ]; then
+              # Check if download was completed successfully (marker file exists)
+              if [ -f "$MODEL_DIR/.download_complete" ]; then
                 echo "Model $MODEL_ID already exists in $MODEL_DIR, skipping download..."
               else
+                # Remove partial download if exists
+                if [ -d "$MODEL_DIR" ]; then
+                  echo "Removing incomplete download in $MODEL_DIR..."
+                  rm -rf "$MODEL_DIR"
+                fi
+
                 echo "Downloading HuggingFace model: $MODEL_ID to $MODEL_DIR"
+                mkdir -p "$MODEL_DIR"
                 {{- if .ignorePatterns }}
                 IGNORE_PATTERNS='{{ join "," .ignorePatterns }}'
                 {{- else }}
@@ -75,6 +87,9 @@ spec:
                 else
                   python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', local_dir='$MODEL_DIR', ignore_patterns=['$IGNORE_PATTERNS'])"
                 fi
+
+                # Mark download as complete
+                touch "$MODEL_DIR/.download_complete"
                 echo "Model $MODEL_ID download complete!"
               fi
               {{- end }}

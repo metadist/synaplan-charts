@@ -66,7 +66,8 @@ class TritonPythonModel:
                     conversation = json.loads(conversation_json)
                     print(f"💬 [DEBUG] Parsed conversation: {conversation!r}", flush=True)
                 except json.JSONDecodeError as e:
-                    raise ValueError(f"Invalid JSON in conversation input: {e}")
+                    snippet = conversation_json[:200] + ("..." if len(conversation_json) > 200 else "")
+                    raise ValueError(f"Invalid JSON in conversation input: {e}. Malformed content (truncated): '{snippet}'")
 
                 # Validate conversation format
                 if not isinstance(conversation, list):
