@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -euo pipefail
 
 find /cache
@@ -25,19 +25,26 @@ for MODEL_NAME in $BUILD_MODELS; do
   mkdir -p "${ENGINE_DIR}/converted"
 
   echo "  -> Running convert_checkpoint.py"
-  CONVERT_ARGS="--dtype float16 --tp_size 1"
+  # Set base dtype based on precision
   case "$PRECISION" in
-    int4)
-      CONVERT_ARGS="$CONVERT_ARGS --use_weight_only --weight_only_precision int4"
+    bf16)
+      CONVERT_ARGS="--dtype bfloat16 --tp_size 1"
       ;;
-    int8)
-      CONVERT_ARGS="$CONVERT_ARGS --use_weight_only --weight_only_precision int8"
+    fp16)
+      CONVERT_ARGS="--dtype float16 --tp_size 1"
       ;;
     fp8)
-      CONVERT_ARGS="$CONVERT_ARGS --use_fp8"
+      CONVERT_ARGS="--dtype float16 --tp_size 1 --use_fp8"
       ;;
-    fp16|bf16|auto|float32)
-      # already covered by --dtype float16 above (adjust if you want bf16 etc.)
+    int4)
+      CONVERT_ARGS="--dtype float16 --tp_size 1 --use_weight_only --weight_only_precision int4"
+      ;;
+    int8)
+      CONVERT_ARGS="--dtype float16 --tp_size 1 --use_weight_only --weight_only_precision int8"
+      ;;
+    *)
+      # Default to float16 for unknown precisions
+      CONVERT_ARGS="--dtype float16 --tp_size 1"
       ;;
   esac
 

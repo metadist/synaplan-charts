@@ -21,11 +21,13 @@ data:
 
   01-setup-env.sh: |
     #!/bin/bash
-    # Build database URLs and write to .env file
+    # Create .env file with DATABASE URLs
+    # Note: docker-entrypoint also builds these URLs and exports them,
+    # but Symfony requires .env file to exist for bootEnv
 
     cat > /var/www/backend/.env <<EOF
-    DATABASE_WRITE_URL=mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?serverVersion=${DB_SERVER_VERSION}&charset=utf8mb4
-    DATABASE_READ_URL=mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?serverVersion=${DB_SERVER_VERSION}&charset=utf8mb4
+    DATABASE_WRITE_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}?serverVersion=\${DB_SERVER_VERSION}&charset=utf8mb4
+    DATABASE_READ_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}?serverVersion=\${DB_SERVER_VERSION}&charset=utf8mb4
     EOF
 
   50-wait-database.sh: |
@@ -38,7 +40,7 @@ data:
     cd /var/www/backend
 
     for i in {1..60}; do
-      if php bin/console doctrine:query:sql "SELECT 1" > /dev/null 2>&1; then
+      if php bin/console dbal:run-sql "SELECT 1" > /dev/null 2>&1; then
         echo "✅ Database is ready!"
         exit 0
       fi
@@ -66,7 +68,7 @@ data:
     # - Provide a deterministic ID for the default Triton model
     {{- if eq .Values.tritonMode "gpu" }}
     # Insert Triton Mistral model for GPU mode (uses mistral-streaming with TensorRT-LLM backend)
-    if php bin/console doctrine:query:sql "INSERT INTO BMODELS (BID, BSERVICE, BNAME, BTAG, BSELECTABLE, BACTIVE, BPROVID, BPRICEIN, BINUNIT, BPRICEOUT, BOUTUNIT, BQUALITY, BRATING, BISDEFAULT, BDESCRIPTION, BJSON) VALUES (100, 'triton', 'mistral-7b (streaming)', 'chat', 1, 1, 'mistral-streaming', 0.0, 'per1M', 0.0, 'per1M', 7.0, 0.5, 1, 'Mistral 7B model via Triton Inference Server with GPU acceleration and streaming support', '{\"description\": \"Triton Inference Server model with TensorRT-LLM backend and streaming capabilities\", \"features\": [\"streaming\", \"gpu\"], \"supportsStreaming\": true}') ON DUPLICATE KEY UPDATE BSERVICE = VALUES(BSERVICE), BNAME = VALUES(BNAME), BPROVID = VALUES(BPROVID), BJSON = VALUES(BJSON)" 2>&1 | grep -q "rows affected"; then
+    if php bin/console dbal:run-sql "INSERT INTO BMODELS (BID, BSERVICE, BNAME, BTAG, BSELECTABLE, BACTIVE, BPROVID, BPRICEIN, BINUNIT, BPRICEOUT, BOUTUNIT, BQUALITY, BRATING, BISDEFAULT, BDESCRIPTION, BJSON) VALUES (100, 'triton', 'mistral-7b (streaming)', 'chat', 1, 1, 'mistral-streaming', 0.0, 'per1M', 0.0, 'per1M', 7.0, 0.5, 1, 'Mistral 7B model via Triton Inference Server with GPU acceleration and streaming support', '{\"description\": \"Triton Inference Server model with TensorRT-LLM backend and streaming capabilities\", \"features\": [\"streaming\", \"gpu\"], \"supportsStreaming\": true}') ON DUPLICATE KEY UPDATE BSERVICE = VALUES(BSERVICE), BNAME = VALUES(BNAME), BPROVID = VALUES(BPROVID), BJSON = VALUES(BJSON)" 2>&1 | grep -q "rows affected"; then
       echo "   ✅ Triton model registered (GPU mode: mistral-streaming)"
     else
       echo "   ❌ Failed to register Triton model"
@@ -74,7 +76,7 @@ data:
     fi
     {{- else }}
     # Insert Triton Mistral model for CPU mode (uses mistral-cpu with PyTorch backend)
-    if php bin/console doctrine:query:sql "INSERT INTO BMODELS (BID, BSERVICE, BNAME, BTAG, BSELECTABLE, BACTIVE, BPROVID, BPRICEIN, BINUNIT, BPRICEOUT, BOUTUNIT, BQUALITY, BRATING, BISDEFAULT, BDESCRIPTION, BJSON) VALUES (100, 'triton', 'mistral-7b (cpu)', 'chat', 1, 1, 'mistral-cpu', 0.0, 'per1M', 0.0, 'per1M', 7.0, 0.5, 1, 'Mistral 7B model via Triton Inference Server with CPU inference', '{\"description\": \"Triton Inference Server model with PyTorch CPU backend\", \"features\": [\"cpu\"], \"supportsStreaming\": false}') ON DUPLICATE KEY UPDATE BSERVICE = VALUES(BSERVICE), BNAME = VALUES(BNAME), BPROVID = VALUES(BPROVID), BJSON = VALUES(BJSON)" 2>&1 | grep -q "rows affected"; then
+    if php bin/console dbal:run-sql "INSERT INTO BMODELS (BID, BSERVICE, BNAME, BTAG, BSELECTABLE, BACTIVE, BPROVID, BPRICEIN, BINUNIT, BPRICEOUT, BOUTUNIT, BQUALITY, BRATING, BISDEFAULT, BDESCRIPTION, BJSON) VALUES (100, 'triton', 'mistral-7b (cpu)', 'chat', 1, 1, 'mistral-cpu', 0.0, 'per1M', 0.0, 'per1M', 7.0, 0.5, 1, 'Mistral 7B model via Triton Inference Server with CPU inference', '{\"description\": \"Triton Inference Server model with PyTorch CPU backend\", \"features\": [\"cpu\", \"streaming\"], \"supportsStreaming\": true}') ON DUPLICATE KEY UPDATE BSERVICE = VALUES(BSERVICE), BNAME = VALUES(BNAME), BPROVID = VALUES(BPROVID), BJSON = VALUES(BJSON)" 2>&1 | grep -q "rows affected"; then
       echo "   ✅ Triton model registered (CPU mode: mistral-cpu)"
     else
       echo "   ❌ Failed to register Triton model"

@@ -13,8 +13,9 @@ spec:
       {{- include "synaplan.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        checksum/init-scripts: {{ include (print $.Template.BasePath "/init-scripts-configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
@@ -83,15 +84,55 @@ spec:
               value: {{ .Values.mailerDsn | quote }}
             # AI Provider API Keys
             - name: ANTHROPIC_API_KEY
+              {{- if .Values.apiKeysSecretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeysSecretRef | quote }}
+                  key: "anthropic-api-key"
+                  optional: true
+              {{- else }}
               value: {{ .Values.apiKeys.anthropic | quote }}
+              {{- end }}
             - name: OPENAI_API_KEY
+              {{- if .Values.apiKeysSecretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeysSecretRef | quote }}
+                  key: "openai-api-key"
+                  optional: true
+              {{- else }}
               value: {{ .Values.apiKeys.openai | quote }}
+              {{- end }}
             - name: GROQ_API_KEY
+              {{- if .Values.apiKeysSecretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeysSecretRef | quote }}
+                  key: "groq-api-key"
+                  optional: true
+              {{- else }}
               value: {{ .Values.apiKeys.groq | quote }}
+              {{- end }}
             - name: GOOGLE_GEMINI_API_KEY
+              {{- if .Values.apiKeysSecretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeysSecretRef | quote }}
+                  key: "google-gemini-api-key"
+                  optional: true
+              {{- else }}
               value: {{ .Values.apiKeys.googleGemini | quote }}
+              {{- end }}
             - name: BRAVE_SEARCH_API_KEY
+              {{- if .Values.apiKeysSecretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeysSecretRef | quote }}
+                  key: "brave-search-api-key"
+                  optional: true
+              {{- else }}
               value: {{ .Values.apiKeys.braveSearch | quote }}
+              {{- end }}
             {{- if .Values.oidc.enabled }}
             # OIDC Authentication
             - name: OIDC_DISCOVERY_URL

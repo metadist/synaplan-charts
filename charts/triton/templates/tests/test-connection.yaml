@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "triton.fullname" . }}:{{ .Values.service.port }}']
+      args: ['{{ include "triton.fullname" . }}:8000/v2/health/ready']
   restartPolicy: Never
