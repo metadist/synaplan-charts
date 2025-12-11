@@ -19,10 +19,11 @@ Complete deployment of Synaplan with Triton Inference Server and MariaDB using H
 # Create namespace
 kubectl create namespace synaplan
 
-# 1. Database credentials
+# 1. Database credentials (both user password and root password)
 kubectl create secret generic mariadb-credentials \
   --namespace synaplan \
-  --from-literal=password="$(openssl rand -base64 32)"
+  --from-literal=password="$(openssl rand -base64 32)" \
+  --from-literal=root-password="$(openssl rand -base64 32)"
 
 # 2. OIDC client secret (get from your identity provider)
 kubectl create secret generic synaplan-oidc-credentials \

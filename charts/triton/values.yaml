@@ -161,6 +161,10 @@ autoscaling:
   #         averageValue: 50
 
 # Additional volumes on the output Deployment definition.
+# NOTE: hostPath is used by default for performance reasons (local SSD/NVMe access).
+# The DirectoryOrCreate type ensures the directory is created on each node automatically.
+# This means pods are node-specific but provides optimal I/O for model weights and engine cache.
+# For shared storage across nodes, replace with PersistentVolumeClaim (at the cost of performance).
 volumes:
   - name: triton-cache
     hostPath:

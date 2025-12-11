@@ -23,6 +23,8 @@ releases:
     version: "25.10.2"
     needs:
       - synaplan/mariadb-operator-crds
+    values:
+      - values-mariadb-operator.yaml
 
   - name: mariadb-cluster
     namespace: synaplan

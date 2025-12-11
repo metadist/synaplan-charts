@@ -39,11 +39,17 @@ pick_precision() {
 
   local prec="int8"
   if [ "$cc_major" -ge 9 ]; then
+    # Hopper (H100) and newer support FP8
     prec="fp8"
   elif [ "$cc_major" -ge 8 ]; then
+    # Ampere (A100) and newer - use BF16 for better LLM performance
+    prec="bf16"
+  elif [ "$cc_major" -ge 7 ]; then
+    # Volta/Turing - use FP16
     prec="fp16"
   fi
 
+  # Downgrade to int4 quantization if insufficient memory
   if [ "$model_params" -le 7000000000 ]; then
     [ "$mem_mb" -lt 16000 ] && prec="int4"
   elif [ "$model_params" -le 13000000000 ]; then
@@ -62,7 +68,7 @@ engine_dir() {
   local model_name="${1}"
   local precision="${2}"
   local engine_id="${3}"
-  echo "/cache/engines/${model_name}/${precision}/${ENGINE_ID}"
+  echo "/cache/engines/${model_name}/${precision}/${engine_id}"
 }
 
 weights_dir() {

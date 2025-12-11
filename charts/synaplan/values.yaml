@@ -11,12 +11,23 @@ tritonMode: "gpu"
 mailerDsn: "null://null"
 
 # AI Provider API Keys (optional - leave empty to disable)
+# Option 1: Plain text values (not recommended for production)
 apiKeys:
   anthropic: ""
   openai: ""
   groq: ""
   googleGemini: ""
   braveSearch: ""
+
+# Option 2: Reference existing secrets (recommended for production)
+# Create secret: kubectl create secret generic synaplan-api-keys \
+#   --from-literal=anthropic-api-key=YOUR_KEY \
+#   --from-literal=openai-api-key=YOUR_KEY \
+#   --from-literal=groq-api-key=YOUR_KEY \
+#   --from-literal=google-gemini-api-key=YOUR_KEY \
+#   --from-literal=brave-search-api-key=YOUR_KEY
+# Then set: apiKeysSecretRef: "synaplan-api-keys"
+apiKeysSecretRef: ""
 
 # Database configuration
 database:
@@ -74,7 +85,8 @@ replicaCount: 1
 image:
   repository: ghcr.io/metadist/synaplan
   # This sets the pull policy for images.
-  pullPolicy: IfNotPresent
+  # Using Always for 'latest' tag to ensure we get updates
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 
