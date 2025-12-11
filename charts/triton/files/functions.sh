@@ -37,6 +37,7 @@ pick_precision() {
   local mem_mb="$2"
   local model_params="${3:-7000000000}"  # default ~7B params if not provided
 
+  # Select precision based on GPU compute capability
   local prec="int8"
   if [ "$cc_major" -ge 9 ]; then
     # Hopper (H100) and newer support FP8
@@ -49,13 +50,19 @@ pick_precision() {
     prec="fp16"
   fi
 
-  # Downgrade to int4 quantization if insufficient memory
+  # Determine memory threshold based on model size
+  local mem_threshold=16000
   if [ "$model_params" -le 7000000000 ]; then
-    [ "$mem_mb" -lt 16000 ] && prec="int4"
+    mem_threshold=16000
   elif [ "$model_params" -le 13000000000 ]; then
-    [ "$mem_mb" -lt 30000 ] && prec="int4"
+    mem_threshold=30000
   else
-    [ "$mem_mb" -lt 60000 ] && prec="int4"
+    mem_threshold=60000
+  fi
+
+  # Downgrade to int4 quantization if insufficient memory
+  if [ "$mem_mb" -lt "$mem_threshold" ]; then
+    prec="int4"
   fi
 
   echo "$prec"
