@@ -56,8 +56,11 @@ image:
   repository: nvcr.io/nvidia/tritonserver
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "25.08-pyt-python-py3"
+  # Overrides the image tag whose default is the chart appVersion with variant suffix.
+  tag: ""
+  # Image variant suffix (e.g., "-pyt-python-py3", "-vllm-python-py3", "-trtllm-python-py3")
+  # Appended to appVersion to form the complete tag
+  variant: "-pyt-python-py3"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []

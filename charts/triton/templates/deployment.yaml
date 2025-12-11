@@ -106,7 +106,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           command: ["/init.sh"]
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "%s%s" .Chart.AppVersion .Values.image.variant) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.env }}
           env:

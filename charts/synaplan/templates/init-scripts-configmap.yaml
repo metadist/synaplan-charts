@@ -57,6 +57,13 @@ data:
 
     cd /var/www/backend
 
+    # Note: SQL queries below use hardcoded strings only (no variable interpolation)
+    # This is safe from SQL injection as all values are defined in the Helm template
+    #
+    # The hardcoded BID=100 is intentional and uses ON DUPLICATE KEY UPDATE to:
+    # - Ensure idempotent behavior (safe to run on every pod start)
+    # - Keep model configuration up-to-date if the chart is updated
+    # - Provide a deterministic ID for the default Triton model
     {{- if eq .Values.tritonMode "gpu" }}
     # Insert Triton Mistral model for GPU mode (uses mistral-streaming with TensorRT-LLM backend)
     if php bin/console doctrine:query:sql "INSERT INTO BMODELS (BID, BSERVICE, BNAME, BTAG, BSELECTABLE, BACTIVE, BPROVID, BPRICEIN, BINUNIT, BPRICEOUT, BOUTUNIT, BQUALITY, BRATING, BISDEFAULT, BDESCRIPTION, BJSON) VALUES (100, 'triton', 'mistral-7b (streaming)', 'chat', 1, 1, 'mistral-streaming', 0.0, 'per1M', 0.0, 'per1M', 7.0, 0.5, 1, 'Mistral 7B model via Triton Inference Server with GPU acceleration and streaming support', '{\"description\": \"Triton Inference Server model with TensorRT-LLM backend and streaming capabilities\", \"features\": [\"streaming\", \"gpu\"], \"supportsStreaming\": true}') ON DUPLICATE KEY UPDATE BSERVICE = VALUES(BSERVICE), BNAME = VALUES(BNAME), BPROVID = VALUES(BPROVID), BJSON = VALUES(BJSON)" 2>&1 | grep -q "rows affected"; then

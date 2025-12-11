@@ -1,13 +1,9 @@
 import triton_python_backend_utils as pb_utils
 import numpy as np
 import json
-import threading
-import queue
 from transformers import AutoTokenizer
-import asyncio
 import time
 import traceback
-import sys
 
 class TritonPythonModel:
 
@@ -67,7 +63,6 @@ class TritonPythonModel:
 
                 # Parse JSON conversation
                 try:
-                    import json
                     conversation = json.loads(conversation_json)
                     print(f"💬 [DEBUG] Parsed conversation: {conversation!r}", flush=True)
                 except json.JSONDecodeError as e:
