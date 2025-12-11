@@ -3,7 +3,7 @@ name: triton
 description: NVIDIA Triton Inference Server with TensorRT-LLM support for optimized LLM inference
 type: application
 version: 0.1.0
-appVersion: "25.08"
+appVersion: "25.11"
 keywords:
   - triton
   - nvidia
