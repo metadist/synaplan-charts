@@ -106,6 +106,20 @@ We follow [Semantic Versioning](https://semver.org/):
 - **MINOR** (0.1.0): Backwards-compatible functionality additions
 - **PATCH** (0.0.1): Backwards-compatible bug fixes
 
+### Development Builds
+
+Every push to the `main` branch automatically publishes development builds to GHCR:
+
+- **Version format**: `dev.<commit-hash>` (e.g., `dev.abc1234`)
+- **Purpose**: Testing unreleased features before creating a stable release
+- **Not for production**: Development builds are ephemeral and may contain breaking changes
+
+Example:
+```bash
+# Install a development build for testing
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version dev.abc1234
+```
+
 ## Chart Guidelines
 
 ### Helm Best Practices
