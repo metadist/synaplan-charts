@@ -27,15 +27,15 @@ helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # Or install a development build (for testing unreleased features)
-# Development builds are tagged as: dev.<commit-hash>
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version dev.abc1234
+# Development builds are tagged as: 0.0.0-dev.<commit-hash>
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.0.0-dev.abc1234
 ```
 
 > **Note**: Charts are publicly accessible. Authentication is only required for publishing.
 >
 > **Versioning**:
 > - **Stable releases** (`0.1.0`, `0.2.0`, etc.) - Created from git tags, immutable, production-ready
-> - **Development builds** (`dev.abc1234`) - Built from main branch on every push, for testing only
+> - **Development builds** (`0.0.0-dev.abc1234`) - Built from main branch on every push, for testing only
 
 ### Install from Source
 
