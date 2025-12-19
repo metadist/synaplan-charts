@@ -152,8 +152,8 @@ jobs:
           # Get short commit hash
           COMMIT_HASH=$(git rev-parse --short HEAD)
 
-          # Create dev version: dev.abc1234
-          DEV_VERSION="dev.${COMMIT_HASH}"
+          # Create dev version: 0.0.0-dev.abc1234 (valid semver prerelease)
+          DEV_VERSION="0.0.0-dev.${COMMIT_HASH}"
 
           echo "dev_version=$DEV_VERSION" >> $GITHUB_OUTPUT
           echo "✅ Development version: $DEV_VERSION"

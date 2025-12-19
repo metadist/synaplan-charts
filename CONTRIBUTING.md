@@ -110,14 +110,14 @@ We follow [Semantic Versioning](https://semver.org/):
 
 Every push to the `main` branch automatically publishes development builds to GHCR:
 
-- **Version format**: `dev.<commit-hash>` (e.g., `dev.abc1234`)
+- **Version format**: `0.0.0-dev.<commit-hash>` (e.g., `0.0.0-dev.abc1234`)
 - **Purpose**: Testing unreleased features before creating a stable release
 - **Not for production**: Development builds are ephemeral and may contain breaking changes
 
 Example:
 ```bash
 # Install a development build for testing
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version dev.abc1234
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.0.0-dev.abc1234
 ```
 
 ## Chart Guidelines
