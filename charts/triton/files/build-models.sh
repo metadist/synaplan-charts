@@ -15,6 +15,15 @@ for MODEL_NAME in $BUILD_MODELS; do
   echo "[DaemonSet] Processing ${MODEL_NAME} → ${PRECISION}"
 
   WEIGHTS_DIR="$(weights_dir "${MODEL_NAME}")"
+
+  # Validate that weights directory exists
+  if [ ! -d "${WEIGHTS_DIR}" ]; then
+    echo "  -> ERROR: Weights directory does not exist: ${WEIGHTS_DIR}" >&2
+    echo "  -> Model ${MODEL_NAME} was specified in BUILD_MODELS but weights are missing" >&2
+    echo "  -> This indicates a configuration error - failing build" >&2
+    exit 1
+  fi
+
   ENGINE_DIR="$(engine_dir "${MODEL_NAME}" "${PRECISION}" "${ENGINE_ID}")"
 
   if [ -f "${ENGINE_DIR}/rank0.engine" ]; then
