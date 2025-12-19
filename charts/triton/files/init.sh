@@ -36,7 +36,7 @@ fi
 find /repository
 for f in $(find /repository -name config.pbtxt); do
   subs=""
-  grep -q '\${MISTRAL_ENGINE_DIR}' "${f}" && [ -n "$MISTRAL_ENGINE_DIR" ] && subs="${subs},MISTRAL_ENGINE_DIR:$MISTRAL_ENGINE_DIR"
+  grep -q '\${MISTRAL_ENGINE_DIR}' "${f}" && subs="${subs},MISTRAL_ENGINE_DIR:$MISTRAL_ENGINE_DIR"
   grep -q '\${MISTRAL_WEIGHTS_DIR}' "${f}" && subs="${subs},MISTRAL_WEIGHTS_DIR:$MISTRAL_WEIGHTS_DIR"
 
   subs=${subs#,}  # strip leading comma
