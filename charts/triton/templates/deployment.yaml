@@ -8,12 +8,8 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
-  # Using Recreate strategy because:
-  # - GPU resources must be released before new pod can acquire them
-  # - If old instance blocks the GPU, new instance can't start and old one can't terminate
-  # - RollingUpdate would cause deadlock in GPU-bound deployments
   strategy:
-    type: Recreate
+    {{- toYaml .Values.strategy | nindent 4 }}
   selector:
     matchLabels:
       {{- include "triton.selectorLabels" . | nindent 6 }}
