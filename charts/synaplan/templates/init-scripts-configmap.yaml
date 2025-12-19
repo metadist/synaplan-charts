@@ -59,6 +59,12 @@ data:
 
     cd /var/www/backend
 
+    # Ensure database schema is ready
+    # FIXME: this is a hack until we properly handle migrations and DATABASE_*_URLs
+    echo "🔄 Running database schema update..."
+    php bin/console doctrine:schema:update --force
+    echo "✅ Database schema ready!"
+
     # Note: SQL queries below use hardcoded strings only (no variable interpolation)
     # This is safe from SQL injection as all values are defined in the Helm template
     #
