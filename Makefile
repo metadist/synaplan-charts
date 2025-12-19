@@ -11,7 +11,7 @@ all: docs lint package ## Generate docs, lint, and package charts (default)
 docs: ## Generate documentation with helm-docs
 	@command -v helm-docs >/dev/null 2>&1 || { echo "helm-docs not installed. Install from https://github.com/norwoodj/helm-docs"; exit 1; }
 	@echo "Generating documentation..."
-	@helm-docs
+	@helm-docs --skip-version-footer
 
 .PHONY: lint
 lint: ## Lint all charts
@@ -62,10 +62,10 @@ clean: ## Remove build artifacts
 install-helm-docs: ## Install helm-docs tool
 	@echo "Installing helm-docs..."
 	@cd /tmp && \
-	wget https://github.com/norwoodj/helm-docs/releases/download/v1.13.1/helm-docs_1.13.1_Linux_x86_64.tar.gz && \
-	tar -xzf helm-docs_1.13.1_Linux_x86_64.tar.gz && \
+	wget https://github.com/norwoodj/helm-docs/releases/download/v1.14.2/helm-docs_1.14.2_Linux_x86_64.tar.gz && \
+	tar -xzf helm-docs_1.14.2_Linux_x86_64.tar.gz && \
 	sudo mv helm-docs /usr/local/bin/ && \
-	rm helm-docs_1.13.1_Linux_x86_64.tar.gz
+	rm helm-docs_1.14.2_Linux_x86_64.tar.gz
 
 .PHONY: install-kubeconform
 install-kubeconform: ## Install kubeconform tool

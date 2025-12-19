@@ -53,12 +53,11 @@ An example deployment with Synaplan, Triton, and MariaDB is available in [deploy
 ```bash
 cd deployments/synaplan-with-triton
 
-# Deploy with production settings (default)
-helmfile -e prod apply
-
-# Or deploy with development settings (XDebug enabled, debug mode, etc.)
-helmfile -e dev apply
+# Deploy with default environment
+helmfile -e default apply
 ```
+
+See the [deployment README](deployments/synaplan-with-triton/README.md) for detailed prerequisites and configuration options.
 
 ## Development
 
