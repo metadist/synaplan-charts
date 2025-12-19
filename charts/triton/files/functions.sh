@@ -37,6 +37,13 @@ pick_precision() {
   local mem_mb="$2"
   local model_params="${3:-7000000000}"  # default ~7B params if not provided
 
+  # Validate cc_major is a valid integer
+  if ! [[ "$cc_major" =~ ^[0-9]+$ ]]; then
+    echo "Error: Invalid GPU compute capability: '$cc_major' (must be a positive integer)" >&2
+    echo "int8"  # Return safe default
+    return 1
+  fi
+
   # Select precision based on GPU compute capability
   local prec="int8"
   if [ "$cc_major" -ge 9 ]; then
