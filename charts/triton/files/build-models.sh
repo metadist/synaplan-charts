@@ -37,30 +37,30 @@ for MODEL_NAME in $BUILD_MODELS; do
   # Set base dtype based on precision
   case "$PRECISION" in
     bf16)
-      CONVERT_ARGS="--dtype bfloat16 --tp_size 1"
+      CONVERT_ARGS=(--dtype bfloat16 --tp_size 1)
       ;;
     fp16)
-      CONVERT_ARGS="--dtype float16 --tp_size 1"
+      CONVERT_ARGS=(--dtype float16 --tp_size 1)
       ;;
     fp8)
-      CONVERT_ARGS="--dtype float16 --tp_size 1 --use_fp8"
+      CONVERT_ARGS=(--dtype float16 --tp_size 1 --use_fp8)
       ;;
     int4)
-      CONVERT_ARGS="--dtype float16 --tp_size 1 --use_weight_only --weight_only_precision int4"
+      CONVERT_ARGS=(--dtype float16 --tp_size 1 --use_weight_only --weight_only_precision int4)
       ;;
     int8)
-      CONVERT_ARGS="--dtype float16 --tp_size 1 --use_weight_only --weight_only_precision int8"
+      CONVERT_ARGS=(--dtype float16 --tp_size 1 --use_weight_only --weight_only_precision int8)
       ;;
     *)
       # Default to float16 for unknown precisions
-      CONVERT_ARGS="--dtype float16 --tp_size 1"
+      CONVERT_ARGS=(--dtype float16 --tp_size 1)
       ;;
   esac
 
   python3 /app/tensorrt_llm/examples/models/core/llama/convert_checkpoint.py \
     --model_dir "${WEIGHTS_DIR}" \
     --output_dir "${ENGINE_DIR}/converted" \
-    $CONVERT_ARGS
+    "${CONVERT_ARGS[@]}"
 
   echo "  -> Running trtllm-build"
   trtllm-build \
