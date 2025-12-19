@@ -83,9 +83,9 @@ spec:
                 IGNORE_PATTERNS='consolidated.safetensors'
                 {{- end }}
                 if [ -n "$REVISION" ]; then
-                  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', local_dir='$MODEL_DIR', revision='$REVISION', ignore_patterns=['$IGNORE_PATTERNS'])"
+                  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', local_dir='$MODEL_DIR', revision='$REVISION', ignore_patterns='$IGNORE_PATTERNS'.split(','))"
                 else
-                  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', local_dir='$MODEL_DIR', ignore_patterns=['$IGNORE_PATTERNS'])"
+                  python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', local_dir='$MODEL_DIR', ignore_patterns='$IGNORE_PATTERNS'.split(','))"
                 fi
 
                 # Mark download as complete
