@@ -7,7 +7,13 @@ Official Helm charts for deploying Synaplan and its infrastructure components on
 This repository contains the following charts:
 
 - **[synaplan](charts/synaplan/)** - AI-powered document analysis and planning platform
-- **[triton](charts/triton/)** - NVIDIA Triton Inference Server with TensorRT-LLM support for optimized LLM inference
+- **[triton](charts/triton/)** - (Optional) NVIDIA Triton Inference Server with TensorRT-LLM support
+
+## AI Backends
+
+Synaplan supports:
+- **NVIDIA Triton** (Recommended for production GPU clusters)
+- **Ollama** (Recommended for local/dev or smaller GPU setups)
 
 ## Installation
 

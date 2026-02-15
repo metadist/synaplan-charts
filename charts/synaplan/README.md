@@ -35,6 +35,35 @@ helm install synaplan ./charts/synaplan
 
 ## Configuration
 
+## AI Backend Configuration
+
+Synaplan supports multiple AI backends for LLM inference. You can use either **NVIDIA Triton** (for high-performance production setups) or **Ollama** (for simpler local deployments).
+
+### Option 1: NVIDIA Triton (Default)
+
+Triton is the default backend. It requires a separate Triton deployment (see `../triton` chart).
+
+```yaml
+triton:
+  url: "triton:8001"
+ollama:
+  baseUrl: ""
+```
+
+### Option 2: Ollama
+
+To use Ollama instead of Triton:
+
+1.  Deploy Ollama in your cluster (e.g., using `ollama-helm`).
+2.  Configure Synaplan to point to Ollama and disable Triton.
+
+```yaml
+triton:
+  url: ""  # Disable Triton
+ollama:
+  baseUrl: "http://ollama.synaplan.svc.cluster.local:11434"
+```
+
 ## Values
 
 | Key | Type | Default | Description |

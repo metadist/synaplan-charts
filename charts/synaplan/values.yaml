@@ -38,10 +38,13 @@ database:
   serverVersion: "mariadb-11.7.1"
 
 # Triton Inference Server configuration
+# Optional: Leave url empty to disable Triton support
 triton:
   url: "triton:8001"
 
 # Ollama configuration (optional)
+# Alternative to Triton for local LLM inference
+# Example: http://ollama.synaplan.svc.cluster.local:11434
 ollama:
   baseUrl: ""
 
