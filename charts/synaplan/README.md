@@ -35,13 +35,44 @@ helm install synaplan ./charts/synaplan
 
 ## Configuration
 
-## AI Backend Configuration
+### AI Backend Configuration
 
-Synaplan supports multiple AI backends for LLM inference. You can use either **NVIDIA Triton** (for high-performance production setups) or **Ollama** (for simpler local deployments).
+Synaplan supports multiple AI backends for LLM inference and embedding. You can use either **NVIDIA Triton** or **Ollama** depending on your infrastructure needs.
 
-### Option 1: NVIDIA Triton (Default)
+#### Embedding Model: bge-m3
 
-Triton is the default backend. It requires a separate Triton deployment (see `../triton` chart).
+Synaplan uses [BGE-M3](https://huggingface.co/BAAI/bge-m3) as its embedding model for RAG (Retrieval-Augmented Generation). BGE-M3 is a multilingual, multi-granularity embedding model that supports over 100 languages and produces high-quality vector representations for semantic search. The embedding model runs on whichever backend you configure (Triton or Ollama).
+
+#### Option 1: Ollama (Recommended)
+
+[Ollama](https://ollama.com/) is a lightweight, easy-to-deploy inference server that supports both LLM chat and embedding models. It is the recommended backend for most deployments — whether local development, single-node GPU servers, or smaller production clusters.
+
+Ollama advantages:
+- Simple setup — single binary or container, no model compilation step
+- Supports CPU and GPU inference out of the box
+- Easy model management (`ollama pull`, `ollama run`)
+- Broad model support (Mistral, Llama, Gemma, BGE-M3, etc.)
+
+```yaml
+triton:
+  url: ""  # Disable Triton
+ollama:
+  baseUrl: "http://ollama.synaplan.svc.cluster.local:11434"
+```
+
+To deploy Ollama in your cluster, you can use the [ollama-helm](https://github.com/otwld/ollama-helm) chart or run it as a standalone container.
+
+#### Option 2: NVIDIA Triton
+
+[NVIDIA Triton Inference Server](https://developer.nvidia.com/triton-inference-server) is a high-performance inference platform designed for production GPU clusters. Use Triton when you need maximum throughput with TensorRT-LLM optimized models.
+
+Triton advantages:
+- TensorRT-LLM compiled models for maximum GPU throughput
+- Dynamic batching and model concurrency
+- Multi-model serving with fine-grained resource control
+- Production-grade metrics and monitoring
+
+Triton requires a separate deployment using the `triton` chart included in this repository:
 
 ```yaml
 triton:
@@ -50,19 +81,7 @@ ollama:
   baseUrl: ""
 ```
 
-### Option 2: Ollama
-
-To use Ollama instead of Triton:
-
-1.  Deploy Ollama in your cluster (e.g., using `ollama-helm`).
-2.  Configure Synaplan to point to Ollama and disable Triton.
-
-```yaml
-triton:
-  url: ""  # Disable Triton
-ollama:
-  baseUrl: "http://ollama.synaplan.svc.cluster.local:11434"
-```
+See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM build configuration.
 
 ## Values
 
@@ -111,7 +130,7 @@ ollama:
 | oidc.clientSecretRef | string | `""` |  |
 | oidc.enabled | bool | `false` |  |
 | oidc.issuerURI | string | `""` |  |
-| ollama.baseUrl | string | `""` |  |
+| ollama.baseUrl | string | `""` | Ollama API base URL. Set this to use Ollama for LLM inference and bge-m3 embedding. Example: http://ollama.synaplan.svc.cluster.local:11434 |
 | persistence.uploads.accessMode | string | `"ReadWriteMany"` |  |
 | persistence.uploads.enabled | bool | `false` |  |
 | persistence.uploads.existingClaim | string | `""` |  |
@@ -135,8 +154,8 @@ ollama:
 | tika.enabled | bool | `false` |  |
 | tika.url | string | `"http://tika.synaplan.svc.cluster.local:9998"` |  |
 | tolerations | list | `[]` |  |
-| triton.url | string | `"triton:8001"` |  |
-| tritonMode | string | `"gpu"` |  |
+| triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
+| tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
 

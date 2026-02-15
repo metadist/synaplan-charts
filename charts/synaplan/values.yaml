@@ -3,7 +3,7 @@ customRootCA: false
 # Public URL for accessing Synaplan (e.g., https://synaplan.example.com)
 publicUrl: ""
 
-# Triton deployment mode (cpu or gpu) - determines which model to register in database
+# -- Triton deployment mode (cpu or gpu) - determines which model to register in database
 tritonMode: "gpu"
 
 # Mailer configuration (Symfony mailer DSN)
@@ -38,14 +38,14 @@ database:
   serverVersion: "mariadb-11.7.1"
 
 # Triton Inference Server configuration
-# Optional: Leave url empty to disable Triton support
 triton:
+  # -- Triton gRPC endpoint URL. Leave empty to disable Triton backend.
   url: "triton:8001"
 
-# Ollama configuration (optional)
-# Alternative to Triton for local LLM inference
-# Example: http://ollama.synaplan.svc.cluster.local:11434
+# Ollama configuration — recommended alternative to Triton
 ollama:
+  # -- Ollama API base URL. Set this to use Ollama for LLM inference and bge-m3 embedding.
+  # Example: http://ollama.synaplan.svc.cluster.local:11434
   baseUrl: ""
 
 # Tika document processing service configuration

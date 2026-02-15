@@ -11,9 +11,10 @@ This repository contains the following charts:
 
 ## AI Backends
 
-Synaplan supports:
-- **NVIDIA Triton** (Recommended for production GPU clusters)
-- **Ollama** (Recommended for local/dev or smaller GPU setups)
+Synaplan uses [BGE-M3](https://huggingface.co/BAAI/bge-m3) as its embedding model for RAG-powered semantic search across 100+ languages. The embedding model (and chat LLMs) run on whichever backend you configure:
+
+- **[Ollama](https://ollama.com/)** — Recommended for most deployments. Simple setup, supports CPU and GPU inference, broad model support.
+- **[NVIDIA Triton](https://developer.nvidia.com/triton-inference-server)** — For production GPU clusters requiring maximum throughput with TensorRT-LLM optimized models.
 
 ## Installation
 
