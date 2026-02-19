@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.0.0](https://img.shields.io/badge/AppVersion-2.0.0-informational?style=flat-square)
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.2.1](https://img.shields.io/badge/AppVersion-2.2.1-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -92,6 +92,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | apiKeys.braveSearch | string | `""` |  |
 | apiKeys.googleGemini | string | `""` |  |
 | apiKeys.groq | string | `""` |  |
+| apiKeys.huggingface | string | `""` |  |
 | apiKeys.openai | string | `""` |  |
 | apiKeysSecretRef | string | `""` |  |
 | autoscaling.enabled | bool | `false` |  |
@@ -124,8 +125,22 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | livenessProbe.httpGet.path | string | `"/"` |  |
 | livenessProbe.httpGet.port | string | `"http"` |  |
 | mailerDsn | string | `"null://null"` |  |
+| models.defaults.analyze | string | `""` |  |
+| models.defaults.chat | string | `""` |  |
+| models.defaults.pic2text | string | `""` |  |
+| models.defaults.sort | string | `""` |  |
+| models.defaults.sound2text | string | `""` |  |
+| models.defaults.summarize | string | `""` |  |
+| models.defaults.text2pic | string | `""` |  |
+| models.defaults.text2sound | string | `""` |  |
+| models.defaults.text2vid | string | `""` |  |
+| models.defaults.tools | string | `""` |  |
+| models.defaults.vectorize | string | `""` |  |
+| models.disabled | list | `[]` |  |
+| models.enabled | list | `[]` |  |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
+| oidc.autoRedirect | bool | `true` | Auto-redirect to OIDC provider on login page |
 | oidc.clientId | string | `""` |  |
 | oidc.clientSecret | string | `""` |  |
 | oidc.clientSecretRef | string | `""` |  |
@@ -140,6 +155,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | podAnnotations | object | `{}` |  |
 | podLabels | object | `{}` |  |
 | podSecurityContext | object | `{}` |  |
+| prompts.seed | bool | `true` |  |
 | publicUrl | string | `""` |  |
 | readinessProbe.httpGet.path | string | `"/"` |  |
 | readinessProbe.httpGet.port | string | `"http"` |  |

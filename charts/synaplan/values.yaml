@@ -18,6 +18,7 @@ apiKeys:
   groq: ""
   googleGemini: ""
   braveSearch: ""
+  huggingface: ""
 
 # Option 2: Reference existing secrets (recommended for production)
 # Create secret: kubectl create secret generic synaplan-api-keys \
@@ -25,7 +26,8 @@ apiKeys:
 #   --from-literal=openai-api-key=YOUR_KEY \
 #   --from-literal=groq-api-key=YOUR_KEY \
 #   --from-literal=google-gemini-api-key=YOUR_KEY \
-#   --from-literal=brave-search-api-key=YOUR_KEY
+#   --from-literal=brave-search-api-key=YOUR_KEY \
+#   --from-literal=huggingface-api-key=YOUR_KEY
 # Then set: apiKeysSecretRef: "synaplan-api-keys"
 apiKeysSecretRef: ""
 
@@ -65,6 +67,37 @@ oidc:
   # Create secret: kubectl create secret generic synaplan-oidc-credentials --from-literal=client-secret=YOUR_SECRET
   # Then set: clientSecretRef: "synaplan-oidc-credentials"
   clientSecretRef: ""
+  # -- Auto-redirect to OIDC provider on login page
+  autoRedirect: true
+
+# Seed built-in system prompts on startup (idempotent)
+prompts:
+  seed: true
+
+# AI models to enable/disable from the built-in catalog on startup
+# Keys use the format "service:providerId" (e.g. "groq:llama-3.3-70b-versatile")
+# Entries can be strings or objects with a "system" flag to lock the model:
+#   enabled:
+#     - "groq:llama-3.3-70b-versatile"
+#     - name: "ollama:bge-m3"
+#       system: true
+models:
+  enabled: []
+  disabled: []
+  # Default model per capability. Empty string = skip (no default set).
+  # Keys use the same format as enable/disable (e.g. "groq:llama-3.3-70b-versatile")
+  defaults:
+    chat: ""
+    tools: ""
+    sort: ""
+    summarize: ""
+    text2pic: ""
+    text2vid: ""
+    text2sound: ""
+    pic2text: ""
+    sound2text: ""
+    vectorize: ""
+    analyze: ""
 
 # Persistence configuration for Synaplan data
 persistence:
