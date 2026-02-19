@@ -108,6 +108,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | env[0].value | string | `"production"` |  |
 | env[1].name | string | `"APP_DEBUG"` |  |
 | env[1].value | string | `"false"` |  |
+| extraInitScripts | object | `{}` |  |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"Always"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |

@@ -91,3 +91,7 @@ data:
     {{- end }}
 
     echo "✅ Default models initialized"
+  {{- range $name, $content := .Values.extraInitScripts }}
+  {{ $name }}: |
+    {{- $content | nindent 4 }}
+  {{- end }}

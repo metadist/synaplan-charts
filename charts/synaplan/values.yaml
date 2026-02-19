@@ -136,6 +136,16 @@ service:
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
   port: 80
 
+# Additional init scripts to run on container startup
+# Scripts are added to the init-scripts ConfigMap and executed by docker-entrypoint.sh
+# Use numeric prefixes to control execution order (00-49: before DB, 50+: after DB)
+# Example:
+#   extraInitScripts:
+#     02-my-script.sh: |
+#       #!/bin/bash
+#       echo "Hello from my script"
+extraInitScripts: {}
+
 # Additional environment variables for the application
 # These are appended after the standard env vars defined in the deployment template
 env:
