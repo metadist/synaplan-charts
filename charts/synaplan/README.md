@@ -106,7 +106,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | database.serverVersion | string | `"mariadb-11.7.1"` |  |
 | database.user | string | `"synaplan"` |  |
 | env[0].name | string | `"APP_ENV"` |  |
-| env[0].value | string | `"production"` |  |
+| env[0].value | string | `"prod"` |  |
 | env[1].name | string | `"APP_DEBUG"` |  |
 | env[1].value | string | `"false"` |  |
 | extraInitScripts | object | `{}` |  |
@@ -122,8 +122,11 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | ingress.hosts[0].paths[0].path | string | `"/"` |  |
 | ingress.hosts[0].paths[0].pathType | string | `"ImplementationSpecific"` |  |
 | ingress.tls | list | `[]` |  |
+| livenessProbe.failureThreshold | int | `3` |  |
 | livenessProbe.httpGet.path | string | `"/"` |  |
 | livenessProbe.httpGet.port | string | `"http"` |  |
+| livenessProbe.initialDelaySeconds | int | `120` |  |
+| livenessProbe.periodSeconds | int | `10` |  |
 | mailerDsn | string | `"null://null"` |  |
 | models.defaults.analyze | string | `""` |  |
 | models.defaults.chat | string | `""` |  |
@@ -157,8 +160,11 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | podSecurityContext | object | `{}` |  |
 | prompts.seed | bool | `true` |  |
 | publicUrl | string | `""` |  |
+| readinessProbe.failureThreshold | int | `3` |  |
 | readinessProbe.httpGet.path | string | `"/"` |  |
 | readinessProbe.httpGet.port | string | `"http"` |  |
+| readinessProbe.initialDelaySeconds | int | `30` |  |
+| readinessProbe.periodSeconds | int | `5` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
 | securityContext | object | `{}` |  |

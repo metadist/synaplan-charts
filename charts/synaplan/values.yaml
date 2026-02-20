@@ -183,7 +183,7 @@ extraInitScripts: {}
 # These are appended after the standard env vars defined in the deployment template
 env:
   - name: APP_ENV
-    value: "production"
+    value: "prod"
   - name: APP_DEBUG
     value: "false"
 
@@ -221,10 +221,16 @@ livenessProbe:
   httpGet:
     path: /
     port: http
+  initialDelaySeconds: 120
+  periodSeconds: 10
+  failureThreshold: 3
 readinessProbe:
   httpGet:
     path: /
     port: http
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  failureThreshold: 3
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:

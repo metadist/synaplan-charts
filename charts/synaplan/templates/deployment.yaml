@@ -163,6 +163,9 @@ spec:
             - name: OIDC_AUTO_REDIRECT
               value: {{ .Values.oidc.autoRedirect | quote }}
             {{- end }}
+            # Lock backend (Symfony Lock component)
+            - name: LOCK_DSN
+              value: "flock"
             {{- if .Values.tika.enabled }}
             # Tika Document Processing
             - name: TIKA_BASE_URL
