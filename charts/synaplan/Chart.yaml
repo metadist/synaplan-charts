@@ -3,7 +3,7 @@ name: synaplan
 description: Synaplan - AI-powered document analysis and planning platform
 type: application
 version: 0.1.0
-appVersion: "2.0.0"
+appVersion: "2.2.1"
 keywords:
   - synaplan
   - ai

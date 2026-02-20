@@ -135,6 +135,16 @@ spec:
               {{- else }}
               value: {{ .Values.apiKeys.braveSearch | quote }}
               {{- end }}
+            - name: HUGGINGFACE_API_KEY
+              {{- if .Values.apiKeysSecretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeysSecretRef | quote }}
+                  key: "huggingface-api-key"
+                  optional: true
+              {{- else }}
+              value: {{ .Values.apiKeys.huggingface | quote }}
+              {{- end }}
             {{- if .Values.oidc.enabled }}
             # OIDC Authentication
             - name: OIDC_DISCOVERY_URL
@@ -150,6 +160,8 @@ spec:
               {{- else }}
               value: {{ .Values.oidc.clientSecret | quote }}
               {{- end }}
+            - name: OIDC_AUTO_REDIRECT
+              value: {{ .Values.oidc.autoRedirect | quote }}
             {{- end }}
             {{- if .Values.tika.enabled }}
             # Tika Document Processing
