@@ -9,14 +9,17 @@ from transformers import AutoTokenizer
 # Only alphanumeric, hyphens and underscores allowed in model names
 _VALID_MODEL_NAME = re.compile(r'^[a-zA-Z0-9._-]+$')
 
-# Channel boundary marker emitted by harmony-format models (e.g. gpt-oss-20b).
-# When vLLM decodes the token sequence, special tokens like <|channel|>,
-# <|message|>, <|start|>, <|end|> are stripped, leaving the text tokens
-# "analysis", "assistant", "final" inline.  The boundary between the
-# chain-of-thought (analysis) and the actual response (final) appears as
-# the literal text "assistantfinal" in the decoded stream.
-_ANALYSIS_PREFIX = "analysis"
-_BOUNDARY_MARKER = "assistantfinal"
+# Harmony response format (used by e.g. gpt-oss-20b).
+# When vLLM decodes the token sequence, special tokens (<|channel|>,
+# <|message|>, <|start|>, <|end|>) are stripped, leaving channel names
+# and the role "assistant" as literal text inline with the content.
+# The first channel name appears as a bare prefix; subsequent channel
+# transitions appear as "assistant<channel_name>" boundaries.
+_HARMONY_CHANNELS = ("analysis", "commentary", "final")
+_HARMONY_ROLE = "assistant"
+# Precompute boundary markers: {"assistantanalysis": "analysis", ...}
+_BOUNDARY_MARKERS = {_HARMONY_ROLE + ch: ch for ch in _HARMONY_CHANNELS}
+_MAX_MARKER_LEN = max(len(m) for m in _BOUNDARY_MARKERS)
 
 
 class TritonPythonModel:
@@ -192,18 +195,21 @@ class TritonPythonModel:
                         pb_utils.Tensor("is_final", np.array([False], dtype=bool))
                     ]))
 
-                # Harmony-format models emit: analysis<cot>assistantfinal<response>
-                # Non-harmony models emit: <response> directly.
-                # The is_harmony flag is determined from the tokenizer vocabulary
-                # (presence of <|channel|> token), so we know upfront which mode
-                # to use — no text-sniffing needed.
+                # Harmony-format models emit:
+                #   <channel_1><content>assistant<channel_2><content>...
+                # e.g.: analysis<cot>assistantfinal<answer>
+                # Non-harmony models emit plain text.
+                # The is_harmony flag comes from the tokenizer vocabulary,
+                # so we know upfront which mode to use.
                 buffer = ""
                 if is_harmony:
-                    current_type = "reasoning"
-                    prefix_remaining = len(_ANALYSIS_PREFIX)
-                    print("[streaming] Harmony model — stripping analysis prefix", flush=True)
+                    # First channel is always "analysis" (from the harmony
+                    # generation prompt). Strip its name prefix.
+                    current_channel = _HARMONY_CHANNELS[0]
+                    prefix_remaining = len(current_channel)
+                    print(f"[streaming] Harmony model — first channel: {current_channel}", flush=True)
                 else:
-                    current_type = "response"
+                    current_channel = "content"
                     prefix_remaining = 0
 
                 token_count = 0
@@ -226,46 +232,49 @@ class TritonPythonModel:
 
                     token_count += 1
 
-                    # Non-harmony: stream everything as response
+                    # Non-harmony: stream everything directly
                     if not is_harmony:
-                        _send_chunk(chunk, "response")
+                        _send_chunk(chunk, current_channel)
                         continue
 
-                    # Harmony: strip "analysis" prefix, then detect boundary
+                    # Strip the first channel name prefix
                     if prefix_remaining > 0:
-                        # Still consuming the "analysis" prefix
                         if len(chunk) <= prefix_remaining:
                             prefix_remaining -= len(chunk)
                             continue
                         chunk = chunk[prefix_remaining:]
                         prefix_remaining = 0
 
-                    # Buffer for boundary detection across token boundaries
+                    # Buffer for boundary detection across token boundaries.
+                    # Scan for any "assistant<channel>" marker.
                     buffer += chunk
                     while buffer:
-                        if current_type == "reasoning":
-                            idx = buffer.find(_BOUNDARY_MARKER)
-                            if idx != -1:
-                                if idx > 0:
-                                    _send_chunk(buffer[:idx], "reasoning")
-                                buffer = buffer[idx + len(_BOUNDARY_MARKER):]
-                                current_type = "response"
-                                print("[streaming] Channel switch: reasoning -> response", flush=True)
-                                continue
-                            # Keep tail that could be a partial marker match
-                            safe = len(buffer) - (len(_BOUNDARY_MARKER) - 1)
-                            if safe > 0:
-                                _send_chunk(buffer[:safe], "reasoning")
-                                buffer = buffer[safe:]
-                            break
-                        else:
-                            _send_chunk(buffer, "response")
-                            buffer = ""
-                            break
+                        # Find the earliest boundary marker
+                        earliest = None
+                        for marker, channel in _BOUNDARY_MARKERS.items():
+                            idx = buffer.find(marker)
+                            if idx != -1 and (earliest is None or idx < earliest[0]):
+                                earliest = (idx, len(marker), channel)
+
+                        if earliest is not None:
+                            idx, mlen, next_channel = earliest
+                            if idx > 0:
+                                _send_chunk(buffer[:idx], current_channel)
+                            buffer = buffer[idx + mlen:]
+                            print(f"[streaming] Channel switch: {current_channel} -> {next_channel}", flush=True)
+                            current_channel = next_channel
+                            continue
+
+                        # No marker found — keep tail that could be a partial match
+                        safe = len(buffer) - (_MAX_MARKER_LEN - 1)
+                        if safe > 0:
+                            _send_chunk(buffer[:safe], current_channel)
+                            buffer = buffer[safe:]
+                        break
 
                 # Flush remaining buffer
                 if buffer:
-                    _send_chunk(buffer, current_type)
+                    _send_chunk(buffer, current_channel)
 
                 total_time = time.time() - inference_start
                 print(f"[streaming] Complete. Chunks: {token_count}, Time: {total_time:.2f}s", flush=True)
@@ -273,7 +282,7 @@ class TritonPythonModel:
                 # Send final flag
                 final_resp = pb_utils.InferenceResponse(output_tensors=[
                     pb_utils.Tensor("text_output", np.array([""], dtype=object)),
-                    pb_utils.Tensor("chunk_type", np.array(["response"], dtype=object)),
+                    pb_utils.Tensor("chunk_type", np.array([current_channel], dtype=object)),
                     pb_utils.Tensor("is_final", np.array([True], dtype=bool))
                 ])
                 response_sender.send(final_resp, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
