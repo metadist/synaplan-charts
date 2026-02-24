@@ -2,22 +2,6 @@
 vllmDefaults:
   gpu_memory_utilization: 0.85
 
-models:
-  - name: gpt-oss-20b
-  - name: bge-m3
-    embedding: {}
-
-huggingfaceModels:
-  models:
-    - source: openai/gpt-oss-20b
-      name: gpt-oss-20b
-      revision: 6cee5e81ee83917806bbde320786a8fb61efebee
-      ignorePatterns:
-        - "original/*"
-        - "metal/*"
-    - source: BAAI/bge-m3
-      name: bge-m3
-
 resources:
   requests:
     cpu: "2"

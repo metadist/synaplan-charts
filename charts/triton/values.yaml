@@ -9,6 +9,9 @@ huggingfaceModels:
       ignorePatterns:
         - "original/*"
         - "metal/*"
+    - source: BAAI/bge-m3
+      name: bge-m3
+      revision: 5617a9f61b028005a4858fdac845db406aefb181
   # Example:
   # - source: mistralai/Mistral-7B-Instruct-v0.3
   #   name: mistral-7b-instruct-v0.3
@@ -53,8 +56,8 @@ streaming:
 # Backend is determined by: explicit .vllm/.python section > defaultBackend
 models:
   - name: gpt-oss-20b
-  # - name: bge-m3
-  #   embedding: {}
+  - name: bge-m3
+    embedding: {}
 
 # Explicit model control mode.
 # When enabled, models are NOT loaded at startup. Instead, they must be loaded
