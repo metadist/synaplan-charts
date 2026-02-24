@@ -14,7 +14,7 @@ input [
 
 output [
   { name: "text_output", data_type: TYPE_STRING, dims: [1] },
-  { name: "chunk_type",  data_type: TYPE_STRING, dims: [1] },
+  { name: "channel",     data_type: TYPE_STRING, dims: [1] },
   { name: "is_final",    data_type: TYPE_BOOL,   dims: [1] }
 ]
 

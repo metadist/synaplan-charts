@@ -188,10 +188,10 @@ class TritonPythonModel:
 
                 infer_response_iterator = infer_request.exec(decoupled=True)
 
-                def _send_chunk(text, chunk_type):
+                def _send_chunk(text, channel):
                     response_sender.send(pb_utils.InferenceResponse(output_tensors=[
                         pb_utils.Tensor("text_output", np.array([text], dtype=object)),
-                        pb_utils.Tensor("chunk_type", np.array([chunk_type], dtype=object)),
+                        pb_utils.Tensor("channel", np.array([channel], dtype=object)),
                         pb_utils.Tensor("is_final", np.array([False], dtype=bool))
                     ]))
 
@@ -282,7 +282,7 @@ class TritonPythonModel:
                 # Send final flag
                 final_resp = pb_utils.InferenceResponse(output_tensors=[
                     pb_utils.Tensor("text_output", np.array([""], dtype=object)),
-                    pb_utils.Tensor("chunk_type", np.array([current_channel], dtype=object)),
+                    pb_utils.Tensor("channel", np.array([current_channel], dtype=object)),
                     pb_utils.Tensor("is_final", np.array([True], dtype=bool))
                 ])
                 response_sender.send(final_resp, flags=pb_utils.TRITONSERVER_RESPONSE_COMPLETE_FINAL)
