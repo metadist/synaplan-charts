@@ -1,8 +1,8 @@
 # triton
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 25.11](https://img.shields.io/badge/AppVersion-25.11-informational?style=flat-square)
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 26.01](https://img.shields.io/badge/AppVersion-26.01-informational?style=flat-square)
 
-NVIDIA Triton Inference Server with TensorRT-LLM support for optimized LLM inference
+NVIDIA Triton Inference Server with vLLM backend for LLM inference
 
 ## Maintainers
 
@@ -53,6 +53,8 @@ helm install triton ./charts/triton
 | autoscaling.maxReplicas | int | `3` |  |
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| explicitModelControl.enabled | bool | `false` |  |
+| explicitModelControl.loadModels[0] | string | `"streaming"` |  |
 | fullnameOverride | string | `""` |  |
 | huggingfaceModels.enabled | bool | `false` |  |
 | huggingfaceModels.image.repository | string | `"python"` |  |
@@ -61,7 +63,7 @@ helm install triton ./charts/triton
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"nvcr.io/nvidia/tritonserver"` |  |
 | image.tag | string | `""` |  |
-| image.variant | string | `"-pyt-python-py3"` |  |
+| image.variant | string | `"-vllm-python-py3"` |  |
 | imagePullSecrets | list | `[]` |  |
 | livenessProbe.failureThreshold | int | `3` |  |
 | livenessProbe.httpGet.path | string | `"/v2/health/live"` |  |
@@ -70,12 +72,21 @@ helm install triton ./charts/triton
 | livenessProbe.periodSeconds | int | `10` |  |
 | models[0].files[0].key | string | `"config.pbtxt"` |  |
 | models[0].files[0].path | string | `"config.pbtxt"` |  |
-| models[0].name | string | `"mistral-7b-instruct-v0.3"` |  |
+| models[0].name | string | `"gpt-oss-20b"` |  |
+| models[0].vllm.enforce_eager | bool | `true` |  |
+| models[0].vllm.max_model_len | int | `4096` |  |
+| models[0].vllm.model | string | `"/cache/weights/gpt-oss-20b"` |  |
 | models[1].files[0].key | string | `"config.pbtxt"` |  |
 | models[1].files[0].path | string | `"config.pbtxt"` |  |
-| models[1].files[1].key | string | `"model.py"` |  |
-| models[1].files[1].path | string | `"1/model.py"` |  |
-| models[1].name | string | `"mistral-streaming"` |  |
+| models[1].name | string | `"mistral-7b-instruct-v0.3"` |  |
+| models[1].vllm.enforce_eager | bool | `true` |  |
+| models[1].vllm.max_model_len | int | `4096` |  |
+| models[1].vllm.model | string | `"/cache/weights/mistral-7b-instruct-v0.3"` |  |
+| models[2].files[0].key | string | `"config.pbtxt"` |  |
+| models[2].files[0].path | string | `"config.pbtxt"` |  |
+| models[2].files[1].key | string | `"model.py"` |  |
+| models[2].files[1].path | string | `"1/model.py"` |  |
+| models[2].name | string | `"streaming"` |  |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
@@ -99,9 +110,7 @@ helm install triton ./charts/triton
 | startupProbe.periodSeconds | int | `10` |  |
 | strategy.type | string | `"Recreate"` |  |
 | tolerations | list | `[]` |  |
-| trtllmBuild.enabled | bool | `true` |  |
-| trtllmBuild.image.repository | string | `"nvcr.io/nvidia/tensorrt-llm/release"` |  |
-| trtllmBuild.image.tag | string | `"0.21.0"` |  |
+| vllmDefaults | object | `{}` |  |
 | volumeMounts[0].mountPath | string | `"/cache"` |  |
 | volumeMounts[0].name | string | `"triton-cache"` |  |
 | volumes[0].hostPath.path | string | `"/var/lib/triton-cache"` |  |

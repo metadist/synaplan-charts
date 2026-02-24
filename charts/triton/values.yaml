@@ -1,9 +1,3 @@
-trtllmBuild:
-  enabled: true
-  image:
-    repository: nvcr.io/nvidia/tensorrt-llm/release
-    tag: "0.21.0"
-
 # HuggingFace model auto-download configuration
 huggingfaceModels:
   # Set to true to enable automatic model downloading
@@ -16,33 +10,52 @@ huggingfaceModels:
   #   revision: 0d4b76e1efeb5eb6f6b5e757c79870472e04bd3a  # optional
   #   ignorePatterns:  # optional
   #     - "*.safetensors"
-  # - source: meta-llama/Llama-2-7b-chat-hf
-  #   name: llama-2-7b-chat
   image:
     repository: python
     tag: "3.11-slim"
 
 models:
+  - name: gpt-oss-20b
+    files:
+      - key: config.pbtxt
+        path: config.pbtxt
+    vllm:
+      model: /cache/weights/gpt-oss-20b
+      max_model_len: 4096
+      enforce_eager: true
+
   - name: mistral-7b-instruct-v0.3
     files:
       - key: config.pbtxt
         path: config.pbtxt
+    vllm:
+      model: /cache/weights/mistral-7b-instruct-v0.3
+      max_model_len: 4096
+      enforce_eager: true
 
-  - name: mistral-streaming
+  # The streaming model is a Python BLS wrapper — no vllm config needed.
+  - name: streaming
     files:
       - key: config.pbtxt
         path: config.pbtxt
       - key: model.py
         path: 1/model.py
 
-#  - name: llama2-7b
-#    existingConfigMap: external-llama2-cm
-#    files:
-#      - key: config.pbtxt
-#        path: config.pbtxt
-#      - key: model.py
-#        path: 1/model.py
+# Default vLLM parameters merged into every model's model.json
+# Override per environment (e.g., gpu_memory_utilization for GPU, device for CPU)
+vllmDefaults: {}
 
+# Explicit model control mode.
+# When enabled, models are NOT loaded at startup. Instead, they must be loaded
+# on-demand via the Triton model control API (POST /v2/repository/models/{name}/load).
+# Only models listed in explicitModelControl.loadModels are loaded at startup.
+# This is useful when multiple models share a single GPU and don't fit simultaneously,
+# allowing you to load/unload models dynamically to stay within VRAM limits.
+explicitModelControl:
+  enabled: false
+  # Models to load at startup (e.g., lightweight wrapper models)
+  loadModels:
+    - streaming
 
 # Default values for triton.
 # This is a YAML-formatted file.
@@ -69,9 +82,9 @@ image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion with variant suffix.
   tag: ""
-  # Image variant suffix (e.g., "-pyt-python-py3", "-vllm-python-py3", "-trtllm-python-py3")
+  # Image variant suffix (e.g., "-vllm-python-py3")
   # Appended to appVersion to form the complete tag
-  variant: "-pyt-python-py3"
+  variant: "-vllm-python-py3"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -118,12 +131,12 @@ service:
 # resources:
 #   requests:
 #     cpu: "2"
-#     memory: "24Gi"   # if BF16; else "36Gi"
+#     memory: "24Gi"
 #     nvidia.com/gpu: 1
 
 #  limits:
 #    cpu: "4"
-#    memory: "24Gi"   # if BF16; else "40Gi"
+#    memory: "24Gi"
 
 # This is to setup the liveness, readiness and startup probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 startupProbe:

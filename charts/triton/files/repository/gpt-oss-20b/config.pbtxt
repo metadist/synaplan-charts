@@ -1,3 +1,3 @@
-name: "mistral-7b-instruct-v0.3"
+name: "gpt-oss-20b"
 backend: "vllm"
 instance_group [{ count: 1, kind: KIND_MODEL }]

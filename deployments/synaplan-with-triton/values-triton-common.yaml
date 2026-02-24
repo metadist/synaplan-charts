@@ -1,11 +1,52 @@
-# Shared configuration for both CPU and GPU Triton deployments
+# Shared configuration for Triton deployments
+
+image:
+  repository: nvcr.io/nvidia/tritonserver
+  pullPolicy: IfNotPresent
+  tag: "26.01-vllm-python-py3"
 
 # HuggingFace model auto-download configuration
 huggingfaceModels:
   enabled: true
   models:
-    - source: mistralai/Mistral-7B-Instruct-v0.3
-      name: mistral-7b-instruct-v0.3
-      revision: 0d4b76e1efeb5eb6f6b5e757c79870472e04bd3a
+    # - source: mistralai/Mistral-7B-Instruct-v0.3
+    #   name: mistral-7b-instruct-v0.3
+    #   revision: 0d4b76e1efeb5eb6f6b5e757c79870472e04bd3a
+    #   ignorePatterns:
+    #     - "consolidated.safetensors"
+    - source: openai/gpt-oss-20b
+      name: gpt-oss-20b
+      revision: 6cee5e81ee83917806bbde320786a8fb61efebee
       ignorePatterns:
-        - "consolidated.safetensors"
+        - "original/*"
+        - "metal/*"
+
+# Model repository configs to mount
+models:
+  - name: gpt-oss-20b
+    files:
+      - key: config.pbtxt
+        path: config.pbtxt
+    vllm:
+      model: /cache/weights/gpt-oss-20b
+      max_model_len: 4096
+      enforce_eager: true
+
+  # NOTE: To enable a model, uncomment it in both huggingfaceModels.models
+  # (for downloading weights) and here (for mounting the model config).
+  # - name: mistral-7b-instruct-v0.3
+  #   files:
+  #     - key: config.pbtxt
+  #       path: config.pbtxt
+  #   vllm:
+  #     model: /cache/weights/mistral-7b-instruct-v0.3
+  #     max_model_len: 4096
+  #     enforce_eager: true
+
+  # The streaming model is a Python BLS wrapper — no vllm config needed.
+  - name: streaming
+    files:
+      - key: config.pbtxt
+        path: config.pbtxt
+      - key: model.py
+        path: 1/model.py
