@@ -1,4 +1,4 @@
-name: "mistral-streaming"
+name: "streaming"
 backend: "python"
 max_batch_size: 1
 
@@ -8,6 +8,7 @@ model_transaction_policy {
 
 input [
   { name: "conversation", data_type: TYPE_STRING, dims: [1] },
+  { name: "model_name", data_type: TYPE_STRING, dims: [1] },
   { name: "max_tokens", data_type: TYPE_INT32, dims: [1], optional: true }
 ]
 

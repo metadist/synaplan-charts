@@ -1,18 +1,8 @@
-# GPU mode configuration for Triton Inference Server
+# GPU mode — resource requests and vLLM defaults
 
-image:
-  repository: nvcr.io/nvidia/tritonserver
-  pullPolicy: IfNotPresent
-  tag: "25.09-pyt-python-py3"
+vllmDefaults:
+  gpu_memory_utilization: 0.85
 
-# Enable TensorRT-LLM build for GPU
-trtllmBuild:
-  enabled: true
-  image:
-    repository: nvcr.io/nvidia/tensorrt-llm/release
-    tag: "0.21.0"
-
-# Resource requests for GPU nodes
 resources:
   requests:
     cpu: "2"
@@ -22,17 +12,3 @@ resources:
     cpu: "4"
     memory: "24Gi"
     nvidia.com/gpu: 1
-
-# TensorRT-LLM models for GPU inference
-models:
-  - name: mistral-7b-instruct-v0.3
-    files:
-      - key: config.pbtxt
-        path: config.pbtxt
-
-  - name: mistral-streaming
-    files:
-      - key: config.pbtxt
-        path: config.pbtxt
-      - key: model.py
-        path: 1/model.py

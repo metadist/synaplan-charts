@@ -3,10 +3,6 @@ kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-scripts
 data:
-  functions.sh: |-
-    {{ .Files.Get "files/functions.sh" | nindent 4 | trim }}
-  build-models.sh: |-
-    {{ .Files.Get "files/build-models.sh" | nindent 4 | trim }}
   init.sh: |-
     {{ .Files.Get "files/init.sh" | nindent 4 | trim }}
 ---
@@ -21,6 +17,10 @@ data:
 {{- range .files }}
   {{ .key }}: |-
     {{ $.Files.Get (printf "files/repository/%s/%s" $model.name .path) | nindent 4 | trim }}
+{{- end }}
+{{- if .vllm }}
+  model.json: |-
+    {{ merge .vllm ($.Values.vllmDefaults | default dict) | toPrettyJson | nindent 4 | trim }}
 {{- end }}
 ---
 {{- end }}
