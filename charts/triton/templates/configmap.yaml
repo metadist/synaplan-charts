@@ -54,6 +54,8 @@ data:
       { name: "text_output", data_type: TYPE_STRING, dims: [1] }
     ]
 
+    # count: 1 is required — the Python backend is not thread-safe.
+    # See files/python-backend/model.py for details.
     instance_group [{ count: 1, kind: KIND_CPU }]
   model.json: |-
     {{ merge (.python | default dict) ($.Values.pythonDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}

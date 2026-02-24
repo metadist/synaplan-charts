@@ -34,10 +34,12 @@ vllmDefaults:
 # Default Python backend parameters merged into every python model's model.json
 pythonDefaults:
   dtype: bfloat16
-  # Set to true for quantized models (e.g. MXFP4) that require the accelerate
-  # package for dequantization on CPU. Not needed for non-quantized models.
-  # Enabled by default because the default model (gpt-oss-20b) uses MXFP4.
-  installAccelerate: true
+
+# Install the `accelerate` Python package at startup (required by transformers
+# for quantized model loading, e.g. MXFP4). Not bundled in upstream Triton
+# images. Enabled by default because the default model (gpt-oss-20b) uses MXFP4.
+# For non-quantized models this is harmless but unnecessary.
+installAccelerate: true
 
 # Streaming BLS wrapper — always deployed unless explicitly disabled.
 # Not part of models: list. Provides chat template + streaming proxy.

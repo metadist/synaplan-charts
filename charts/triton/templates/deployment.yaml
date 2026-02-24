@@ -106,7 +106,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "%s%s" .Chart.AppVersion .Values.image.variant) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-          {{- if .Values.pythonDefaults.installAccelerate }}
+          {{- if .Values.installAccelerate }}
             - name: INSTALL_ACCELERATE
               value: "true"
           {{- end }}

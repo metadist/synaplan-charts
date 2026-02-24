@@ -35,7 +35,13 @@ class TritonPythonModel:
         print("[streaming] Initialization complete.", flush=True)
 
     def _get_tokenizer(self, model_name):
-        """Load and cache tokenizer for a given model."""
+        """Load and cache tokenizer + harmony flag for a given model.
+
+        Returns (tokenizer, is_harmony).  Harmony format is detected by
+        checking whether the tokenizer vocabulary contains the special
+        ``<|channel|>`` token used by harmony-format models (e.g.
+        gpt-oss-20b).
+        """
         if model_name not in self._tokenizer_cache:
             weights_path = f"/cache/weights/{model_name}"
             print(f"[streaming] Loading tokenizer from {weights_path}...", flush=True)
@@ -52,8 +58,9 @@ class TritonPythonModel:
                     f"Failed to load tokenizer for model '{model_name}' "
                     f"from '{weights_path}': {e}"
                 ) from e
-            self._tokenizer_cache[model_name] = tokenizer
-            print(f"[streaming] Tokenizer for {model_name} loaded.", flush=True)
+            is_harmony = "<|channel|>" in tokenizer.get_vocab()
+            self._tokenizer_cache[model_name] = (tokenizer, is_harmony)
+            print(f"[streaming] Tokenizer for {model_name} loaded (harmony={is_harmony}).", flush=True)
         return self._tokenizer_cache[model_name]
 
     def execute(self, requests):
@@ -119,7 +126,7 @@ class TritonPythonModel:
 
             # --- Apply chat template ---
             try:
-                tokenizer = self._get_tokenizer(model_name)
+                tokenizer, is_harmony = self._get_tokenizer(model_name)
                 rendered = tokenizer.apply_chat_template(
                     conversation,
                     tokenize=False,
@@ -185,15 +192,19 @@ class TritonPythonModel:
                         pb_utils.Tensor("is_final", np.array([False], dtype=bool))
                     ]))
 
-                # Channel detection state machine.
-                # Phase 1 (detect): buffer tokens to check for harmony format.
-                # Phase 2 (stream): emit chunks with appropriate chunk_type.
-                #
-                # Harmony-format models output: analysis<cot>assistantfinal<response>
-                # Non-harmony models output: <response> directly.
+                # Harmony-format models emit: analysis<cot>assistantfinal<response>
+                # Non-harmony models emit: <response> directly.
+                # The is_harmony flag is determined from the tokenizer vocabulary
+                # (presence of <|channel|> token), so we know upfront which mode
+                # to use — no text-sniffing needed.
                 buffer = ""
-                harmony_mode = None  # None = undecided, True/False once detected
-                current_type = "response"  # default for non-harmony
+                if is_harmony:
+                    current_type = "reasoning"
+                    prefix_remaining = len(_ANALYSIS_PREFIX)
+                    print("[streaming] Harmony model — stripping analysis prefix", flush=True)
+                else:
+                    current_type = "response"
+                    prefix_remaining = 0
 
                 token_count = 0
                 for infer_response in infer_response_iterator:
@@ -215,56 +226,39 @@ class TritonPythonModel:
 
                     token_count += 1
 
-                    # --- Phase 1: detect harmony vs plain format ---
-                    if harmony_mode is None:
-                        buffer += chunk
-                        if len(buffer) >= len(_ANALYSIS_PREFIX):
-                            if buffer.startswith(_ANALYSIS_PREFIX):
-                                harmony_mode = True
-                                current_type = "reasoning"
-                                # Send the reasoning text after the "analysis" prefix
-                                reasoning_text = buffer[len(_ANALYSIS_PREFIX):]
-                                if reasoning_text:
-                                    _send_chunk(reasoning_text, "reasoning")
-                                buffer = ""
-                                print("[streaming] Harmony format detected", flush=True)
-                            else:
-                                harmony_mode = False
-                                current_type = "response"
-                                _send_chunk(buffer, "response")
-                                buffer = ""
-                                print("[streaming] Non-harmony model, streaming directly", flush=True)
-                        continue
-
-                    # --- Phase 2: stream with boundary detection ---
-                    if not harmony_mode:
+                    # Non-harmony: stream everything as response
+                    if not is_harmony:
                         _send_chunk(chunk, "response")
                         continue
 
-                    # Harmony mode: look for "assistantfinal" boundary.
-                    # Buffer enough to detect it across token boundaries.
+                    # Harmony: strip "analysis" prefix, then detect boundary
+                    if prefix_remaining > 0:
+                        # Still consuming the "analysis" prefix
+                        if len(chunk) <= prefix_remaining:
+                            prefix_remaining -= len(chunk)
+                            continue
+                        chunk = chunk[prefix_remaining:]
+                        prefix_remaining = 0
+
+                    # Buffer for boundary detection across token boundaries
                     buffer += chunk
                     while buffer:
                         if current_type == "reasoning":
                             idx = buffer.find(_BOUNDARY_MARKER)
                             if idx != -1:
-                                # Send any remaining reasoning before the marker
                                 if idx > 0:
                                     _send_chunk(buffer[:idx], "reasoning")
                                 buffer = buffer[idx + len(_BOUNDARY_MARKER):]
                                 current_type = "response"
                                 print("[streaming] Channel switch: reasoning -> response", flush=True)
                                 continue
-                            # Marker not found yet — but the tail of the buffer
-                            # might be a partial match.  Keep the last
-                            # len(marker)-1 chars in the buffer, send the rest.
+                            # Keep tail that could be a partial marker match
                             safe = len(buffer) - (len(_BOUNDARY_MARKER) - 1)
                             if safe > 0:
                                 _send_chunk(buffer[:safe], "reasoning")
                                 buffer = buffer[safe:]
                             break
                         else:
-                            # In response mode — stream everything
                             _send_chunk(buffer, "response")
                             buffer = ""
                             break
