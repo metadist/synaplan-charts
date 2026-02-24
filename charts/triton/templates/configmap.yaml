@@ -20,7 +20,9 @@ data:
 {{- end }}
 {{- range .Values.models }}
 {{- $backend := $.Values.defaultBackend }}
-{{- if .vllm }}{{- $backend = "vllm" }}{{- else if .python }}{{- $backend = "python" }}{{- end }}
+{{- if .vllm }}{{- $backend = "vllm" }}{{- end }}
+{{- if .python }}{{- $backend = "python" }}{{- end }}
+{{- if and .vllm .python }}{{- fail (printf "model '%s': cannot specify both .vllm and .python" .name) }}{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -30,6 +32,7 @@ data:
   config.pbtxt: |-
     name: "{{ .name }}"
     backend: "vllm"
+    model_transaction_policy { decoupled: true }
     instance_group [{ count: 1, kind: KIND_MODEL }]
   model.json: |-
     {{ merge (.vllm | default dict) ($.Values.vllmDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}

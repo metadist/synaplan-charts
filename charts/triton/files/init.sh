@@ -8,7 +8,7 @@ set -euxo pipefail
 if [ "${INSTALL_ACCELERATE:-}" = "true" ]; then
   if ! python3 -c "import accelerate" 2>/dev/null; then
     echo "[Init] Installing accelerate..."
-    pip install --no-cache-dir accelerate
+    pip install --no-cache-dir 'accelerate==1.12.0'
   fi
 fi
 
