@@ -54,6 +54,7 @@ helm install triton ./charts/triton
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
 | defaultBackend | string | `"vllm"` |  |
+| embeddingDefaults | object | `{}` |  |
 | explicitModelControl.enabled | bool | `false` |  |
 | explicitModelControl.loadModels[0] | string | `"streaming"` |  |
 | fullnameOverride | string | `""` |  |
