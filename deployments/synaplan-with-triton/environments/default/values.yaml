@@ -3,7 +3,6 @@
 
 cluster:
   ingressClassName: nginx
-  certIssuer: cluster-issuer
   customRootCA: false
 
 services:

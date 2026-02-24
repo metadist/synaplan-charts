@@ -2,6 +2,16 @@
 
 set -euxo pipefail
 
+# Install accelerate if needed (required by transformers for quantized model
+# loading in the Python backend; not bundled in any upstream Triton image).
+# Only runs in CPU/python mode — set via INSTALL_ACCELERATE env var.
+if [ "${INSTALL_ACCELERATE:-}" = "true" ]; then
+  if ! python3 -c "import accelerate" 2>/dev/null; then
+    echo "[Init] Installing accelerate..."
+    pip install --no-cache-dir accelerate
+  fi
+fi
+
 echo "[Init] Setting up model repository..."
 
 mkdir -p /repository

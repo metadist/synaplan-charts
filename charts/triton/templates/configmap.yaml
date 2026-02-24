@@ -6,22 +6,59 @@ data:
   init.sh: |-
     {{ .Files.Get "files/init.sh" | nindent 4 | trim }}
 ---
+{{- if .Values.streaming.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-model-streaming
+data:
+  config.pbtxt: |-
+    {{ .Files.Get "files/repository/streaming/config.pbtxt" | nindent 4 | trim }}
+  model.py: |-
+    {{ .Files.Get "files/repository/streaming/1/model.py" | nindent 4 | trim }}
+---
+{{- end }}
 {{- range .Values.models }}
-{{- if not .existingConfigMap }}
+{{- $backend := $.Values.defaultBackend }}
+{{- if .vllm }}{{- $backend = "vllm" }}{{- else if .python }}{{- $backend = "python" }}{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ $.Release.Name }}-model-{{ .name }}
 data:
-{{- $model := . }}
-{{- range .files }}
-  {{ .key }}: |-
-    {{ $.Files.Get (printf "files/repository/%s/%s" $model.name .path) | nindent 4 | trim }}
-{{- end }}
-{{- if .vllm }}
+{{- if eq $backend "vllm" }}
+  config.pbtxt: |-
+    name: "{{ .name }}"
+    backend: "vllm"
+    instance_group [{ count: 1, kind: KIND_MODEL }]
   model.json: |-
-    {{ merge .vllm ($.Values.vllmDefaults | default dict) | toPrettyJson | nindent 4 | trim }}
+    {{ merge (.vllm | default dict) ($.Values.vllmDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
+{{- else if eq $backend "python" }}
+  config.pbtxt: |-
+    name: "{{ .name }}"
+    backend: "python"
+    max_batch_size: 0
+
+    model_transaction_policy {
+      decoupled: true
+    }
+
+    input [
+      { name: "text_input", data_type: TYPE_STRING, dims: [1] },
+      { name: "stream", data_type: TYPE_BOOL, dims: [1], optional: true },
+      { name: "exclude_input_in_output", data_type: TYPE_BOOL, dims: [1], optional: true },
+      { name: "sampling_parameters", data_type: TYPE_STRING, dims: [1], optional: true }
+    ]
+
+    output [
+      { name: "text_output", data_type: TYPE_STRING, dims: [1] }
+    ]
+
+    instance_group [{ count: 1, kind: KIND_CPU }]
+  model.json: |-
+    {{ merge (.python | default dict) ($.Values.pythonDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
+  model.py: |-
+    {{ $.Files.Get "files/python-backend/model.py" | nindent 4 | trim }}
 {{- end }}
 ---
-{{- end }}
 {{- end }}

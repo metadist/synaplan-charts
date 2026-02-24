@@ -1,5 +1,4 @@
 # GPU mode — resource requests and vLLM defaults
-
 vllmDefaults:
   gpu_memory_utilization: 0.85
 
