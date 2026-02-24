@@ -175,7 +175,7 @@ spec:
       {{- end }}
       {{- range .Values.models }}
       {{- $backend := $.Values.defaultBackend }}
-      {{- if .vllm }}{{- $backend = "vllm" }}{{- else if .python }}{{- $backend = "python" }}{{- end }}
+      {{- if hasKey . "vllm" }}{{- $backend = "vllm" }}{{- else if hasKey . "python" }}{{- $backend = "python" }}{{- else if hasKey . "embedding" }}{{- $backend = "embedding" }}{{- end }}
       {{- $safeName := regexReplaceAll "[^a-z0-9-]" (lower .name) "-" }}
         - name: {{ $safeName }}
           configMap:
@@ -185,7 +185,7 @@ spec:
                 path: config.pbtxt
               - key: model.json
                 path: 1/model.json
-            {{- if eq $backend "python" }}
+            {{- if or (eq $backend "python") (eq $backend "embedding") }}
               - key: model.py
                 path: 1/model.py
             {{- end }}

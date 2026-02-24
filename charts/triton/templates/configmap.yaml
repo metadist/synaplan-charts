@@ -20,9 +20,11 @@ data:
 {{- end }}
 {{- range .Values.models }}
 {{- $backend := $.Values.defaultBackend }}
-{{- if .vllm }}{{- $backend = "vllm" }}{{- end }}
-{{- if .python }}{{- $backend = "python" }}{{- end }}
-{{- if and .vllm .python }}{{- fail (printf "model '%s': cannot specify both .vllm and .python" .name) }}{{- end }}
+{{- if hasKey . "vllm" }}{{- $backend = "vllm" }}{{- end }}
+{{- if hasKey . "python" }}{{- $backend = "python" }}{{- end }}
+{{- if hasKey . "embedding" }}{{- $backend = "embedding" }}{{- end }}
+{{- $count := 0 }}{{- if hasKey . "vllm" }}{{- $count = add $count 1 }}{{- end }}{{- if hasKey . "python" }}{{- $count = add $count 1 }}{{- end }}{{- if hasKey . "embedding" }}{{- $count = add $count 1 }}{{- end }}
+{{- if gt (int $count) 1 }}{{- fail (printf "model '%s': specify only one of .vllm, .python, or .embedding" .name) }}{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -64,6 +66,27 @@ data:
     {{ merge (.python | default dict) ($.Values.pythonDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
   model.py: |-
     {{ $.Files.Get "files/python-backend/model.py" | nindent 4 | trim }}
+{{- else if eq $backend "embedding" }}
+  config.pbtxt: |-
+    name: "{{ .name }}"
+    backend: "python"
+    max_batch_size: 0
+
+    input [
+      { name: "text_input", data_type: TYPE_STRING, dims: [1] }
+    ]
+
+    output [
+      { name: "embedding", data_type: TYPE_FP32, dims: [-1] }
+    ]
+
+    # count: 1 is required — the embedding backend is not thread-safe.
+    # See files/embedding-backend/model.py for details.
+    instance_group [{ count: 1, kind: KIND_CPU }]
+  model.json: |-
+    {{ merge (.embedding | default dict) ($.Values.embeddingDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
+  model.py: |-
+    {{ $.Files.Get "files/embedding-backend/model.py" | nindent 4 | trim }}
 {{- end }}
 ---
 {{- end }}
