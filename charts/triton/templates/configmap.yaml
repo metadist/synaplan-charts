@@ -70,7 +70,11 @@ data:
   config.pbtxt: |-
     name: "{{ .name }}"
     backend: "python"
-    max_batch_size: 0
+    max_batch_size: 32
+
+    dynamic_batching {
+      max_queue_delay_microseconds: 5000
+    }
 
     input [
       { name: "text_input", data_type: TYPE_STRING, dims: [1] }
@@ -80,8 +84,6 @@ data:
       { name: "embedding", data_type: TYPE_FP32, dims: [-1] }
     ]
 
-    # count: 1 is required — the embedding backend is not thread-safe.
-    # See files/embedding-backend/model.py for details.
     instance_group [{ count: 1, kind: KIND_CPU }]
   model.json: |-
     {{ merge (.embedding | default dict) ($.Values.embeddingDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
