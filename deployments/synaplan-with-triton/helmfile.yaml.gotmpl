@@ -6,44 +6,53 @@ environments:
 
 ---
 
+{{ $ns := .Values | getOrNil "namespace" | default "synaplan" }}
+
 repositories:
   - name: mariadb-operator
     url: https://helm.mariadb.com/mariadb-operator
+  - name: tika
+    url: https://apache.jfrog.io/artifactory/tika
 
 releases:
   - name: mariadb-operator-crds
-    namespace: synaplan
+    namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-operator-crds
     version: "25.10.2"
     createNamespace: true
 
   - name: mariadb-operator
-    namespace: synaplan
+    namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-operator
     version: "25.10.2"
     needs:
-      - synaplan/mariadb-operator-crds
+      - {{ $ns }}/mariadb-operator-crds
     values:
       - values-mariadb-operator.yaml
 
   - name: mariadb-cluster
-    namespace: synaplan
+    namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-cluster
     version: "25.10.2"
     needs:
-      - synaplan/mariadb-operator-crds
-      - synaplan/mariadb-operator
+      - {{ $ns }}/mariadb-operator-crds
+      - {{ $ns }}/mariadb-operator
     values:
       - values-mariadb-cluster.yaml
 
+  - name: tika
+    namespace: {{ $ns }}
+    chart: tika/tika
+    version: "3.2.2"
+
   - name: synaplan
-    namespace: synaplan
+    namespace: {{ $ns }}
     chart: ../../charts/synaplan
     values:
       - values-synaplan.yaml.gotmpl
 
   - name: triton
-    namespace: synaplan
+    namespace: {{ $ns }}
     chart: ../../charts/triton
     values:
       {{- if eq .Values.services.triton.mode "gpu" }}

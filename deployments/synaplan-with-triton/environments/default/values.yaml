@@ -11,5 +11,14 @@ services:
     oidc:
       issuerURI: https://keycloak.local/realms/default
       clientId: synaplan
+    models:
+      enabled:
+        - "triton:gpt-oss-20b"
+        - "triton:bge-m3"
+        - "triton:mistral-7b-instruct-v0.3"
+      defaults:
+        chat: "triton:gpt-oss-20b"
+        sort: "triton:gpt-oss-20b"
+        vectorize: "triton:bge-m3"
   triton:
     mode: gpu

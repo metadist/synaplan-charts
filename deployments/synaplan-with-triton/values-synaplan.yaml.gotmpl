@@ -1,9 +1,18 @@
 {{- $synaplanUrl := .Values.services.synaplan.url | required "services.synaplan.url is required" }}
 {{- $synaplanHost := $synaplanUrl | trimPrefix "https://" | trimPrefix "http://" }}
-{{- $tikaConfig := index .Values.services "tika" | default dict }}
-{{- $oidcClientSecretRef := index .Values.services.synaplan.oidc "clientSecretRef" | default "" }}
-{{- $oidcClientSecret := index .Values.services.synaplan.oidc "clientSecret" | default "" }}
-{{- $oidcIssuerURI := index .Values.services.synaplan.oidc "issuerURI" | default "" }}
+{{- $ns := .Values | getOrNil "namespace" | default "synaplan" }}
+{{- $oidc := index .Values.services.synaplan "oidc" | default dict }}
+{{- $oidcEnabled := true }}
+{{- if hasKey $oidc "enabled" }}
+{{- $oidcEnabled = index $oidc "enabled" }}
+{{- end }}
+
+{{- with .Values | getOrNil "image" }}
+image:
+  {{- range $k, $v := . }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+{{- end }}
 
 customRootCA: {{ .Values.cluster.customRootCA }}
 
@@ -12,40 +21,67 @@ publicUrl: {{ $synaplanUrl | quote }}
 tritonMode: {{ .Values.services.triton.mode | quote }}
 
 database:
-  host: "mariadb-cluster.synaplan.svc.cluster.local"
+  host: "mariadb-cluster.{{ $ns }}.svc.cluster.local"
 
 triton:
-  url: "triton.synaplan.svc.cluster.local:8001"
+  url: "triton.{{ $ns }}.svc.cluster.local:8001"
 
-{{- if $tikaConfig }}
 tika:
   enabled: true
-  url: {{ $tikaConfig.url | quote }}
+  url: {{ index (index .Values.services "tika" | default dict) "url" | default (printf "http://tika.%s.svc.cluster.local:9998" $ns) | quote }}
+
+{{- with index (index .Values.services.synaplan "models" | default dict) "enabled" }}
+models:
+  enabled:
+    {{- range . }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- with index (index $.Values.services.synaplan "models") "defaults" }}
+  defaults:
+    {{- range $cap, $model := . }}
+    {{ $cap }}: {{ $model | quote }}
+    {{- end }}
+  {{- end }}
 {{- end }}
 
 oidc:
-  enabled: true
-  {{- if $oidcIssuerURI }}
-  issuerURI: {{ $oidcIssuerURI | quote }}
+  enabled: {{ $oidcEnabled }}
+  {{- if $oidcEnabled }}
+  {{- with index $oidc "issuerURI" }}
+  issuerURI: {{ . | quote }}
   {{- end }}
-  clientId: {{ .Values.services.synaplan.oidc.clientId | quote }}
-  {{- if $oidcClientSecretRef }}
-  clientSecretRef: {{ $oidcClientSecretRef | quote }}
-  {{- else if $oidcClientSecret }}
-  clientSecret: {{ $oidcClientSecret | quote }}
+  {{- with index $oidc "clientId" }}
+  clientId: {{ . | quote }}
+  {{- end }}
+  {{- with index $oidc "clientSecretRef" }}
+  clientSecretRef: {{ . | quote }}
+  {{- else }}
+  {{- with index $oidc "clientSecret" }}
+  clientSecret: {{ . | quote }}
+  {{- end }}
+  {{- end }}
   {{- end }}
 
+{{- with .Values | getOrNil "persistence" }}
 persistence:
+  {{- with index . "uploads" }}
   uploads:
-    enabled: true
-    accessMode: "ReadWriteMany"
-    size: "10Gi"
+    {{- with index . "accessMode" }}
+    accessMode: {{ . | quote }}
+    {{- end }}
+    {{- with index . "size" }}
+    size: {{ . | quote }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 
 ingress:
   enabled: true
   className: {{ .Values.cluster.ingressClassName | quote }}
+  {{- with index .Values.cluster "certIssuer" }}
   annotations:
-    cert-manager.io/cluster-issuer: {{ .Values.cluster.certIssuer | quote }}
+    cert-manager.io/cluster-issuer: {{ . | quote }}
+  {{- end }}
   hosts:
     - host: {{ $synaplanHost | quote }}
       paths:

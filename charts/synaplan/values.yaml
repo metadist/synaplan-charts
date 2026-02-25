@@ -37,7 +37,7 @@ database:
   port: "3306"
   name: "synaplan"
   user: "synaplan"
-  serverVersion: "mariadb-11.7.1"
+  serverVersion: "11.7.2-MariaDB"
 
 # Triton Inference Server configuration
 triton:
