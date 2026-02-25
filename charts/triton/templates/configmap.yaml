@@ -6,22 +6,89 @@ data:
   init.sh: |-
     {{ .Files.Get "files/init.sh" | nindent 4 | trim }}
 ---
+{{- if .Values.streaming.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-model-streaming
+data:
+  config.pbtxt: |-
+    {{ .Files.Get "files/repository/streaming/config.pbtxt" | nindent 4 | trim }}
+  model.py: |-
+    {{ .Files.Get "files/repository/streaming/1/model.py" | nindent 4 | trim }}
+---
+{{- end }}
 {{- range .Values.models }}
-{{- if not .existingConfigMap }}
+{{- $backend := $.Values.defaultBackend }}
+{{- if hasKey . "vllm" }}{{- $backend = "vllm" }}{{- end }}
+{{- if hasKey . "python" }}{{- $backend = "python" }}{{- end }}
+{{- if hasKey . "embedding" }}{{- $backend = "embedding" }}{{- end }}
+{{- $count := 0 }}{{- if hasKey . "vllm" }}{{- $count = add $count 1 }}{{- end }}{{- if hasKey . "python" }}{{- $count = add $count 1 }}{{- end }}{{- if hasKey . "embedding" }}{{- $count = add $count 1 }}{{- end }}
+{{- if gt (int $count) 1 }}{{- fail (printf "model '%s': specify only one of .vllm, .python, or .embedding" .name) }}{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ $.Release.Name }}-model-{{ .name }}
 data:
-{{- $model := . }}
-{{- range .files }}
-  {{ .key }}: |-
-    {{ $.Files.Get (printf "files/repository/%s/%s" $model.name .path) | nindent 4 | trim }}
-{{- end }}
-{{- if .vllm }}
+{{- if eq $backend "vllm" }}
+  config.pbtxt: |-
+    name: "{{ .name }}"
+    backend: "vllm"
+    model_transaction_policy { decoupled: true }
+    instance_group [{ count: 1, kind: KIND_MODEL }]
   model.json: |-
-    {{ merge .vllm ($.Values.vllmDefaults | default dict) | toPrettyJson | nindent 4 | trim }}
+    {{ merge (.vllm | default dict) ($.Values.vllmDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
+{{- else if eq $backend "python" }}
+  config.pbtxt: |-
+    name: "{{ .name }}"
+    backend: "python"
+    max_batch_size: 0
+
+    model_transaction_policy {
+      decoupled: true
+    }
+
+    input [
+      { name: "text_input", data_type: TYPE_STRING, dims: [1] },
+      { name: "stream", data_type: TYPE_BOOL, dims: [1], optional: true },
+      { name: "exclude_input_in_output", data_type: TYPE_BOOL, dims: [1], optional: true },
+      { name: "sampling_parameters", data_type: TYPE_STRING, dims: [1], optional: true }
+    ]
+
+    output [
+      { name: "text_output", data_type: TYPE_STRING, dims: [1] }
+    ]
+
+    # count: 1 is required — the Python backend is not thread-safe.
+    # See files/python-backend/model.py for details.
+    instance_group [{ count: 1, kind: KIND_CPU }]
+  model.json: |-
+    {{ merge (.python | default dict) ($.Values.pythonDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
+  model.py: |-
+    {{ $.Files.Get "files/python-backend/model.py" | nindent 4 | trim }}
+{{- else if eq $backend "embedding" }}
+  config.pbtxt: |-
+    name: "{{ .name }}"
+    backend: "python"
+    max_batch_size: 32
+
+    dynamic_batching {
+      max_queue_delay_microseconds: 5000
+    }
+
+    input [
+      { name: "text_input", data_type: TYPE_STRING, dims: [1] }
+    ]
+
+    output [
+      { name: "embedding", data_type: TYPE_FP32, dims: [-1] }
+    ]
+
+    instance_group [{ count: 1, kind: KIND_CPU }]
+  model.json: |-
+    {{ merge (.embedding | default dict) ($.Values.embeddingDefaults | default dict) (dict "model" (printf "/cache/weights/%s" .name)) | toPrettyJson | nindent 4 | trim }}
+  model.py: |-
+    {{ $.Files.Get "files/embedding-backend/model.py" | nindent 4 | trim }}
 {{- end }}
 ---
-{{- end }}
 {{- end }}

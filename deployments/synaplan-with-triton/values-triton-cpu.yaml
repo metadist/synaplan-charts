@@ -1,7 +1,5 @@
-# CPU mode — resource requests and vLLM defaults
-
-vllmDefaults:
-  device: cpu
+# CPU mode — Python backend with HuggingFace transformers
+defaultBackend: python
 
 resources:
   requests:

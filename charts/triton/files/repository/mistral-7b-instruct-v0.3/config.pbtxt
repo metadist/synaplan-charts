@@ -1,3 +1,0 @@
-name: "mistral-7b-instruct-v0.3"
-backend: "vllm"
-instance_group [{ count: 1, kind: KIND_MODEL }]

@@ -46,7 +46,6 @@ releases:
     namespace: synaplan
     chart: ../../charts/triton
     values:
-      - values-triton-common.yaml
       {{- if eq .Values.services.triton.mode "gpu" }}
       - values-triton-gpu.yaml
       {{- else }}

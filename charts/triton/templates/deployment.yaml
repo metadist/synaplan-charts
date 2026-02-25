@@ -106,6 +106,10 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "%s%s" .Chart.AppVersion .Values.image.variant) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+          {{- if .Values.installAccelerate }}
+            - name: INSTALL_ACCELERATE
+              value: "true"
+          {{- end }}
           {{- if .Values.explicitModelControl.enabled }}
             - name: TRITON_EXTRA_ARGS
               value: "--model-control-mode=explicit{{ range .Values.explicitModelControl.loadModels }} --load-model={{ . }}{{ end }}"
@@ -140,7 +144,12 @@ spec:
             - name: scripts
               mountPath: /init.sh
               subPath: init.sh
-            # model repository
+            # streaming model
+            {{- if .Values.streaming.enabled }}
+            - name: streaming
+              mountPath: /repository.template/streaming
+            {{- end }}
+            # backend models
             {{- range .Values.models }}
             {{- $safeName := regexReplaceAll "[^a-z0-9-]" (lower .name) "-" }}
             - name: {{ $safeName }}
@@ -154,23 +163,31 @@ spec:
           configMap:
             name: {{ .Release.Name }}-scripts
             defaultMode: 0755
+      {{- if .Values.streaming.enabled }}
+        - name: streaming
+          configMap:
+            name: {{ .Release.Name }}-model-streaming
+            items:
+              - key: config.pbtxt
+                path: config.pbtxt
+              - key: model.py
+                path: 1/model.py
+      {{- end }}
       {{- range .Values.models }}
+      {{- $backend := $.Values.defaultBackend }}
+      {{- if hasKey . "vllm" }}{{- $backend = "vllm" }}{{- else if hasKey . "python" }}{{- $backend = "python" }}{{- else if hasKey . "embedding" }}{{- $backend = "embedding" }}{{- end }}
       {{- $safeName := regexReplaceAll "[^a-z0-9-]" (lower .name) "-" }}
         - name: {{ $safeName }}
           configMap:
-            {{- if .existingConfigMap }}
-            name: {{ .existingConfigMap }}
-            {{- else }}
             name: {{ $.Release.Name }}-model-{{ .name }}
-            {{- end }}
             items:
-            {{- range .files }}
-              - key: {{ .key }}
-                path: {{ .path }}
-            {{- end }}
-            {{- if .vllm }}
+              - key: config.pbtxt
+                path: config.pbtxt
               - key: model.json
                 path: 1/model.json
+            {{- if or (eq $backend "python") (eq $backend "embedding") }}
+              - key: model.py
+                path: 1/model.py
             {{- end }}
       {{- end }}
       {{- with .Values.volumes }}

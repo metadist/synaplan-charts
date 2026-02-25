@@ -1,9 +1,17 @@
 # HuggingFace model auto-download configuration
 huggingfaceModels:
-  # Set to true to enable automatic model downloading
-  enabled: false
+  enabled: true
   # List of models to download from HuggingFace
-  models: []
+  models:
+    - source: openai/gpt-oss-20b
+      name: gpt-oss-20b
+      revision: 6cee5e81ee83917806bbde320786a8fb61efebee
+      ignorePatterns:
+        - "original/*"
+        - "metal/*"
+    - source: BAAI/bge-m3
+      name: bge-m3
+      revision: 5617a9f61b028005a4858fdac845db406aefb181
   # Example:
   # - source: mistralai/Mistral-7B-Instruct-v0.3
   #   name: mistral-7b-instruct-v0.3
@@ -14,36 +22,42 @@ huggingfaceModels:
     repository: python
     tag: "3.11-slim"
 
+# Backend selection: "vllm" (GPU) or "python" (CPU via HuggingFace transformers)
+# Can be overridden per model with explicit .vllm or .python section.
+#
+# NOTE: CPU mode is intended for development and testing only — it is not suited
+# for production workloads.
+defaultBackend: vllm
+
+# Default vLLM parameters merged into every vllm model's model.json
+vllmDefaults:
+  max_model_len: 4096
+  enforce_eager: true
+
+# Default Python backend parameters merged into every python model's model.json
+pythonDefaults:
+  dtype: bfloat16
+
+# Default embedding backend parameters merged into every embedding model's model.json
+embeddingDefaults: {}
+
+# Install the `accelerate` Python package at startup (required by transformers
+# for quantized model loading, e.g. MXFP4). Not bundled in upstream Triton
+# images. Enabled by default because the default model (gpt-oss-20b) uses MXFP4.
+# For non-quantized models this is harmless but unnecessary.
+installAccelerate: true
+
+# Streaming BLS wrapper — always deployed unless explicitly disabled.
+# Not part of models: list. Provides chat template + streaming proxy.
+streaming:
+  enabled: true
+
+# Model repository — each entry becomes a Triton model using the resolved backend.
+# Backend is determined by: explicit .vllm/.python section > defaultBackend
 models:
   - name: gpt-oss-20b
-    files:
-      - key: config.pbtxt
-        path: config.pbtxt
-    vllm:
-      model: /cache/weights/gpt-oss-20b
-      max_model_len: 4096
-      enforce_eager: true
-
-  - name: mistral-7b-instruct-v0.3
-    files:
-      - key: config.pbtxt
-        path: config.pbtxt
-    vllm:
-      model: /cache/weights/mistral-7b-instruct-v0.3
-      max_model_len: 4096
-      enforce_eager: true
-
-  # The streaming model is a Python BLS wrapper — no vllm config needed.
-  - name: streaming
-    files:
-      - key: config.pbtxt
-        path: config.pbtxt
-      - key: model.py
-        path: 1/model.py
-
-# Default vLLM parameters merged into every model's model.json
-# Override per environment (e.g., gpu_memory_utilization for GPU, device for CPU)
-vllmDefaults: {}
+  - name: bge-m3
+    embedding: {}
 
 # Explicit model control mode.
 # When enabled, models are NOT loaded at startup. Instead, they must be loaded
