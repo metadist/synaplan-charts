@@ -103,7 +103,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | database.host | string | `"mariadb-cluster"` |  |
 | database.name | string | `"synaplan"` |  |
 | database.port | string | `"3306"` |  |
-| database.serverVersion | string | `"mariadb-11.7.1"` |  |
+| database.serverVersion | string | `"11.7.2-MariaDB"` |  |
 | database.user | string | `"synaplan"` |  |
 | env[0].name | string | `"APP_ENV"` |  |
 | env[0].value | string | `"prod"` |  |
