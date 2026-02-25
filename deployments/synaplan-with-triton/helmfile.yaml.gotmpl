@@ -48,6 +48,10 @@ releases:
   - name: synaplan
     namespace: {{ $ns }}
     chart: ../../charts/synaplan
+    needs:
+      - {{ $ns }}/mariadb-cluster
+      - {{ $ns }}/tika
+      - {{ $ns }}/triton
     values:
       - values-synaplan.yaml.gotmpl
 

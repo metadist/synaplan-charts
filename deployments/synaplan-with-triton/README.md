@@ -121,12 +121,15 @@ After deployment, access Synaplan at the configured URL (e.g., `https://synaplan
 After deployment, create an initial admin user:
 
 ```bash
-NS=synaplan  # adjust to your namespace
-kubectl exec -n $NS deployment/synaplan -- php -r '
-$pdo = new PDO("mysql:host=mariadb-cluster.'.$NS'.svc.cluster.local;dbname=synaplan", "synaplan", getenv("DB_PASSWORD"));
-$pdo->exec("INSERT INTO BUSER (BCREATED, BINTYPE, BMAIL, BPW, BPROVIDERID, BUSERLEVEL, BEMAILVERIFIED, BUSERDETAILS, BPAYMENTDETAILS) VALUES (\"".date("Y-m-d H:i:s")."\", \"WEB\", \"admin@example.com\", \"".password_hash("changeme", PASSWORD_BCRYPT)."\", \"local\", \"ADMIN\", 1, \"{}\", \"{}\")");
-echo "Admin user created\n";
-'
+NS=synaplan              # adjust to your namespace
+MAIL=admin@example.com   # adjust to your email
+PW=CHANGE-ME-NOW         # use a strong password
+
+kubectl exec -n "$NS" deployment/synaplan -- php -r "
+\$pdo = new PDO('mysql:host=mariadb-cluster.$NS.svc.cluster.local;dbname=synaplan', 'synaplan', getenv('DB_PASSWORD'));
+\$pdo->exec(\"INSERT INTO BUSER (BCREATED, BINTYPE, BMAIL, BPW, BPROVIDERID, BUSERLEVEL, BEMAILVERIFIED, BUSERDETAILS, BPAYMENTDETAILS) VALUES ('\" . date('Y-m-d H:i:s') . \"', 'WEB', '$MAIL', '\" . password_hash('$PW', PASSWORD_BCRYPT) . \"', 'local', 'ADMIN', 1, '{}', '{}')\");
+echo \"Admin user created\n\";
+"
 ```
 
 ## Verify Deployment

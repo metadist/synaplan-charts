@@ -62,10 +62,16 @@ oidc:
   {{- end }}
   {{- end }}
 
+{{- with .Values.services | getOrNil "tts" }}
+tts:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+
 {{- with .Values | getOrNil "persistence" }}
 persistence:
   {{- with index . "uploads" }}
   uploads:
+    enabled: true
     {{- with index . "accessMode" }}
     accessMode: {{ . | quote }}
     {{- end }}

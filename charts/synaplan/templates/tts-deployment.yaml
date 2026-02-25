@@ -1,0 +1,130 @@
+{{- if .Values.tts.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synaplan.fullname" . }}-tts
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "synaplan.name" . }}-tts
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "synaplan.name" . }}-tts
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if gt (len .Values.tts.huggingfaceVoices.voices) 0 }}
+      initContainers:
+        - name: voice-downloader
+          image: "{{ .Values.tts.huggingfaceVoices.image.repository }}:{{ .Values.tts.huggingfaceVoices.image.tag }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -euo pipefail
+
+              echo "Installing huggingface-hub CLI..."
+              pip install --no-cache-dir huggingface-hub
+
+              REPO_ID="{{ .Values.tts.huggingfaceVoices.repo }}"
+              {{- if .Values.tts.huggingfaceVoices.revision }}
+              REVISION="{{ .Values.tts.huggingfaceVoices.revision }}"
+              {{- else }}
+              REVISION=""
+              {{- end }}
+
+              {{- range .Values.tts.huggingfaceVoices.voices }}
+              # Download voice: {{ .name }}
+              VOICE_NAME="{{ .name }}"
+              SUBFOLDER="{{ .subfolder }}"
+              MARKER="/voices/.${VOICE_NAME}.download_complete"
+
+              if [ -f "$MARKER" ]; then
+                echo "Voice $VOICE_NAME already exists, skipping download..."
+              else
+                # Remove partial download if exists
+                rm -f "/voices/${VOICE_NAME}.onnx" "/voices/${VOICE_NAME}.onnx.json"
+
+                echo "Downloading voice: $VOICE_NAME from $REPO_ID/$SUBFOLDER"
+
+                python -c "
+              from huggingface_hub import hf_hub_download
+              import shutil
+              revision = '$REVISION' or None
+              for ext in ['.onnx', '.onnx.json']:
+                  path = hf_hub_download(
+                      repo_id='$REPO_ID',
+                      filename='$VOICE_NAME' + ext,
+                      subfolder='$SUBFOLDER',
+                      revision=revision,
+                  )
+                  shutil.copy2(path, '/voices/$VOICE_NAME' + ext)
+                  print(f'Downloaded $VOICE_NAME{ext}')
+              "
+
+                # Mark download as complete
+                touch "$MARKER"
+                echo "Voice $VOICE_NAME download complete!"
+              fi
+              {{- end }}
+
+              echo "All voices downloaded. Contents of /voices:"
+              find /voices -type f | head -20
+          volumeMounts:
+            - name: tts-voices
+              mountPath: /voices
+      {{- end }}
+      containers:
+        - name: tts
+          image: "{{ .Values.tts.image.repository }}:{{ .Values.tts.image.tag }}"
+          imagePullPolicy: {{ .Values.tts.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.tts.port }}
+              protocol: TCP
+          env:
+            - name: VOICES_DIR
+              value: "/voices"
+            - name: DEFAULT_VOICE
+              value: {{ .Values.tts.defaultVoice | quote }}
+            - name: MAX_TEXT_LENGTH
+              value: {{ .Values.tts.maxTextLength | quote }}
+            - name: SYNTH_WORKERS
+              value: {{ .Values.tts.synthWorkers | quote }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: tts-voices
+              mountPath: /voices
+      volumes:
+        - name: tts-voices
+          persistentVolumeClaim:
+            claimName: {{ include "synaplan.fullname" . }}-tts-voices-pvc
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

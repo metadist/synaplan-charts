@@ -1,0 +1,19 @@
+{{- if .Values.tts.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "synaplan.fullname" . }}-tts
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tts
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.tts.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "synaplan.name" . }}-tts
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
