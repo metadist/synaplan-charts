@@ -116,6 +116,22 @@ This will:
 
 After deployment, access Synaplan at the configured URL (e.g., `https://synaplan.example.com`).
 
+## Create Admin User
+
+After deployment, create an initial admin user:
+
+```bash
+NS=synaplan              # adjust to your namespace
+MAIL=admin@example.com   # adjust to your email
+PW=CHANGE-ME-NOW         # use a strong password
+
+kubectl exec -n "$NS" deployment/synaplan -- php -r "
+\$pdo = new PDO('mysql:host=mariadb-cluster.$NS.svc.cluster.local;dbname=synaplan', 'synaplan', getenv('DB_PASSWORD'));
+\$pdo->exec(\"INSERT INTO BUSER (BCREATED, BINTYPE, BMAIL, BPW, BPROVIDERID, BUSERLEVEL, BEMAILVERIFIED, BUSERDETAILS, BPAYMENTDETAILS) VALUES ('\" . date('Y-m-d H:i:s') . \"', 'WEB', '$MAIL', '\" . password_hash('$PW', PASSWORD_BCRYPT) . \"', 'local', 'ADMIN', 1, '{}', '{}')\");
+echo \"Admin user created\n\";
+"
+```
+
 ## Verify Deployment
 
 ```bash

@@ -37,7 +37,7 @@ database:
   port: "3306"
   name: "synaplan"
   user: "synaplan"
-  serverVersion: "mariadb-11.7.1"
+  serverVersion: "11.7.2-MariaDB"
 
 # Triton Inference Server configuration
 triton:
@@ -98,6 +98,36 @@ models:
     sound2text: ""
     vectorize: ""
     analyze: ""
+
+# -- TTS (text-to-speech) sub-deployment using Piper voices
+tts:
+  enabled: false
+  image:
+    repository: ghcr.io/metadist/synaplan-tts
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  port: 10200
+  defaultVoice: "en_US-lessac-medium"
+  maxTextLength: "5000"
+  synthWorkers: "4"
+  # Voice models downloaded from HuggingFace by init container.
+  # Uses same python:3.11-slim + huggingface-hub pattern as triton chart's huggingfaceModels.
+  # Set voices: [] to skip all downloads (bring your own voices on the PVC).
+  huggingfaceVoices:
+    image:
+      repository: python
+      tag: "3.11-slim"
+    repo: "rhasspy/piper-voices"
+    revision: ""  # pin to a known-good commit hash (recommended)
+    voices:
+      - name: "en_US-lessac-medium"
+        subfolder: "en/en_US/lessac/medium"
+      - name: "de_DE-thorsten-medium"
+        subfolder: "de/de_DE/thorsten/medium"
+  persistence:
+    size: "5Gi"
+    accessMode: "ReadWriteOnce"
+    storageClass: ""
 
 # Persistence configuration for Synaplan data
 persistence:

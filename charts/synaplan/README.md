@@ -103,7 +103,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | database.host | string | `"mariadb-cluster"` |  |
 | database.name | string | `"synaplan"` |  |
 | database.port | string | `"3306"` |  |
-| database.serverVersion | string | `"mariadb-11.7.1"` |  |
+| database.serverVersion | string | `"11.7.2-MariaDB"` |  |
 | database.user | string | `"synaplan"` |  |
 | env[0].name | string | `"APP_ENV"` |  |
 | env[0].value | string | `"prod"` |  |
@@ -179,6 +179,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | tolerations | list | `[]` |  |
 | triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
+| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[{"name":"en_US-lessac-medium","subfolder":"en/en_US/lessac/medium"},{"name":"de_DE-thorsten-medium","subfolder":"de/de_DE/thorsten/medium"}]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"latest"},"maxTextLength":"5000","persistence":{"accessMode":"ReadWriteOnce","size":"5Gi","storageClass":""},"port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
 

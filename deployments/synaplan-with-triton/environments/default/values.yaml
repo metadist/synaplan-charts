@@ -11,5 +11,24 @@ services:
     oidc:
       issuerURI: https://keycloak.local/realms/default
       clientId: synaplan
+    models:
+      enabled:
+        - "triton:gpt-oss-20b"
+        - "triton:bge-m3"
+        - "triton:mistral-7b-instruct-v0.3"
+        - "piper:piper-multi"
+      defaults:
+        chat: "triton:gpt-oss-20b"
+        sort: "triton:gpt-oss-20b"
+        vectorize: "triton:bge-m3"
+        text2sound: "piper:piper-multi"
+  tts:
+    enabled: true
+    huggingfaceVoices:
+      voices:
+        - name: "en_US-lessac-medium"
+          subfolder: "en/en_US/lessac/medium"
+        - name: "de_DE-thorsten-medium"
+          subfolder: "de/de_DE/thorsten/medium"
   triton:
     mode: gpu

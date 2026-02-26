@@ -171,6 +171,11 @@ spec:
             - name: TIKA_BASE_URL
               value: {{ .Values.tika.url | quote }}
             {{- end }}
+            {{- if .Values.tts.enabled }}
+            # TTS (text-to-speech)
+            - name: SYNAPLAN_TTS_URL
+              value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
+            {{- end }}
             {{- with .Values.env }}
             # Additional environment variables
             {{- toYaml . | nindent 12 }}

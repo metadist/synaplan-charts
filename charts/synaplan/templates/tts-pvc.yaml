@@ -1,0 +1,18 @@
+{{- if .Values.tts.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "synaplan.fullname" . }}-tts-voices-pvc
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tts
+spec:
+  accessModes:
+    - {{ .Values.tts.persistence.accessMode | default "ReadWriteOnce" }}
+  resources:
+    requests:
+      storage: {{ .Values.tts.persistence.size | default "5Gi" }}
+  {{- if .Values.tts.persistence.storageClass }}
+  storageClassName: {{ .Values.tts.persistence.storageClass }}
+  {{- end }}
+{{- end }}
