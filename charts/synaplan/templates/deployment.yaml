@@ -162,6 +162,10 @@ spec:
               {{- end }}
             - name: OIDC_AUTO_REDIRECT
               value: {{ .Values.oidc.autoRedirect | quote }}
+            {{- if .Values.oidc.scopes }}
+            - name: OIDC_SCOPES
+              value: {{ .Values.oidc.scopes | quote }}
+            {{- end }}
             {{- end }}
             # Lock backend (Symfony Lock component)
             - name: LOCK_DSN
