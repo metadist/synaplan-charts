@@ -69,6 +69,9 @@ oidc:
   clientSecretRef: ""
   # -- Auto-redirect to OIDC provider on login page
   autoRedirect: true
+  # -- Space-separated OIDC scopes requested during login.
+  # Remove offline_access if your provider doesn't support it (internal app tokens provide a 7-day fallback).
+  scopes: "openid email profile offline_access"
 
 # Seed built-in system prompts on startup (idempotent)
 prompts:

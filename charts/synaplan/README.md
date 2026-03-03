@@ -149,6 +149,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | oidc.clientSecretRef | string | `""` |  |
 | oidc.enabled | bool | `false` |  |
 | oidc.issuerURI | string | `""` |  |
+| oidc.scopes | string | `"openid email profile offline_access"` | Space-separated OIDC scopes requested during login. Remove offline_access if your provider doesn't support it (internal app tokens provide a 7-day fallback). |
 | ollama.baseUrl | string | `""` | Ollama API base URL. Set this to use Ollama for LLM inference and bge-m3 embedding. Example: http://ollama.synaplan.svc.cluster.local:11434 |
 | persistence.uploads.accessMode | string | `"ReadWriteMany"` |  |
 | persistence.uploads.enabled | bool | `false` |  |
