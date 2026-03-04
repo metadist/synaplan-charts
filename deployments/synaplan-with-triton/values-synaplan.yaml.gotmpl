@@ -89,10 +89,13 @@ persistence:
 ingress:
   enabled: true
   className: {{ .Values.cluster.ingressClassName | quote }}
-  {{- with index .Values.cluster "certIssuer" }}
   annotations:
+    {{- with index .Values.cluster "certIssuer" }}
     cert-manager.io/cluster-issuer: {{ . | quote }}
-  {{- end }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-busy-buffers-size: "16k"
   hosts:
     - host: {{ $synaplanHost | quote }}
       paths:
