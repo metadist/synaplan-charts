@@ -67,6 +67,11 @@ tts:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 
+{{- with .Values.services.synaplan | getOrNil "env" }}
+env:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+
 {{- with .Values | getOrNil "persistence" }}
 persistence:
   {{- with index . "uploads" }}
