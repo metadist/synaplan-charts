@@ -67,6 +67,10 @@ tts:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 
+{{- with .Values.services.synaplan | getOrNil "apiKeysSecretRef" }}
+apiKeysSecretRef: {{ . | quote }}
+{{- end }}
+
 {{- with .Values.services.synaplan | getOrNil "env" }}
 env:
   {{- toYaml . | nindent 2 }}
