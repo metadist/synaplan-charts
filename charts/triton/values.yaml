@@ -20,7 +20,7 @@ huggingfaceModels:
   #     - "*.safetensors"
   image:
     repository: python
-    tag: "3.11-slim"
+    tag: "3.14-slim"
 
 # Backend selection: "vllm" (GPU) or "python" (CPU via HuggingFace transformers)
 # Can be overridden per model with explicit .vllm or .python section.
