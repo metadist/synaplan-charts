@@ -24,7 +24,7 @@ releases:
   - name: mariadb-operator
     namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-operator
-    version: "25.10.2"
+    version: "25.10.4"
     needs:
       - {{ $ns }}/mariadb-operator-crds
     values:
