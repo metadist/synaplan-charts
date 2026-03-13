@@ -1,38 +1,46 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
   ],
-  "packageRules": [
+  packageRules: [
     {
-      "description": "Triton Server PyTorch variant - only update YY.MM version, keep -pyt-python-py3 suffix",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["nvcr.io/nvidia/tritonserver"],
-      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-pyt-python-py3$"
+      description: 'Triton Server PyTorch variant - only update YY.MM version, keep -pyt-python-py3 suffix',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'nvcr.io/nvidia/tritonserver',
+      ],
+      versioning: 'regex:^(?<major>\\d+)\\.(?<minor>\\d+)-pyt-python-py3$',
     },
     {
-      "description": "TensorRT-LLM uses semantic versioning",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["nvcr.io/nvidia/tensorrt-llm/release"],
-      "versioning": "semver"
+      description: 'TensorRT-LLM uses semantic versioning',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'nvcr.io/nvidia/tensorrt-llm/release',
+      ],
+      versioning: 'semver',
     },
     {
-      // Group all mariadb-operator helm releases (CRDs, operator, cluster)
-      // into a single PR so they stay in sync.
-      "description": "Group all MariaDB operator charts",
-      "matchDatasources": ["helm"],
-      "groupName": "mariadb",
-      "matchPackageNames": [
-        "mariadb-operator-crds",
-        "mariadb-operator",
-        "mariadb-cluster"
-      ]
-    }
+      description: 'Group all MariaDB operator charts',
+      matchDatasources: [
+        'helm',
+      ],
+      groupName: 'mariadb',
+      matchPackageNames: [
+        'mariadb-operator-crds',
+        'mariadb-operator',
+        'mariadb-cluster',
+      ],
+    },
   ],
-  "helm-values": {
-    "fileMatch": [
-      "charts/.+/values\\.yaml$",
-      "deployments/.+/values-.+\\.yaml$"
-    ]
-  }
+  'helm-values': {
+    managerFilePatterns: [
+      '/charts/.+/values\\.yaml$/',
+      '/deployments/.+/values-.+\\.yaml$/',
+    ],
+  },
 }
