@@ -114,7 +114,7 @@ tts:
   maxTextLength: "5000"
   synthWorkers: "4"
   # Voice models downloaded from HuggingFace by init container.
-  # Uses same python:3.11-slim + huggingface-hub pattern as triton chart's huggingfaceModels.
+  # Uses same python:3.14-slim + huggingface-hub pattern as triton chart's huggingfaceModels.
   # Set voices: [] to skip all downloads (bring your own voices on the PVC).
   huggingfaceVoices:
     image:
