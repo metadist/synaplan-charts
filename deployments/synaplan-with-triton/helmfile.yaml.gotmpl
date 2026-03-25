@@ -18,13 +18,13 @@ releases:
   - name: mariadb-operator-crds
     namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-operator-crds
-    version: "25.10.4"
+    version: "26.3.0"
     createNamespace: true
 
   - name: mariadb-operator
     namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-operator
-    version: "25.10.4"
+    version: "26.3.0"
     needs:
       - {{ $ns }}/mariadb-operator-crds
     values:
@@ -33,7 +33,7 @@ releases:
   - name: mariadb-cluster
     namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-cluster
-    version: "25.10.4"
+    version: "26.3.0"
     needs:
       - {{ $ns }}/mariadb-operator-crds
       - {{ $ns }}/mariadb-operator
