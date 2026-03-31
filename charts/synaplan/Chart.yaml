@@ -3,7 +3,8 @@ name: synaplan
 description: Synaplan - AI-powered document analysis and planning platform
 type: application
 version: 0.1.0
-appVersion: "2.2.1"
+# renovate: datasource=docker depName=ghcr.io/metadist/synaplan
+appVersion: "2.4.0"
 keywords:
   - synaplan
   - ai

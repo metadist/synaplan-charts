@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'charts/**/values.yaml'
+      - 'charts/**/Chart.yaml'
 
 concurrency:
   group: renovate-helm-docs-${{ github.head_ref }}
