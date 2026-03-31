@@ -113,7 +113,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
-| image.tag | string | `"2.3.2"` |  |
+| image.tag | string | `"2.4.0"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.className | string | `""` |  |
