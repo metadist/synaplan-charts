@@ -3,6 +3,9 @@
   extends: [
     'config:recommended',
   ],
+  gitIgnoredAuthors: [
+    'github-actions[bot]@users.noreply.github.com',
+  ],
   packageRules: [
     {
       description: 'Triton Server PyTorch variant - only update YY.MM version, keep -pyt-python-py3 suffix',
