@@ -44,7 +44,9 @@
     {
       customType: 'regex',
       description: 'Update appVersion in Chart.yaml from renovate comment hint',
-      fileMatch: ['/charts/.+/Chart\\.yaml$'],
+      managerFilePatterns: [
+        '//charts/.+/Chart\\.yaml$/',
+      ],
       matchStrings: [
         '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\nappVersion:\\s*"(?<currentValue>[^"]+)"',
       ],
