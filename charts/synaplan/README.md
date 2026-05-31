@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.2.1](https://img.shields.io/badge/AppVersion-2.2.1-informational?style=flat-square)
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.4.0](https://img.shields.io/badge/AppVersion-2.4.0-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -111,9 +111,9 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | env[1].value | string | `"false"` |  |
 | extraInitScripts | object | `{}` |  |
 | fullnameOverride | string | `""` |  |
-| image.pullPolicy | string | `"Always"` |  |
+| image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
-| image.tag | string | `"latest"` |  |
+| image.tag | string | `""` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.className | string | `""` |  |
@@ -180,7 +180,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | tolerations | list | `[]` |  |
 | triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
-| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"huggingfaceVoices":{"image":{"repository":"python","tag":"3.14-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[{"name":"en_US-lessac-medium","subfolder":"en/en_US/lessac/medium"},{"name":"de_DE-thorsten-medium","subfolder":"de/de_DE/thorsten/medium"}]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"latest"},"maxTextLength":"5000","persistence":{"accessMode":"ReadWriteOnce","size":"5Gi","storageClass":""},"port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
+| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[{"name":"en_US-lessac-medium","subfolder":"en/en_US/lessac/medium"},{"name":"de_DE-thorsten-medium","subfolder":"de/de_DE/thorsten/medium"}]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"1.0.0"},"maxTextLength":"5000","persistence":{"accessMode":"ReadWriteOnce","size":"5Gi","storageClass":""},"port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
 

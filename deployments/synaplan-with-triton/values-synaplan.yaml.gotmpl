@@ -6,6 +6,9 @@
 {{- if hasKey $oidc "enabled" }}
 {{- $oidcEnabled = index $oidc "enabled" }}
 {{- end }}
+{{- $tritonMode := .Values.services.triton.mode | default "gpu" }}
+{{- $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
+{{- $ollamaBaseUrl := index (index .Values.services.synaplan "ollama" | default dict) "baseUrl" | default "" }}
 
 {{- with .Values | getOrNil "image" }}
 image:
@@ -18,13 +21,22 @@ customRootCA: {{ .Values.cluster.customRootCA }}
 
 publicUrl: {{ $synaplanUrl | quote }}
 
-tritonMode: {{ .Values.services.triton.mode | quote }}
+tritonMode: {{ $tritonMode | quote }}
 
 database:
   host: "mariadb-cluster.{{ $ns }}.svc.cluster.local"
 
 triton:
+  {{- if $tritonLocal }}
   url: "triton.{{ $ns }}.svc.cluster.local:8001"
+  {{- else }}
+  url: ""
+  {{- end }}
+
+{{- if $ollamaBaseUrl }}
+ollama:
+  baseUrl: {{ $ollamaBaseUrl | quote }}
+{{- end }}
 
 tika:
   enabled: true

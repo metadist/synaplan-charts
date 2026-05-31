@@ -7,6 +7,14 @@ environments:
 ---
 
 {{ $ns := .Values | getOrNil "namespace" | default "synaplan" }}
+{{/*
+  services.triton.mode:
+    "gpu"    — deploy local Triton with GPU values (default)
+    "cpu"    — deploy local Triton with CPU-only values
+    "remote" — skip the Triton release entirely (remote inference via ollama.baseUrl)
+*/}}
+{{ $tritonMode := .Values.services.triton.mode | default "gpu" }}
+{{ $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
 
 repositories:
   - name: mariadb-operator
@@ -18,13 +26,13 @@ releases:
   - name: mariadb-operator-crds
     namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-operator-crds
-    version: "25.10.4"
+    version: "26.3.0"
     createNamespace: true
 
   - name: mariadb-operator
     namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-operator
-    version: "25.10.4"
+    version: "26.3.0"
     needs:
       - {{ $ns }}/mariadb-operator-crds
     values:
@@ -33,7 +41,7 @@ releases:
   - name: mariadb-cluster
     namespace: {{ $ns }}
     chart: mariadb-operator/mariadb-cluster
-    version: "25.10.4"
+    version: "26.3.0"
     needs:
       - {{ $ns }}/mariadb-operator-crds
       - {{ $ns }}/mariadb-operator
@@ -51,16 +59,20 @@ releases:
     needs:
       - {{ $ns }}/mariadb-cluster
       - {{ $ns }}/tika
+      {{- if $tritonLocal }}
       - {{ $ns }}/triton
+      {{- end }}
     values:
       - values-synaplan.yaml.gotmpl
 
+  {{- if $tritonLocal }}
   - name: triton
     namespace: {{ $ns }}
     chart: ../../charts/triton
     values:
-      {{- if eq .Values.services.triton.mode "gpu" }}
+      {{- if eq $tritonMode "gpu" }}
       - values-triton-gpu.yaml
       {{- else }}
       - values-triton-cpu.yaml
       {{- end }}
+  {{- end }}

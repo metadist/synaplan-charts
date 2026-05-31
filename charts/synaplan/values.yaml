@@ -107,7 +107,7 @@ tts:
   enabled: false
   image:
     repository: ghcr.io/metadist/synaplan-tts
-    tag: "latest"
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   port: 10200
   defaultVoice: "en_US-lessac-medium"
@@ -154,10 +154,9 @@ replicaCount: 1
 image:
   repository: ghcr.io/metadist/synaplan
   # This sets the pull policy for images.
-  # Using Always for 'latest' tag to ensure we get updates
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
+  tag: ""
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []

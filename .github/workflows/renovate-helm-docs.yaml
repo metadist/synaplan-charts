@@ -1,0 +1,49 @@
+name: Renovate Helm Docs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'charts/**/values.yaml'
+      - 'charts/**/Chart.yaml'
+
+concurrency:
+  group: renovate-helm-docs-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-helm-docs:
+    name: Update Helm Docs
+    if: >-
+      startsWith(github.head_ref, 'renovate/')
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GIT_PUSH_TOKEN }}
+
+      - name: Install helm-docs
+        run: |
+          cd /tmp
+          wget https://github.com/norwoodj/helm-docs/releases/download/v1.14.2/helm-docs_1.14.2_Linux_x86_64.tar.gz
+          tar -xzf helm-docs_1.14.2_Linux_x86_64.tar.gz
+          sudo mv helm-docs /usr/local/bin/
+
+      - name: Generate docs
+        run: helm-docs --skip-version-footer
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: regenerate helm docs"
+            git push
+          else
+            echo "No changes to commit"
+          fi
