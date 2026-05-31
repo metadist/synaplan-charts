@@ -21,13 +21,14 @@ apiKeys:
   huggingface: ""
 
 # Option 2: Reference existing secrets (recommended for production)
+# Secret data-keys use SCREAMING_SNAKE_CASE (identical to the app env vars and .env):
 # Create secret: kubectl create secret generic synaplan-api-keys \
-#   --from-literal=anthropic-api-key=YOUR_KEY \
-#   --from-literal=openai-api-key=YOUR_KEY \
-#   --from-literal=groq-api-key=YOUR_KEY \
-#   --from-literal=google-gemini-api-key=YOUR_KEY \
-#   --from-literal=brave-search-api-key=YOUR_KEY \
-#   --from-literal=huggingface-api-key=YOUR_KEY
+#   --from-literal=ANTHROPIC_API_KEY=YOUR_KEY \
+#   --from-literal=OPENAI_API_KEY=YOUR_KEY \
+#   --from-literal=GROQ_API_KEY=YOUR_KEY \
+#   --from-literal=GOOGLE_GEMINI_API_KEY=YOUR_KEY \
+#   --from-literal=BRAVE_SEARCH_API_KEY=YOUR_KEY \
+#   --from-literal=HUGGINGFACE_API_KEY=YOUR_KEY
 # Then set: apiKeysSecretRef: "synaplan-api-keys"
 apiKeysSecretRef: ""
 
