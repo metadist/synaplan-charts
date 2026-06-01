@@ -112,6 +112,9 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
     nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
     nginx.ingress.kubernetes.io/proxy-busy-buffers-size: "16k"
+    {{- with index (index .Values.services.synaplan "ingress" | default dict) "annotations" }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   hosts:
     - host: {{ $synaplanHost | quote }}
       paths:
