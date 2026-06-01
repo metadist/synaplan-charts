@@ -90,7 +90,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.apiKeysSecretRef | quote }}
-                  key: "ANTHROPIC_API_KEY"
+                  key: "anthropic-api-key"
                   optional: true
               {{- else }}
               value: {{ .Values.apiKeys.anthropic | quote }}
@@ -100,7 +100,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.apiKeysSecretRef | quote }}
-                  key: "OPENAI_API_KEY"
+                  key: "openai-api-key"
                   optional: true
               {{- else }}
               value: {{ .Values.apiKeys.openai | quote }}
@@ -110,7 +110,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.apiKeysSecretRef | quote }}
-                  key: "GROQ_API_KEY"
+                  key: "groq-api-key"
                   optional: true
               {{- else }}
               value: {{ .Values.apiKeys.groq | quote }}
@@ -120,7 +120,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.apiKeysSecretRef | quote }}
-                  key: "GOOGLE_GEMINI_API_KEY"
+                  key: "google-gemini-api-key"
                   optional: true
               {{- else }}
               value: {{ .Values.apiKeys.googleGemini | quote }}
@@ -130,7 +130,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.apiKeysSecretRef | quote }}
-                  key: "BRAVE_SEARCH_API_KEY"
+                  key: "brave-search-api-key"
                   optional: true
               {{- else }}
               value: {{ .Values.apiKeys.braveSearch | quote }}
@@ -140,7 +140,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.apiKeysSecretRef | quote }}
-                  key: "HUGGINGFACE_API_KEY"
+                  key: "huggingface-api-key"
                   optional: true
               {{- else }}
               value: {{ .Values.apiKeys.huggingface | quote }}
