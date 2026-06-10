@@ -55,6 +55,78 @@ tika:
   enabled: false
   url: "http://tika.synaplan.svc.cluster.local:9998"
 
+# Redis — shared infrastructure for the realtime release (Synaplan >= 2.5):
+# Symfony cache, sessions, locks, rate-limiter, Messenger queues (Redis
+# Streams) and the Centrifugo realtime engine. Mandatory once the app image
+# requires it; keep disabled while running 2.4.x images.
+redis:
+  # -- Deploy an in-cluster Redis (single instance, cache semantics, no persistence)
+  enabled: false
+  # -- Use an external/managed Redis instead of the in-cluster one (e.g. redis://redis.internal:6379). Ignored when redis.enabled is true.
+  externalDsn: ""
+  image:
+    repository: redis
+    # Pinned to 7.4: Centrifugo v6 reliably receives pub/sub publications from
+    # Redis 7.x, while 8.x dropped fan-out to the Centrifugo node.
+    tag: "7.4-alpine"
+    pullPolicy: IfNotPresent
+  port: 6379
+  # -- Redis maxmemory (LRU eviction via allkeys-lru)
+  maxMemory: "256mb"
+  resources: {}
+
+# Centrifugo — WebSocket realtime gateway (live chat takeover, typing
+# indicators, operator notifications). Requires Redis (engine) and an app
+# image >= 2.5. Browsers connect same-origin via /connection/websocket —
+# the app's built-in Caddy proxies that path to the service named
+# "centrifugo" (fixed name, expected by the Caddyfile baked into the app
+# image; one release per namespace).
+centrifugo:
+  enabled: false
+  image:
+    repository: centrifugo/centrifugo
+    tag: "v6.4.0"
+    pullPolicy: IfNotPresent
+  port: 8000
+  replicaCount: 1
+  # Secrets — Option 1: plain values (not recommended for production).
+  # The backend refuses to mint tokens in prod while these keep the
+  # changeme_* placeholders, so realtime stays silently off until set.
+  apiKey: "changeme_centrifugo_api_key"
+  tokenHmacSecret: "changeme_centrifugo_token_secret"
+  adminPassword: "changeme_admin"
+  adminSecret: "changeme_admin_secret"
+  # Option 2: reference an existing secret (recommended). Expected keys:
+  # api-key, token-hmac-secret-key, admin-password, admin-secret.
+  # kubectl create secret generic synaplan-realtime \
+  #   --from-literal=api-key=$(openssl rand -hex 32) \
+  #   --from-literal=token-hmac-secret-key=$(openssl rand -hex 32) \
+  #   --from-literal=admin-password=$(openssl rand -hex 16) \
+  #   --from-literal=admin-secret=$(openssl rand -hex 32)
+  # Then set: secretRef: "synaplan-realtime"
+  secretRef: ""
+  # -- Origins allowed to open WebSocket connections. Set to your real origin(s) in production, e.g. "https://synaplan.example.com".
+  allowedOrigins: "*"
+  # -- Public WebSocket URL for browsers. Empty = same-origin via /connection/websocket (recommended).
+  publicWsUrl: ""
+  # -- Redis address for the Centrifugo engine. Empty = shared chart Redis on logical DB /3.
+  redisAddress: ""
+  resources: {}
+
+# Symfony Messenger worker — consumes the async Redis Streams queues
+# (AI processing, document extraction, indexing). Requires Redis and an app
+# image >= 2.5; without a worker, queued jobs never execute.
+worker:
+  enabled: false
+  replicaCount: 1
+  # -- Transports to consume (space-separated)
+  transports: "async_ai_high async_extract async_index"
+  # -- Restart the consumer after this many seconds (bounds memory growth; standard Symfony pattern)
+  timeLimit: "3600"
+  # -- Restart the consumer when it exceeds this memory limit
+  memoryLimit: "512M"
+  resources: {}
+
 # OIDC authentication configuration
 oidc:
   enabled: false

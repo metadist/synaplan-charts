@@ -1,0 +1,115 @@
+{{- if .Values.centrifugo.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synaplan.fullname" . }}-centrifugo
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: centrifugo
+spec:
+  # Safe to scale: all instances share state through the Redis engine, so a
+  # publish handled by one replica reaches WebSocket clients on any other.
+  replicas: {{ .Values.centrifugo.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "synaplan.name" . }}-centrifugo
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/centrifugo-configmap.yaml") . | sha256sum }}
+      labels:
+        app.kubernetes.io/name: {{ include "synaplan.name" . }}-centrifugo
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: centrifugo
+          image: "{{ .Values.centrifugo.image.repository }}:{{ .Values.centrifugo.image.tag }}"
+          imagePullPolicy: {{ .Values.centrifugo.image.pullPolicy }}
+          command: ["centrifugo", "-c", "/centrifugo/config.json"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.centrifugo.port }}
+              protocol: TCP
+          env:
+            # Env vars override config.json values (Centrifugo v6 nests config
+            # under typed sections; names mirror the JSON path).
+            - name: CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY
+              {{- if .Values.centrifugo.secretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.centrifugo.secretRef | quote }}
+                  key: "token-hmac-secret-key"
+              {{- else }}
+              value: {{ .Values.centrifugo.tokenHmacSecret | quote }}
+              {{- end }}
+            - name: CENTRIFUGO_HTTP_API_KEY
+              {{- if .Values.centrifugo.secretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.centrifugo.secretRef | quote }}
+                  key: "api-key"
+              {{- else }}
+              value: {{ .Values.centrifugo.apiKey | quote }}
+              {{- end }}
+            - name: CENTRIFUGO_ADMIN_PASSWORD
+              {{- if .Values.centrifugo.secretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.centrifugo.secretRef | quote }}
+                  key: "admin-password"
+              {{- else }}
+              value: {{ .Values.centrifugo.adminPassword | quote }}
+              {{- end }}
+            - name: CENTRIFUGO_ADMIN_SECRET
+              {{- if .Values.centrifugo.secretRef }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.centrifugo.secretRef | quote }}
+                  key: "admin-secret"
+              {{- else }}
+              value: {{ .Values.centrifugo.adminSecret | quote }}
+              {{- end }}
+            - name: CENTRIFUGO_CLIENT_ALLOWED_ORIGINS
+              value: {{ .Values.centrifugo.allowedOrigins | quote }}
+            - name: CENTRIFUGO_ENGINE_REDIS_ADDRESS
+              value: {{ include "synaplan.centrifugoRedisAddress" . | quote }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          {{- with .Values.centrifugo.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /centrifugo/config.json
+              subPath: config.json
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "synaplan.fullname" . }}-centrifugo-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

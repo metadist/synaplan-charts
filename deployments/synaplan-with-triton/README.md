@@ -112,6 +112,39 @@ cluster:
 This will:
 - Mount the CA certificate from the `synaplan-tls` secret
 
+### Realtime & Async Processing (optional, app image >= 2.5)
+
+Synaplan's realtime release adds Redis, a Centrifugo WebSocket gateway, and a
+Symfony Messenger worker. All three are **disabled by default** (safe for
+2.4.x images). Enable them per environment under `services:`:
+
+```yaml
+services:
+  redis:
+    enabled: true
+  centrifugo:
+    enabled: true
+    secretRef: "synaplan-realtime"   # api-key, token-hmac-secret-key, admin-password, admin-secret
+    allowedOrigins: "https://synaplan.example.com"
+  worker:
+    enabled: true
+```
+
+Create the realtime secret first:
+
+```bash
+kubectl create secret generic synaplan-realtime -n synaplan \
+  --from-literal=api-key=$(openssl rand -hex 32) \
+  --from-literal=token-hmac-secret-key=$(openssl rand -hex 32) \
+  --from-literal=admin-password=$(openssl rand -hex 16) \
+  --from-literal=admin-secret=$(openssl rand -hex 32)
+```
+
+Notes: enable all three together; the worker needs `persistence.uploads`
+(ReadWriteMany) to read uploaded files; WebSockets ride the normal app
+ingress at `/connection/websocket` (ensure idle timeouts >= 60s). See the
+[synaplan chart README](../../charts/synaplan/README.md) for all options.
+
 ## Access the Application
 
 After deployment, access Synaplan at the configured URL (e.g., `https://synaplan.example.com`).

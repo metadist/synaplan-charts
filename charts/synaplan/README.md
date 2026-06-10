@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.4.0](https://img.shields.io/badge/AppVersion-2.4.0-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.4.0](https://img.shields.io/badge/AppVersion-2.4.0-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.1.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.2.0
 ```
 
 ### Install from local chart
@@ -83,6 +83,42 @@ ollama:
 
 See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM build configuration.
 
+### Realtime & Async Processing (Redis + Centrifugo + Worker)
+
+Synaplan's realtime release (app image >= 2.5) adds three infrastructure components, all shipped by this chart but **disabled by default** so existing 2.4.x deployments are unaffected:
+
+| Component | Values key | Purpose |
+|-----------|------------|---------|
+| **Redis** | `redis.enabled` | Mandatory shared infrastructure for app images >= 2.5: Symfony cache, sessions, locks, rate limiter, Messenger queues (Redis Streams), and the Centrifugo engine |
+| **Centrifugo** | `centrifugo.enabled` | WebSocket gateway for realtime features: live chat takeover, typing indicators, operator notifications |
+| **Worker** | `worker.enabled` | Symfony Messenger consumer executing async jobs (AI processing, document extraction, indexing) |
+
+Enable all three together when running a realtime-era image:
+
+```yaml
+redis:
+  enabled: true
+
+centrifugo:
+  enabled: true
+  secretRef: "synaplan-realtime"   # api-key, token-hmac-secret-key, admin-password, admin-secret
+  allowedOrigins: "https://synaplan.example.com"
+
+worker:
+  enabled: true
+
+persistence:
+  uploads:
+    enabled: true   # ReadWriteMany — required so worker jobs can read uploads
+```
+
+Notes:
+
+- **Same-origin WebSockets**: browsers connect to `/connection/websocket` on the normal app origin; the Caddy server inside the app image proxies it to the Service named `centrifugo` (fixed name — one synaplan release per namespace when enabled). No extra ingress rules are needed, but your ingress controller must allow WebSocket upgrades with idle timeouts >= 60s.
+- **Secrets**: generate real values (`openssl rand -hex 32`) — the backend refuses to mint realtime tokens in production while the `changeme_*` placeholders are in place.
+- **External Redis**: instead of the in-cluster Redis, set `redis.enabled: false` and `redis.externalDsn: "redis://your-redis.internal:6379"` (the Centrifugo engine then uses logical DB `/3` of the same Redis unless `centrifugo.redisAddress` overrides it).
+- **Scaling**: `centrifugo.replicaCount` and `worker.replicaCount` can scale independently — Centrifugo replicas share state via the Redis engine, workers compete for jobs on the shared streams.
+
 ## Values
 
 | Key | Type | Default | Description |
@@ -99,6 +135,21 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| centrifugo.adminPassword | string | `"changeme_admin"` |  |
+| centrifugo.adminSecret | string | `"changeme_admin_secret"` |  |
+| centrifugo.allowedOrigins | string | `"*"` | Origins allowed to open WebSocket connections. Set to your real origin(s) in production, e.g. "https://synaplan.example.com". |
+| centrifugo.apiKey | string | `"changeme_centrifugo_api_key"` |  |
+| centrifugo.enabled | bool | `false` |  |
+| centrifugo.image.pullPolicy | string | `"IfNotPresent"` |  |
+| centrifugo.image.repository | string | `"centrifugo/centrifugo"` |  |
+| centrifugo.image.tag | string | `"v6.4.0"` |  |
+| centrifugo.port | int | `8000` |  |
+| centrifugo.publicWsUrl | string | `""` | Public WebSocket URL for browsers. Empty = same-origin via /connection/websocket (recommended). |
+| centrifugo.redisAddress | string | `""` | Redis address for the Centrifugo engine. Empty = shared chart Redis on logical DB /3. |
+| centrifugo.replicaCount | int | `1` |  |
+| centrifugo.resources | object | `{}` |  |
+| centrifugo.secretRef | string | `""` |  |
+| centrifugo.tokenHmacSecret | string | `"changeme_centrifugo_token_secret"` |  |
 | customRootCA | bool | `false` |  |
 | database.host | string | `"mariadb-cluster"` |  |
 | database.name | string | `"synaplan"` |  |
@@ -166,6 +217,14 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `30` |  |
 | readinessProbe.periodSeconds | int | `5` |  |
+| redis.enabled | bool | `false` | Deploy an in-cluster Redis (single instance, cache semantics, no persistence) |
+| redis.externalDsn | string | `""` | Use an external/managed Redis instead of the in-cluster one (e.g. redis://redis.internal:6379). Ignored when redis.enabled is true. |
+| redis.image.pullPolicy | string | `"IfNotPresent"` |  |
+| redis.image.repository | string | `"redis"` |  |
+| redis.image.tag | string | `"7.4-alpine"` |  |
+| redis.maxMemory | string | `"256mb"` | Redis maxmemory (LRU eviction via allkeys-lru) |
+| redis.port | int | `6379` |  |
+| redis.resources | object | `{}` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
 | securityContext | object | `{}` |  |
@@ -183,6 +242,12 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[{"name":"en_US-lessac-medium","subfolder":"en/en_US/lessac/medium"},{"name":"de_DE-thorsten-medium","subfolder":"de/de_DE/thorsten/medium"}]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"1.0.0"},"maxTextLength":"5000","persistence":{"accessMode":"ReadWriteOnce","size":"5Gi","storageClass":""},"port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
+| worker.enabled | bool | `false` |  |
+| worker.memoryLimit | string | `"512M"` | Restart the consumer when it exceeds this memory limit |
+| worker.replicaCount | int | `1` |  |
+| worker.resources | object | `{}` |  |
+| worker.timeLimit | string | `"3600"` | Restart the consumer after this many seconds (bounds memory growth; standard Symfony pattern) |
+| worker.transports | string | `"async_ai_high async_extract async_index"` | Transports to consume (space-separated) |
 
 ## Usage
 

@@ -1,0 +1,100 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synaplan.fullname" . }}-worker
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  # Workers compete for jobs on the shared Redis Streams, so scaling out is
+  # safe and increases async throughput independently of web replicas.
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "synaplan.name" . }}-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "synaplan.name" . }}-worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "synaplan.serviceAccountName" . }}
+      containers:
+        - name: worker
+          # Same image as the main app — only the command differs.
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Bypass the image entrypoint (web server, migrations): the main app
+          # deployment owns schema migrations. Build the DATABASE_* URLs from
+          # the same DB_* env the app uses, wait until the schema exists, then
+          # consume. --time-limit + --memory-limit recycle the consumer; the
+          # Deployment restarts it (standard Symfony worker pattern).
+          command: ["bash", "-c"]
+          args:
+            - |
+              set -u
+              export APP_DEBUG=0
+              export DATABASE_WRITE_URL="mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?serverVersion=${DB_SERVER_VERSION}&charset=utf8mb4"
+              export DATABASE_READ_URL="${DATABASE_WRITE_URL}"
+
+              until php bin/console --env=prod dbal:run-sql 'SELECT 1' >/dev/null 2>&1; do
+                echo "[worker] waiting for db schema..."; sleep 3;
+              done
+
+              echo "[worker] db ready, starting messenger:consume"
+              exec php bin/console --env=prod messenger:consume \
+                {{ .Values.worker.transports }} \
+                --time-limit={{ .Values.worker.timeLimit }} --memory-limit={{ .Values.worker.memoryLimit }}
+          workingDir: /var/www/backend
+          env:
+            {{- include "synaplan.appEnv" . | nindent 12 }}
+          {{- with .Values.worker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # Shared with the main app so async jobs (extraction, indexing)
+            # can read uploaded files. Requires persistence.uploads.enabled
+            # with a ReadWriteMany-capable storage class; with persistence
+            # disabled each pod sees its own emptyDir and file-based jobs
+            # will not find their inputs.
+            - name: synaplan-uploads
+              mountPath: /var/www/backend/var/uploads
+            {{- if .Values.customRootCA }}
+            - name: tls
+              mountPath: /usr/local/share/ca-certificates/custom-ca.crt
+              subPath: ca.crt
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: synaplan-uploads
+        {{- if .Values.persistence.uploads.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.uploads.existingClaim | default (printf "%s-uploads-pvc" (include "synaplan.fullname" .)) }}
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+      {{- if .Values.customRootCA }}
+        - name: tls
+          secret:
+            secretName: synaplan-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,24 @@
+{{- if .Values.centrifugo.enabled }}
+# NOTE: the Service is intentionally named "centrifugo" (no release prefix).
+# The Caddyfile baked into the synaplan app image reverse-proxies
+# /connection/* to the fixed upstream "centrifugo:8000" so browsers get
+# same-origin WebSockets without extra ingress rules. This implies one
+# synaplan release per namespace when centrifugo.enabled is true.
+apiVersion: v1
+kind: Service
+metadata:
+  name: centrifugo
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: centrifugo
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.centrifugo.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "synaplan.name" . }}-centrifugo
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

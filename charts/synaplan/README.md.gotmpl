@@ -82,6 +82,42 @@ ollama:
 
 See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM build configuration.
 
+### Realtime & Async Processing (Redis + Centrifugo + Worker)
+
+Synaplan's realtime release (app image >= 2.5) adds three infrastructure components, all shipped by this chart but **disabled by default** so existing 2.4.x deployments are unaffected:
+
+| Component | Values key | Purpose |
+|-----------|------------|---------|
+| **Redis** | `redis.enabled` | Mandatory shared infrastructure for app images >= 2.5: Symfony cache, sessions, locks, rate limiter, Messenger queues (Redis Streams), and the Centrifugo engine |
+| **Centrifugo** | `centrifugo.enabled` | WebSocket gateway for realtime features: live chat takeover, typing indicators, operator notifications |
+| **Worker** | `worker.enabled` | Symfony Messenger consumer executing async jobs (AI processing, document extraction, indexing) |
+
+Enable all three together when running a realtime-era image:
+
+```yaml
+redis:
+  enabled: true
+
+centrifugo:
+  enabled: true
+  secretRef: "synaplan-realtime"   # api-key, token-hmac-secret-key, admin-password, admin-secret
+  allowedOrigins: "https://synaplan.example.com"
+
+worker:
+  enabled: true
+
+persistence:
+  uploads:
+    enabled: true   # ReadWriteMany — required so worker jobs can read uploads
+```
+
+Notes:
+
+- **Same-origin WebSockets**: browsers connect to `/connection/websocket` on the normal app origin; the Caddy server inside the app image proxies it to the Service named `centrifugo` (fixed name — one synaplan release per namespace when enabled). No extra ingress rules are needed, but your ingress controller must allow WebSocket upgrades with idle timeouts >= 60s.
+- **Secrets**: generate real values (`openssl rand -hex 32`) — the backend refuses to mint realtime tokens in production while the `changeme_*` placeholders are in place.
+- **External Redis**: instead of the in-cluster Redis, set `redis.enabled: false` and `redis.externalDsn: "redis://your-redis.internal:6379"` (the Centrifugo engine then uses logical DB `/3` of the same Redis unless `centrifugo.redisAddress` overrides it).
+- **Scaling**: `centrifugo.replicaCount` and `worker.replicaCount` can scale independently — Centrifugo replicas share state via the Redis engine, workers compete for jobs on the shared streams.
+
 {{ template "chart.valuesSection" . }}
 
 ## Usage

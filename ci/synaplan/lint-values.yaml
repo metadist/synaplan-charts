@@ -5,7 +5,17 @@ persistence:
 
 image:
   repository: ghcr.io/metadist/synaplan
-  tag: latest
+  tag: v3.4.6
+
+# Exercise the realtime/async components in CI (disabled by default)
+redis:
+  enabled: true
+
+centrifugo:
+  enabled: true
+
+worker:
+  enabled: true
 
 env:
   - name: APP_URL

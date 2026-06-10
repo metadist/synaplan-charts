@@ -79,6 +79,23 @@ tts:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 
+{{/* Realtime / async components (app image >= 2.5). Omit in the environment
+     values to keep them disabled (safe for 2.4.x images). */}}
+{{- with .Values.services | getOrNil "redis" }}
+redis:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+
+{{- with .Values.services | getOrNil "centrifugo" }}
+centrifugo:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+
+{{- with .Values.services | getOrNil "worker" }}
+worker:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+
 {{- with .Values.services.synaplan | getOrNil "apiKeysSecretRef" }}
 apiKeysSecretRef: {{ . | quote }}
 {{- end }}

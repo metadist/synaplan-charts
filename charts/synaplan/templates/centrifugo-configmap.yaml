@@ -1,0 +1,116 @@
+{{- if .Values.centrifugo.enabled }}
+# Mirrors _docker/centrifugo/config.json from the main synaplan repository.
+# Secrets and the engine address are injected via CENTRIFUGO_* env vars in the
+# deployment (env overrides config-file values in Centrifugo v6), so this file
+# stays free of credentials.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "synaplan.fullname" . }}-centrifugo-config
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: centrifugo
+data:
+  config.json: |
+    {
+      "http_server": {
+        "address": "0.0.0.0",
+        "port": {{ .Values.centrifugo.port }}
+      },
+
+      "log": {
+        "level": "info"
+      },
+
+      "engine": {
+        "type": "redis",
+        "redis": {
+          "address": {{ include "synaplan.centrifugoRedisAddress" . | quote }}
+        }
+      },
+
+      "client": {
+        "allowed_origins": [{{ range $i, $origin := splitList " " .Values.centrifugo.allowedOrigins }}{{ if $i }}, {{ end }}{{ $origin | quote }}{{ end }}],
+        "user_connection_limit": 16,
+        "ping_interval": "25s",
+        "stale_close_delay": "60s"
+      },
+
+      "channel": {
+        "namespaces": [
+          {
+            "name": "widget",
+            "presence": false,
+            "history_size": 100,
+            "history_ttl": "10m",
+            "force_recovery": true,
+            "allow_subscribe_for_anonymous": false,
+            "allow_subscribe_for_client": false,
+            "allow_publish_for_subscriber": false,
+            "allow_publish_for_client": false,
+            "allow_publish_for_anonymous": false
+          },
+          {
+            "name": "widgettyping",
+            "presence": false,
+            "history_size": 0,
+            "history_ttl": "0s",
+            "force_recovery": false,
+            "allow_subscribe_for_anonymous": false,
+            "allow_subscribe_for_client": false,
+            "allow_publish_for_subscriber": true,
+            "allow_publish_for_client": false,
+            "allow_publish_for_anonymous": false
+          },
+          {
+            "name": "user",
+            "presence": true,
+            "history_size": 50,
+            "history_ttl": "5m",
+            "force_recovery": true,
+            "allow_subscribe_for_anonymous": false,
+            "allow_subscribe_for_client": false,
+            "allow_publish_for_subscriber": false,
+            "allow_publish_for_client": false,
+            "allow_publish_for_anonymous": false
+          },
+          {
+            "name": "admin",
+            "presence": true,
+            "history_size": 50,
+            "history_ttl": "5m",
+            "force_recovery": true,
+            "allow_subscribe_for_anonymous": false,
+            "allow_subscribe_for_client": false,
+            "allow_publish_for_subscriber": false,
+            "allow_publish_for_client": false,
+            "allow_publish_for_anonymous": false
+          },
+          {
+            "name": "system",
+            "presence": false,
+            "history_size": 10,
+            "history_ttl": "1m",
+            "force_recovery": false,
+            "allow_subscribe_for_anonymous": true,
+            "allow_subscribe_for_client": true,
+            "allow_publish_for_subscriber": false
+          }
+        ]
+      },
+
+      "http_api": {},
+
+      "admin": {
+        "enabled": true
+      },
+
+      "prometheus": {
+        "enabled": true
+      },
+
+      "health": {
+        "enabled": true
+      }
+    }
+{{- end }}
