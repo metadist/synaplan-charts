@@ -178,7 +178,7 @@ role deployments add SYNAPLAN_ROLE on top.
 {{- end }}
 {{- with .Values.env }}
 # Additional environment variables
-{{- toYaml . }}
+{{- toYaml . | nindent 0 }}
 {{- end }}
 {{- end }}
 
@@ -198,7 +198,7 @@ volumeMounts shared by every synaplan role (uploads, custom CA, init-scripts)
   mountPath: /docker-entrypoint.d
   readOnly: true
 {{- with .Values.volumeMounts }}
-{{- toYaml . }}
+{{- toYaml . | nindent 0 }}
 {{- end }}
 {{- end }}
 
@@ -226,6 +226,6 @@ volumes shared by every synaplan role
     name: {{ include "synaplan.fullname" . }}-init-scripts
     defaultMode: 0755
 {{- with .Values.volumes }}
-{{- toYaml . }}
+{{- toYaml . | nindent 0 }}
 {{- end }}
 {{- end }}
