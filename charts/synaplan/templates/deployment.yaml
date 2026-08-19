@@ -73,7 +73,7 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mariadb-credentials
+                  name: {{ .Values.database.passwordSecretRef | quote }}
                   key: password
             # Triton Inference Server
             - name: TRITON_SERVER_URL
@@ -222,7 +222,7 @@ spec:
       {{- if .Values.customRootCA }}
         - name: tls
           secret:
-            secretName: synaplan-tls
+            secretName: {{ .Values.customRootCASecretRef | quote }}
             items:
               - key: ca.crt
                 path: ca.crt

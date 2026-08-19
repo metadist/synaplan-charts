@@ -1,5 +1,9 @@
 customRootCA: false
 
+# -- Name of an existing Secret holding the custom root CA (key: ca.crt),
+# mounted when customRootCA is enabled
+customRootCASecretRef: "synaplan-tls"
+
 # Public URL for accessing Synaplan (e.g., https://synaplan.example.com)
 publicUrl: ""
 
@@ -38,6 +42,8 @@ database:
   name: "synaplan"
   user: "synaplan"
   serverVersion: "11.7.2-MariaDB"
+  # -- Name of an existing Secret holding the database password (key: password)
+  passwordSecretRef: "mariadb-credentials"
 
 # Triton Inference Server configuration
 triton:
