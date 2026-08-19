@@ -109,6 +109,10 @@ cluster:
   customRootCA: true
 ```
 
+(This deployment maps the flag to the chart's `customRootCA.secretRef`,
+pointing at the cert-manager-issued `synaplan-tls` secret. The chart also
+accepts an inline PEM via `customRootCA.crt`.)
+
 This will:
 - Mount the CA certificate from the `synaplan-tls` secret
 

@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "synaplan.labels" . | nindent 4 }}
 data:
-  {{- if .Values.customRootCA }}
+  {{- if include "synaplan.customRootCA.enabled" . }}
   00-setup-ca.sh: |
     #!/bin/bash
     # Setup custom root CA certificates
