@@ -54,6 +54,10 @@ spec:
           env:
             - name: SYNAPLAN_ROLE
               value: "worker"
+            # The role startup gate curls the web role's health endpoint;
+            # the image default (http://backend) is the compose hostname.
+            - name: SYNAPLAN_WEB_HEALTH_URL
+              value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}/api/health"
             {{- with .Values.worker.transports }}
             - name: SYNAPLAN_WORKER_TRANSPORTS
               value: {{ . | quote }}

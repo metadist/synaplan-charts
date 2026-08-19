@@ -52,6 +52,9 @@ spec:
           env:
             - name: SYNAPLAN_ROLE
               value: "scheduler"
+            # See worker-deployment.yaml: compose-hostname default.
+            - name: SYNAPLAN_WEB_HEALTH_URL
+              value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}/api/health"
             {{- include "synaplan.env" . | nindent 12 }}
           {{- with .Values.scheduler.resources }}
           resources:
