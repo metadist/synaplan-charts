@@ -9,6 +9,13 @@ on:
   pull_request:
     branches: [main]
 
+# The dev/release publish jobs push charts to GHCR with GITHUB_TOKEN; the
+# default token grant no longer includes packages:write, so request it
+# explicitly (broke main publishes with 403s on the blob upload).
+permissions:
+  contents: read
+  packages: write
+
 env:
   HELM_VERSION: v3.14.0
 
