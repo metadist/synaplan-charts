@@ -173,8 +173,15 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `30` |  |
 | readinessProbe.periodSeconds | int | `5` |  |
+| redis.dsn | string | `""` | External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379). Takes precedence over the bundled Redis. Must not carry a path - the Messenger transports append their stream names to it. |
+| redis.enabled | bool | `true` | Deploy a bundled single-node Redis. NOT persistent: queued async jobs are lost when it restarts. Disable to use an external Redis via dsn. |
+| redis.image.pullPolicy | string | `"IfNotPresent"` |  |
+| redis.image.repository | string | `"redis"` |  |
+| redis.image.tag | string | `"7.4-alpine"` |  |
+| redis.resources | object | `{}` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
+| scheduler | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"resources":{},"tolerations":[]}` | Scheduler (SYNAPLAN_ROLE=scheduler): periodic maintenance tasks. Singleton; same uploads-volume sharing caveat as the worker. |
 | securityContext | object | `{}` |  |
 | service.port | int | `80` |  |
 | service.type | string | `"ClusterIP"` |  |
@@ -190,6 +197,8 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[{"name":"en_US-lessac-medium","subfolder":"en/en_US/lessac/medium"},{"name":"de_DE-thorsten-medium","subfolder":"de/de_DE/thorsten/medium"}]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"1.0.0"},"maxTextLength":"5000","persistence":{"accessMode":"ReadWriteOnce","size":"5Gi","storageClass":""},"port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
+| worker | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"replicaCount":1,"resources":{},"tolerations":[],"transports":""}` | Messenger worker (SYNAPLAN_ROLE=worker): consumes the async queues (AI jobs, extraction, indexing). Required for synaplan >= 4.0 async features. Shares the uploads volume with the web pod: with a ReadWriteOnce PVC the worker must be co-scheduled with the web pod (set affinity accordingly) or the PVC switched to ReadWriteMany. |
+| worker.transports | string | `""` | Space-separated Messenger transport list; empty = image default. |
 
 ## Usage
 

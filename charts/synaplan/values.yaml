@@ -38,6 +38,46 @@ apiKeys:
 # Then set: apiKeysSecretRef: "synaplan-api-keys"
 apiKeysSecretRef: ""
 
+# Redis - mandatory infrastructure since synaplan 4.0 (Symfony cache,
+# Messenger queues, locks, rate limiter).
+redis:
+  # -- Deploy a bundled single-node Redis. NOT persistent: queued async jobs
+  # are lost when it restarts. Disable to use an external Redis via dsn.
+  enabled: true
+  # -- External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379).
+  # Takes precedence over the bundled Redis. Must not carry a path - the
+  # Messenger transports append their stream names to it.
+  dsn: ""
+  image:
+    repository: redis
+    tag: "7.4-alpine"
+    pullPolicy: IfNotPresent
+  resources: {}
+
+# -- Messenger worker (SYNAPLAN_ROLE=worker): consumes the async queues (AI
+# jobs, extraction, indexing). Required for synaplan >= 4.0 async features.
+# Shares the uploads volume with the web pod: with a ReadWriteOnce PVC the
+# worker must be co-scheduled with the web pod (set affinity accordingly) or
+# the PVC switched to ReadWriteMany.
+worker:
+  enabled: true
+  replicaCount: 1
+  # -- Space-separated Messenger transport list; empty = image default.
+  transports: ""
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -- Scheduler (SYNAPLAN_ROLE=scheduler): periodic maintenance tasks.
+# Singleton; same uploads-volume sharing caveat as the worker.
+scheduler:
+  enabled: true
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
 # Database configuration
 database:
   host: "mariadb-cluster"

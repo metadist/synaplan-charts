@@ -74,3 +74,158 @@ Name of the Secret holding the custom root CA (key ca.crt)
 {{- define "synaplan.customRootCA.secretName" -}}
 {{- .Values.customRootCA.secretRef | default (printf "%s-ca" (include "synaplan.fullname" .)) -}}
 {{- end }}
+
+{{/*
+Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
+*/}}
+{{- define "synaplan.redisDsn" -}}
+{{- .Values.redis.dsn | default (printf "redis://%s-redis:6379" (include "synaplan.fullname" .)) -}}
+{{- end }}
+
+{{/*
+Environment shared by every synaplan role (web, worker, scheduler). All roles
+run the same image and entrypoint, so they need the same configuration; the
+role deployments add SYNAPLAN_ROLE on top.
+*/}}
+{{- define "synaplan.env" -}}
+# Application URLs
+- name: APP_URL
+  value: {{ .Values.publicUrl | quote }}
+- name: SYNAPLAN_URL
+  value: {{ .Values.publicUrl | quote }}
+- name: FRONTEND_URL
+  value: {{ .Values.publicUrl | quote }}
+# Database configuration
+- name: DB_HOST
+  value: {{ .Values.database.host | quote }}
+- name: DB_PORT
+  value: {{ .Values.database.port | quote }}
+- name: DB_NAME
+  value: {{ .Values.database.name | quote }}
+- name: DB_USER
+  value: {{ .Values.database.user | quote }}
+- name: DB_SERVER_VERSION
+  value: {{ .Values.database.serverVersion | quote }}
+- name: DB_PASSWORD
+  {{- if .Values.database.passwordSecretRef }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.passwordSecretRef | quote }}
+      key: password
+  {{- else }}
+  value: {{ .Values.database.password | quote }}
+  {{- end }}
+# Redis (mandatory since synaplan 4.0: Symfony cache, Messenger queues,
+# rate limiter). LOCK_DSN points at the same redis so locks are visible
+# across the web/worker/scheduler pods (flock would be per-pod).
+- name: REDIS_DSN
+  value: {{ include "synaplan.redisDsn" . | quote }}
+- name: LOCK_DSN
+  value: {{ include "synaplan.redisDsn" . | quote }}
+# Triton Inference Server
+- name: TRITON_SERVER_URL
+  value: {{ .Values.triton.url | quote }}
+# Ollama (optional)
+- name: OLLAMA_BASE_URL
+  value: {{ .Values.ollama.baseUrl | quote }}
+# Mailer configuration
+- name: MAILER_DSN
+  value: {{ .Values.mailerDsn | quote }}
+# AI Provider API Keys
+{{- range $env, $key := dict "ANTHROPIC_API_KEY" "anthropic" "OPENAI_API_KEY" "openai" "GROQ_API_KEY" "groq" "GOOGLE_GEMINI_API_KEY" "googleGemini" "BRAVE_SEARCH_API_KEY" "braveSearch" "HUGGINGFACE_API_KEY" "huggingface" }}
+- name: {{ $env }}
+  {{- if $.Values.apiKeysSecretRef }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $.Values.apiKeysSecretRef | quote }}
+      key: {{ $key | kebabcase | printf "%s-api-key" | quote }}
+      optional: true
+  {{- else }}
+  value: {{ index $.Values.apiKeys $key | quote }}
+  {{- end }}
+{{- end }}
+{{- if .Values.oidc.enabled }}
+# OIDC Authentication
+- name: OIDC_DISCOVERY_URL
+  value: {{ .Values.oidc.issuerURI | quote }}
+- name: OIDC_CLIENT_ID
+  value: {{ .Values.oidc.clientId | quote }}
+- name: OIDC_CLIENT_SECRET
+  {{- if .Values.oidc.clientSecretRef }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.oidc.clientSecretRef | quote }}
+      key: "client-secret"
+  {{- else }}
+  value: {{ .Values.oidc.clientSecret | quote }}
+  {{- end }}
+- name: OIDC_AUTO_REDIRECT
+  value: {{ .Values.oidc.autoRedirect | quote }}
+{{- if .Values.oidc.scopes }}
+- name: OIDC_SCOPES
+  value: {{ .Values.oidc.scopes | quote }}
+{{- end }}
+{{- end }}
+{{- if .Values.tika.enabled }}
+# Tika Document Processing
+- name: TIKA_BASE_URL
+  value: {{ .Values.tika.url | quote }}
+{{- end }}
+{{- if .Values.tts.enabled }}
+# TTS (text-to-speech)
+- name: SYNAPLAN_TTS_URL
+  value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
+{{- end }}
+{{- with .Values.env }}
+# Additional environment variables
+{{- toYaml . }}
+{{- end }}
+{{- end }}
+
+{{/*
+volumeMounts shared by every synaplan role (uploads, custom CA, init-scripts)
+*/}}
+{{- define "synaplan.volumeMounts" -}}
+- name: synaplan-uploads
+  mountPath: /var/www/backend/var/uploads
+{{- if include "synaplan.customRootCA.enabled" . }}
+- name: tls
+  mountPath: /usr/local/share/ca-certificates/custom-ca.crt
+  subPath: ca.crt
+  readOnly: true
+{{- end }}
+- name: init-scripts
+  mountPath: /docker-entrypoint.d
+  readOnly: true
+{{- with .Values.volumeMounts }}
+{{- toYaml . }}
+{{- end }}
+{{- end }}
+
+{{/*
+volumes shared by every synaplan role
+*/}}
+{{- define "synaplan.volumes" -}}
+- name: synaplan-uploads
+{{- if .Values.persistence.uploads.enabled }}
+  persistentVolumeClaim:
+    claimName: {{ .Values.persistence.uploads.existingClaim | default (printf "%s-uploads-pvc" (include "synaplan.fullname" .)) }}
+{{- else }}
+  emptyDir: {}
+{{- end }}
+{{- if include "synaplan.customRootCA.enabled" . }}
+- name: tls
+  secret:
+    secretName: {{ include "synaplan.customRootCA.secretName" . | quote }}
+    items:
+      - key: ca.crt
+        path: ca.crt
+{{- end }}
+- name: init-scripts
+  configMap:
+    name: {{ include "synaplan.fullname" . }}-init-scripts
+    defaultMode: 0755
+{{- with .Values.volumes }}
+{{- toYaml . }}
+{{- end }}
+{{- end }}
