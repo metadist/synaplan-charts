@@ -71,10 +71,14 @@ spec:
             - name: DB_SERVER_VERSION
               value: {{ .Values.database.serverVersion | quote }}
             - name: DB_PASSWORD
+              {{- if .Values.database.passwordSecretRef }}
               valueFrom:
                 secretKeyRef:
-                  name: mariadb-credentials
+                  name: {{ .Values.database.passwordSecretRef | quote }}
                   key: password
+              {{- else }}
+              value: {{ .Values.database.password | quote }}
+              {{- end }}
             # Triton Inference Server
             - name: TRITON_SERVER_URL
               value: {{ .Values.triton.url | quote }}
@@ -199,7 +203,7 @@ spec:
           volumeMounts:
             - name: synaplan-uploads
               mountPath: /var/www/backend/var/uploads
-            {{- if .Values.customRootCA }}
+            {{- if include "synaplan.customRootCA.enabled" . }}
             - name: tls
               mountPath: /usr/local/share/ca-certificates/custom-ca.crt
               subPath: ca.crt
@@ -219,10 +223,10 @@ spec:
         {{- else }}
           emptyDir: {}
         {{- end }}
-      {{- if .Values.customRootCA }}
+      {{- if include "synaplan.customRootCA.enabled" . }}
         - name: tls
           secret:
-            secretName: synaplan-tls
+            secretName: {{ include "synaplan.customRootCA.secretName" . | quote }}
             items:
               - key: ca.crt
                 path: ca.crt

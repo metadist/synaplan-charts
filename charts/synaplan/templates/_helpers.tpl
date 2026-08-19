@@ -60,3 +60,17 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Whether a custom root CA is configured (inline crt or existing secret)
+*/}}
+{{- define "synaplan.customRootCA.enabled" -}}
+{{- if or .Values.customRootCA.secretRef .Values.customRootCA.crt -}}true{{- end -}}
+{{- end }}
+
+{{/*
+Name of the Secret holding the custom root CA (key ca.crt)
+*/}}
+{{- define "synaplan.customRootCA.secretName" -}}
+{{- .Values.customRootCA.secretRef | default (printf "%s-ca" (include "synaplan.fullname" .)) -}}
+{{- end }}

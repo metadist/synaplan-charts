@@ -1,4 +1,11 @@
-customRootCA: false
+# Custom root CA trusted by the app (self-signed / private PKI clusters).
+# Enabled when either option is set.
+customRootCA:
+  # -- Option 1: inline PEM certificate (the chart creates a Secret from it)
+  crt: ""
+  # -- Option 2: name of an existing Secret holding the CA under key ca.crt.
+  # Takes precedence over crt.
+  secretRef: ""
 
 # Public URL for accessing Synaplan (e.g., https://synaplan.example.com)
 publicUrl: ""
@@ -38,6 +45,11 @@ database:
   name: "synaplan"
   user: "synaplan"
   serverVersion: "11.7.2-MariaDB"
+  # -- Database password (plain text, not recommended for production).
+  # Used unless passwordSecretRef is set.
+  password: ""
+  # -- Name of an existing Secret holding the database password (key: password)
+  passwordSecretRef: ""
 
 # Triton Inference Server configuration
 triton:

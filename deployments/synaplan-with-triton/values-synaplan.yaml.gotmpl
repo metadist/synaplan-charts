@@ -17,7 +17,11 @@ image:
   {{- end }}
 {{- end }}
 
-customRootCA: {{ .Values.cluster.customRootCA }}
+{{- if .Values.cluster.customRootCA }}
+# CA from the cert-manager-issued ingress certificate secret (see ingress.tls).
+customRootCA:
+  secretRef: "synaplan-tls"
+{{- end }}
 
 publicUrl: {{ $synaplanUrl | quote }}
 
@@ -25,6 +29,8 @@ tritonMode: {{ $tritonMode | quote }}
 
 database:
   host: "mariadb-cluster.{{ $ns }}.svc.cluster.local"
+  # Secret created alongside the mariadb-cluster (see resources.yaml).
+  passwordSecretRef: "mariadb-credentials"
 
 triton:
   {{- if $tritonLocal }}

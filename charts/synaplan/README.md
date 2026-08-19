@@ -99,9 +99,12 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
-| customRootCA | bool | `false` |  |
+| customRootCA.crt | string | `""` | Option 1: inline PEM certificate (the chart creates a Secret from it) |
+| customRootCA.secretRef | string | `""` | Option 2: name of an existing Secret holding the CA under key ca.crt. Takes precedence over crt. |
 | database.host | string | `"mariadb-cluster"` |  |
 | database.name | string | `"synaplan"` |  |
+| database.password | string | `""` | Database password (plain text, not recommended for production). Used unless passwordSecretRef is set. |
+| database.passwordSecretRef | string | `""` | Name of an existing Secret holding the database password (key: password) |
 | database.port | string | `"3306"` |  |
 | database.serverVersion | string | `"11.7.2-MariaDB"` |  |
 | database.user | string | `"synaplan"` |  |
