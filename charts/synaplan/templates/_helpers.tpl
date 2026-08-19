@@ -79,6 +79,9 @@ Name of the Secret holding the custom root CA (key ca.crt)
 Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
 */}}
 {{- define "synaplan.redisDsn" -}}
+{{- if and (not .Values.redis.enabled) (not .Values.redis.dsn) -}}
+{{- fail "synaplan needs Redis: set redis.dsn or enable the bundled redis (redis.enabled)" -}}
+{{- end -}}
 {{- .Values.redis.dsn | default (printf "redis://%s-redis:6379" (include "synaplan.fullname" .)) -}}
 {{- end }}
 
@@ -115,6 +118,18 @@ role deployments add SYNAPLAN_ROLE on top.
   {{- else }}
   value: {{ .Values.database.password | quote }}
   {{- end }}
+{{- if or .Values.appSecret .Values.appSecretRef }}
+# Symfony kernel secret (CSRF tokens, signed URLs, at-rest credential encryption)
+- name: APP_SECRET
+  {{- if .Values.appSecretRef }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.appSecretRef | quote }}
+      key: app-secret
+  {{- else }}
+  value: {{ .Values.appSecret | quote }}
+  {{- end }}
+{{- end }}
 # Redis (mandatory since synaplan 4.0: Symfony cache, Messenger queues,
 # rate limiter). LOCK_DSN points at the same redis so locks are visible
 # across the web/worker/scheduler pods (flock would be per-pod).

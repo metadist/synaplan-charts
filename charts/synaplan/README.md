@@ -96,6 +96,8 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | apiKeys.huggingface | string | `""` |  |
 | apiKeys.openai | string | `""` |  |
 | apiKeysSecretRef | string | `""` |  |
+| appSecret | string | `""` | Option 1: plain text (not recommended for production) |
+| appSecretRef | string | `""` | Option 2: name of an existing Secret holding the value under key app-secret. Takes precedence over appSecret. |
 | autoscaling.enabled | bool | `false` |  |
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |

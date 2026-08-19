@@ -38,6 +38,15 @@ apiKeys:
 # Then set: apiKeysSecretRef: "synaplan-api-keys"
 apiKeysSecretRef: ""
 
+# Symfony kernel secret: CSRF tokens, signed URLs, and the at-rest encryption
+# of stored provider credentials. REQUIRED for production use; keep it stable,
+# rotating it invalidates already-encrypted credentials.
+# -- Option 1: plain text (not recommended for production)
+appSecret: ""
+# -- Option 2: name of an existing Secret holding the value under key
+# app-secret. Takes precedence over appSecret.
+appSecretRef: ""
+
 # Redis - mandatory infrastructure since synaplan 4.0 (Symfony cache,
 # Messenger queues, locks, rate limiter).
 redis:
