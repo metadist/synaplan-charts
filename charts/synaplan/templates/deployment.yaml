@@ -72,7 +72,7 @@ spec:
           volumeMounts:
             {{- include "synaplan.volumeMounts" . | nindent 12 }}
       volumes:
-        {{- include "synaplan.volumes" . | nindent 8 }}
+        {{- include "synaplan.volumes" (dict "ctx" . "initScripts" (printf "%s-init-scripts" (include "synaplan.fullname" .))) | nindent 8 }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

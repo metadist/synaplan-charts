@@ -79,8 +79,8 @@ Name of the Secret holding the custom root CA (key ca.crt)
 Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
 */}}
 {{- define "synaplan.redisDsn" -}}
-{{- if and (not .Values.redis.enabled) (not .Values.redis.dsn) -}}
-{{- fail "synaplan needs Redis: set redis.dsn or enable the bundled redis (redis.enabled)" -}}
+{{- if and (not .Values.redis.enabled) (not .Values.redis.dsn) (not .Values.redis.dsnSecretRef) -}}
+{{- fail "synaplan needs Redis: set redis.dsn / redis.dsnSecretRef or enable the bundled redis (redis.enabled)" -}}
 {{- end -}}
 {{- .Values.redis.dsn | default (printf "redis://%s-redis:6379" (include "synaplan.fullname" .)) -}}
 {{- end }}
@@ -133,10 +133,23 @@ role deployments add SYNAPLAN_ROLE on top.
 # Redis (mandatory since synaplan 4.0: Symfony cache, Messenger queues,
 # rate limiter). LOCK_DSN points at the same redis so locks are visible
 # across the web/worker/scheduler pods (flock would be per-pod).
+{{- if .Values.redis.dsnSecretRef }}
+- name: REDIS_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.redis.dsnSecretRef | quote }}
+      key: redis-dsn
+- name: LOCK_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.redis.dsnSecretRef | quote }}
+      key: redis-dsn
+{{- else }}
 - name: REDIS_DSN
   value: {{ include "synaplan.redisDsn" . | quote }}
 - name: LOCK_DSN
   value: {{ include "synaplan.redisDsn" . | quote }}
+{{- end }}
 # Triton Inference Server
 - name: TRITON_SERVER_URL
   value: {{ .Values.triton.url | quote }}
@@ -218,29 +231,61 @@ volumeMounts shared by every synaplan role (uploads, custom CA, init-scripts)
 {{- end }}
 
 {{/*
-volumes shared by every synaplan role
+volumes shared by every synaplan role. Called with (dict "ctx" . "initScripts"
+<configmap name>) - the web pod mounts the full init-scripts ConfigMap, the
+worker/scheduler pods the role-neutral aux subset.
 */}}
 {{- define "synaplan.volumes" -}}
+{{- $ctx := .ctx -}}
 - name: synaplan-uploads
-{{- if .Values.persistence.uploads.enabled }}
+{{- if $ctx.Values.persistence.uploads.enabled }}
   persistentVolumeClaim:
-    claimName: {{ .Values.persistence.uploads.existingClaim | default (printf "%s-uploads-pvc" (include "synaplan.fullname" .)) }}
+    claimName: {{ $ctx.Values.persistence.uploads.existingClaim | default (printf "%s-uploads-pvc" (include "synaplan.fullname" $ctx)) }}
 {{- else }}
   emptyDir: {}
 {{- end }}
-{{- if include "synaplan.customRootCA.enabled" . }}
+{{- if include "synaplan.customRootCA.enabled" $ctx }}
 - name: tls
   secret:
-    secretName: {{ include "synaplan.customRootCA.secretName" . | quote }}
+    secretName: {{ include "synaplan.customRootCA.secretName" $ctx | quote }}
     items:
       - key: ca.crt
         path: ca.crt
 {{- end }}
 - name: init-scripts
   configMap:
-    name: {{ include "synaplan.fullname" . }}-init-scripts
+    name: {{ .initScripts }}
     defaultMode: 0755
-{{- with .Values.volumes }}
+{{- with $ctx.Values.volumes }}
 {{- toYaml . | nindent 0 }}
 {{- end }}
+{{- end }}
+
+{{/*
+Init-script bodies shared between the web init-scripts ConfigMap and the
+role-neutral aux ConfigMap (worker/scheduler)
+*/}}
+{{- define "synaplan.initScript.setupCa" -}}
+#!/bin/bash
+# Setup custom root CA certificates
+
+echo "🔐 Setting up custom root CA certificates..."
+
+update-ca-certificates
+echo "openssl.cafile=/etc/ssl/certs/ca-certificates.crt" > /usr/local/etc/php/conf.d/custom-ca.ini
+echo "curl.cainfo=/etc/ssl/certs/ca-certificates.crt" >> /usr/local/etc/php/conf.d/custom-ca.ini
+
+echo "✅ Custom CA certificates configured"
+{{- end }}
+
+{{- define "synaplan.initScript.setupEnv" -}}
+#!/bin/bash
+# Create .env file with DATABASE URLs
+# Note: docker-entrypoint also builds these URLs and exports them,
+# but Symfony requires .env file to exist for bootEnv
+
+cat > /var/www/backend/.env <<EOF
+DATABASE_WRITE_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}?serverVersion=\${DB_SERVER_VERSION}&charset=utf8mb4
+DATABASE_READ_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}?serverVersion=\${DB_SERVER_VERSION}&charset=utf8mb4
+EOF
 {{- end }}

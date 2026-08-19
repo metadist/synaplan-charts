@@ -55,8 +55,12 @@ redis:
   enabled: true
   # -- External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379).
   # Takes precedence over the bundled Redis. Must not carry a path - the
-  # Messenger transports append their stream names to it.
+  # Messenger transports append their stream names to it. Plain value ends up
+  # in the pod spec; use dsnSecretRef for DSNs carrying credentials.
   dsn: ""
+  # -- Name of an existing Secret holding the external DSN under key
+  # redis-dsn. Takes precedence over dsn.
+  dsnSecretRef: ""
   image:
     repository: redis
     tag: "7.4-alpine"

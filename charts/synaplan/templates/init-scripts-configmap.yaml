@@ -7,28 +7,11 @@ metadata:
 data:
   {{- if include "synaplan.customRootCA.enabled" . }}
   00-setup-ca.sh: |
-    #!/bin/bash
-    # Setup custom root CA certificates
-
-    echo "🔐 Setting up custom root CA certificates..."
-
-    update-ca-certificates
-    echo "openssl.cafile=/etc/ssl/certs/ca-certificates.crt" > /usr/local/etc/php/conf.d/custom-ca.ini
-    echo "curl.cainfo=/etc/ssl/certs/ca-certificates.crt" >> /usr/local/etc/php/conf.d/custom-ca.ini
-
-    echo "✅ Custom CA certificates configured"
+    {{- include "synaplan.initScript.setupCa" . | nindent 4 }}
   {{- end }}
 
   01-setup-env.sh: |
-    #!/bin/bash
-    # Create .env file with DATABASE URLs
-    # Note: docker-entrypoint also builds these URLs and exports them,
-    # but Symfony requires .env file to exist for bootEnv
-
-    cat > /var/www/backend/.env <<EOF
-    DATABASE_WRITE_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}?serverVersion=\${DB_SERVER_VERSION}&charset=utf8mb4
-    DATABASE_READ_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}?serverVersion=\${DB_SERVER_VERSION}&charset=utf8mb4
-    EOF
+    {{- include "synaplan.initScript.setupEnv" . | nindent 4 }}
 
   50-wait-database.sh: |
     #!/bin/bash

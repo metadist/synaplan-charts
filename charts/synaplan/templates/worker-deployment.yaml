@@ -22,7 +22,7 @@ spec:
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
-        checksum/init-scripts: {{ include (print $.Template.BasePath "/init-scripts-configmap.yaml") . | sha256sum }}
+        checksum/init-scripts: {{ include (print $.Template.BasePath "/init-scripts-aux-configmap.yaml") . | sha256sum }}
       labels:
         {{- include "synaplan.labels" . | nindent 8 }}
         app.kubernetes.io/component: worker
@@ -70,7 +70,7 @@ spec:
           volumeMounts:
             {{- include "synaplan.volumeMounts" . | nindent 12 }}
       volumes:
-        {{- include "synaplan.volumes" . | nindent 8 }}
+        {{- include "synaplan.volumes" (dict "ctx" . "initScripts" (printf "%s-init-scripts-aux" (include "synaplan.fullname" .))) | nindent 8 }}
       {{- with .Values.worker.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
