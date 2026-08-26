@@ -98,17 +98,31 @@ prompts:
 #       system: true
 #
 # Disabling never deletes rows: models are deactivated and hidden from users,
-# and reappear when re-enabled (requires synaplan >= 2.5).
+# and reappear when re-enabled.
 #
-# providers.enabled/disabled act on EVERY catalog model of a provider and run
-# BEFORE the per-model lists, so per-model entries win. Example air-gapped
-# install (local Ollama only):
-#   providers:
-#     disabled: ["openai", "anthropic", "google", "groq", "mistral",
-#                "huggingface", "xai", "trustedtokens", "thehive", "higgsfield"]
-#     enabled: ["ollama"]
+# Requires a Synaplan image that includes metadist/synaplan#1587 (the release
+# AFTER 4.3.0). 4.3.0 and older do not have --provider / --only; setting any of
+# these lists with those images crashes the init container. Chart feature and
+# image bump must ship together — set image.tag to that release first. Helm
+# fails the render on known-incompatible tags (2.4.0, 4.2.1, 4.3.0).
+#
+# Prefer providers.only for air-gap: it is an allow-list. New cloud providers
+# added upstream are disabled automatically. providers.enabled/disabled is a
+# deny-list and must be updated every time a provider is added (easy to miss
+# cloudflare, higgsfield, …). only cannot be combined with enabled/disabled.
+#
+# Air-gapped example (local Ollama + Piper only):
+#   image:
+#     tag: "<release-after-4.3.0>"
+#   models:
+#     providers:
+#       only: ["ollama", "piper"]
+#
+# Provider-level toggles run BEFORE the per-model lists, so per-model entries win.
 models:
   providers:
+    # -- Allow-list: enable only these providers and disable every other catalog provider (air-gap)
+    only: []
     # -- Providers whose complete catalog is enabled on startup (e.g. ["ollama", "groq"])
     enabled: []
     # -- Providers whose complete catalog is disabled on startup (models are kept, hidden from users)

@@ -146,6 +146,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | models.enabled | list | `[]` |  |
 | models.providers.disabled | list | `[]` | Providers whose complete catalog is disabled on startup (models are kept, hidden from users) |
 | models.providers.enabled | list | `[]` | Providers whose complete catalog is enabled on startup (e.g. ["ollama", "groq"]) |
+| models.providers.only | list | `[]` | Allow-list: enable only these providers and disable every other catalog provider (air-gap) |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | oidc.autoRedirect | bool | `true` | Auto-redirect to OIDC provider on login page |

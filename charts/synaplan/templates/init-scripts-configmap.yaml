@@ -70,11 +70,28 @@ data:
 
     {{- /* Provider-level toggles run first so per-model entries below win. */}}
     {{- $providers := .Values.models.providers | default dict }}
-    {{- if $providers.enabled }}
-    synaplan model:enable{{ range $providers.enabled }} --provider {{ . }}{{ end }}
+    {{- $only := $providers.only | default list }}
+    {{- $enabledProviders := $providers.enabled | default list }}
+    {{- $disabledProviders := $providers.disabled | default list }}
+    {{- $hasProviderToggles := or (gt (len $only) 0) (gt (len $enabledProviders) 0) (gt (len $disabledProviders) 0) }}
+    {{- if $hasProviderToggles }}
+    {{- $tag := .Values.image.tag | default .Chart.AppVersion | toString }}
+    {{- if has $tag (list "2.4.0" "4.2.1" "4.3.0") }}
+    {{- fail (printf "models.providers.* requires a Synaplan image that includes metadist/synaplan#1587 (the release after 4.3.0). Effective image tag %q would crash the init container (--provider / --only missing). Set image.tag to that release before enabling provider toggles." $tag) }}
     {{- end }}
-    {{- if $providers.disabled }}
-    synaplan model:disable{{ range $providers.disabled }} --provider {{ . }}{{ end }}
+    {{- if and (gt (len $only) 0) (or (gt (len $enabledProviders) 0) (gt (len $disabledProviders) 0)) }}
+    {{- fail "models.providers.only cannot be combined with models.providers.enabled or models.providers.disabled. Use only (allow-list) or enabled/disabled (deny-list), not both." }}
+    {{- end }}
+    {{- end }}
+    {{- if $only }}
+    synaplan model:enable{{ range $only }} --only {{ . }}{{ end }}
+    {{- else }}
+    {{- if $enabledProviders }}
+    synaplan model:enable{{ range $enabledProviders }} --provider {{ . }}{{ end }}
+    {{- end }}
+    {{- if $disabledProviders }}
+    synaplan model:disable{{ range $disabledProviders }} --provider {{ . }}{{ end }}
+    {{- end }}
     {{- end }}
 
     {{- $regularModels := list }}
