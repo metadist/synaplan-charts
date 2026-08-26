@@ -187,7 +187,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | tolerations | list | `[]` |  |
 | triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
-| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[{"name":"en_US-lessac-medium","subfolder":"en/en_US/lessac/medium"},{"name":"de_DE-thorsten-medium","subfolder":"de/de_DE/thorsten/medium"}]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"1.0.0"},"maxTextLength":"5000","persistence":{"accessMode":"ReadWriteOnce","size":"5Gi","storageClass":""},"port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
+| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"digest":"sha256:f4cabd3fec77a682be1aa853ae7958e6369353abbd7b8b19e0162058eb98ff81","pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"latest"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
 

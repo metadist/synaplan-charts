@@ -147,30 +147,39 @@ models:
 # -- TTS (text-to-speech) sub-deployment using Piper voices
 tts:
   enabled: false
+  # ghcr.io/metadist/synaplan-tts ships four voices (en, de, es, tr) baked
+  # into the image, nothing is downloaded at startup. Pinned by digest: the
+  # only release tag (1.0.0) predates the baked voices.
   image:
     repository: ghcr.io/metadist/synaplan-tts
-    tag: "1.0.0"
+    tag: "latest"
+    digest: "sha256:f4cabd3fec77a682be1aa853ae7958e6369353abbd7b8b19e0162058eb98ff81"
     pullPolicy: IfNotPresent
   port: 10200
   defaultVoice: "en_US-lessac-medium"
   maxTextLength: "5000"
   synthWorkers: "4"
-  # Voice models downloaded from HuggingFace by init container.
-  # Uses same python:3.11-slim + huggingface-hub pattern as triton chart's huggingfaceModels.
-  # Set voices: [] to skip all downloads (bring your own voices on the PVC).
+  # Extra voices beyond the baked set, downloaded from HuggingFace by an init
+  # container into /voices-extra (extras win over baked voices on a name
+  # clash). Off by default; needs egress. Same python + huggingface-hub
+  # pattern as the triton chart's huggingfaceModels.
   huggingfaceVoices:
     image:
       repository: python
       tag: "3.11-slim"
     repo: "rhasspy/piper-voices"
     revision: ""  # pin to a known-good commit hash (recommended)
-    voices:
-      - name: "en_US-lessac-medium"
-        subfolder: "en/en_US/lessac/medium"
-      - name: "de_DE-thorsten-medium"
-        subfolder: "de/de_DE/thorsten/medium"
-  persistence:
-    size: "5Gi"
+    voices: []
+    # - name: "ru_RU-irina-medium"
+    #   subfolder: "ru/ru_RU/irina/medium"
+  # Volume behind /voices-extra: holds downloaded and operator-added voices
+  # (.onnx + .onnx.json pairs). Without it, downloads land in an emptyDir
+  # and repeat on every pod start.
+  extraVoices:
+    enabled: false
+    # Use an existing PVC instead of creating one.
+    existingClaim: ""
+    size: "1Gi"
     accessMode: "ReadWriteOnce"
     storageClass: ""
 

@@ -1,18 +1,18 @@
-{{- if .Values.tts.enabled }}
+{{- if and .Values.tts.enabled .Values.tts.extraVoices.enabled (not .Values.tts.extraVoices.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "synaplan.fullname" . }}-tts-voices-pvc
+  name: {{ include "synaplan.fullname" . }}-tts-extra-voices-pvc
   labels:
     {{- include "synaplan.labels" . | nindent 4 }}
     app.kubernetes.io/component: tts
 spec:
   accessModes:
-    - {{ .Values.tts.persistence.accessMode | default "ReadWriteOnce" }}
+    - {{ .Values.tts.extraVoices.accessMode | default "ReadWriteOnce" }}
   resources:
     requests:
-      storage: {{ .Values.tts.persistence.size | default "5Gi" }}
-  {{- if .Values.tts.persistence.storageClass }}
-  storageClassName: {{ .Values.tts.persistence.storageClass }}
+      storage: {{ .Values.tts.extraVoices.size | default "1Gi" }}
+  {{- if .Values.tts.extraVoices.storageClass }}
+  storageClassName: {{ .Values.tts.extraVoices.storageClass }}
   {{- end }}
 {{- end }}
