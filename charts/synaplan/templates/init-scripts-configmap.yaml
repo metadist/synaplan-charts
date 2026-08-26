@@ -68,6 +68,15 @@ data:
     synaplan prompt:seed
     {{- end }}
 
+    {{- /* Provider-level toggles run first so per-model entries below win. */}}
+    {{- $providers := .Values.models.providers | default dict }}
+    {{- if $providers.enabled }}
+    synaplan model:enable{{ range $providers.enabled }} --provider {{ . }}{{ end }}
+    {{- end }}
+    {{- if $providers.disabled }}
+    synaplan model:disable{{ range $providers.disabled }} --provider {{ . }}{{ end }}
+    {{- end }}
+
     {{- $regularModels := list }}
     {{- $systemModels := list }}
     {{- range .Values.models.enabled }}

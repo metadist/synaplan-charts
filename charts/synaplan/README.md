@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.4.0](https://img.shields.io/badge/AppVersion-2.4.0-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.4.0](https://img.shields.io/badge/AppVersion-2.4.0-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.1.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.2.0
 ```
 
 ### Install from local chart
@@ -144,6 +144,8 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | models.defaults.vectorize | string | `""` |  |
 | models.disabled | list | `[]` |  |
 | models.enabled | list | `[]` |  |
+| models.providers.disabled | list | `[]` | Providers whose complete catalog is disabled on startup (models are kept, hidden from users) |
+| models.providers.enabled | list | `[]` | Providers whose complete catalog is enabled on startup (e.g. ["ollama", "groq"]) |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | oidc.autoRedirect | bool | `true` | Auto-redirect to OIDC provider on login page |

@@ -96,7 +96,23 @@ prompts:
 #     - "groq:llama-3.3-70b-versatile"
 #     - name: "ollama:bge-m3"
 #       system: true
+#
+# Disabling never deletes rows: models are deactivated and hidden from users,
+# and reappear when re-enabled (requires synaplan >= 2.5).
+#
+# providers.enabled/disabled act on EVERY catalog model of a provider and run
+# BEFORE the per-model lists, so per-model entries win. Example air-gapped
+# install (local Ollama only):
+#   providers:
+#     disabled: ["openai", "anthropic", "google", "groq", "mistral",
+#                "huggingface", "xai", "trustedtokens", "thehive", "higgsfield"]
+#     enabled: ["ollama"]
 models:
+  providers:
+    # -- Providers whose complete catalog is enabled on startup (e.g. ["ollama", "groq"])
+    enabled: []
+    # -- Providers whose complete catalog is disabled on startup (models are kept, hidden from users)
+    disabled: []
   enabled: []
   disabled: []
   # Default model per capability. Empty string = skip (no default set).
