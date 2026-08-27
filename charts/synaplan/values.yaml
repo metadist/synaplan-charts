@@ -152,8 +152,7 @@ tts:
   image:
     repository: ghcr.io/metadist/synaplan-tts
     tag: "2.0.0"
-    # Optional digest pin (repository:tag@digest).
-    digest: ""
+    digest: "sha256:c2aa56d90a30fc9c55ee76e4a2e7857d5705e4ecf4c8f256740407e0b9f61cd8"
     pullPolicy: IfNotPresent
   port: 10200
   defaultVoice: "en_US-lessac-medium"
