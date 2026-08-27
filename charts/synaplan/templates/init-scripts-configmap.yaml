@@ -75,12 +75,18 @@ data:
     {{- $disabledProviders := $providers.disabled | default list }}
     {{- $hasProviderToggles := or (gt (len $only) 0) (gt (len $enabledProviders) 0) (gt (len $disabledProviders) 0) }}
     {{- if $hasProviderToggles }}
-    {{- $tag := .Values.image.tag | default .Chart.AppVersion | toString }}
-    {{- if has $tag (list "2.4.0" "4.2.1" "4.3.0") }}
-    {{- fail (printf "models.providers.* requires a Synaplan image that includes metadist/synaplan#1587 (the release after 4.3.0). Effective image tag %q would crash the init container (--provider / --only missing). Set image.tag to that release before enabling provider toggles." $tag) }}
-    {{- end }}
     {{- if and (gt (len $only) 0) (or (gt (len $enabledProviders) 0) (gt (len $disabledProviders) 0)) }}
     {{- fail "models.providers.only cannot be combined with models.providers.enabled or models.providers.disabled. Use only (allow-list) or enabled/disabled (deny-list), not both." }}
+    {{- end }}
+    {{- /* model:enable/disable learned --provider / --only in synaplan 4.3.6
+           (metadist/synaplan#1587); older images crash the init container on
+           these flags. Gate by semver so every future release passes without
+           maintaining a list of bad tags. Non-semver tags (latest, digests,
+           branch builds) cannot be compared and skip the check — the operator
+           who pins them is responsible for picking a compatible build. */}}
+    {{- $tag := .Values.image.tag | default .Chart.AppVersion | toString | trimPrefix "v" }}
+    {{- if and (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 4.3.6" $tag) }}
+    {{- fail (printf "models.providers.* requires synaplan >= 4.3.6 (metadist/synaplan#1587 added model:enable/disable --provider/--only); effective image tag is %q, which would crash the init container. Set image.tag to 4.3.6 or newer, or remove models.providers.*." $tag) }}
     {{- end }}
     {{- end }}
     {{- if $only }}

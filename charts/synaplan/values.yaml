@@ -100,25 +100,25 @@ prompts:
 # Disabling never deletes rows: models are deactivated and hidden from users,
 # and reappear when re-enabled.
 #
-# Requires a Synaplan image that includes metadist/synaplan#1587 (the release
-# AFTER 4.3.0). 4.3.0 and older do not have --provider / --only; setting any of
-# these lists with those images crashes the init container. Chart feature and
-# image bump must ship together — set image.tag to that release first. Helm
-# fails the render on known-incompatible tags (2.4.0, 4.2.1, 4.3.0).
+# providers.* requires synaplan >= 4.3.6 (metadist/synaplan#1587 added
+# model:enable/disable --provider/--only). The chart's appVersion already
+# satisfies this; if you override image.tag, Helm fails the render for any
+# semver tag below 4.3.6 so an incompatible image cannot crash the init
+# container. Non-semver tags (latest, digests, branch builds) skip that check.
 #
-# Prefer providers.only for air-gap: it is an allow-list. New cloud providers
-# added upstream are disabled automatically. providers.enabled/disabled is a
-# deny-list and must be updated every time a provider is added (easy to miss
-# cloudflare, higgsfield, …). only cannot be combined with enabled/disabled.
+# Prefer providers.only for air-gapped installs: it is an allow-list, so cloud
+# providers added to the catalog later are disabled automatically. In contrast,
+# providers.disabled is a deny-list that must name every cloud provider and be
+# updated whenever one is added (easy to miss cloudflare, higgsfield, …).
+# only cannot be combined with enabled/disabled.
 #
-# Air-gapped example (local Ollama + Piper only):
-#   image:
-#     tag: "<release-after-4.3.0>"
+# Air-gapped example (local inference and speech only):
 #   models:
 #     providers:
-#       only: ["ollama", "piper"]
+#       only: ["ollama", "piper", "whisper"]
 #
-# Provider-level toggles run BEFORE the per-model lists, so per-model entries win.
+# Provider-level toggles run BEFORE the per-model lists, so per-model entries
+# win — e.g. disable the whole openai provider but re-enable one of its models.
 models:
   providers:
     # -- Allow-list: enable only these providers and disable every other catalog provider (air-gap)
