@@ -284,6 +284,11 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+# Additional init containers on the web Deployment (same shape as the triton
+# chart's additionalInitContainers), e.g. to seed a volume declared in
+# `volumes` with model files before the app starts.
+additionalInitContainers: []
+
 # Additional volumes on the output Deployment definition.
 volumes: []
 # - name: foo

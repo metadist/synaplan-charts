@@ -87,6 +87,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| additionalInitContainers | list | `[]` |  |
 | affinity | object | `{}` |  |
 | apiKeys.anthropic | string | `""` |  |
 | apiKeys.braveSearch | string | `""` |  |
