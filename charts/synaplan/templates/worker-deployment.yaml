@@ -1,27 +1,31 @@
+{{- if .Values.worker.enabled }}
+# Messenger worker (SYNAPLAN_ROLE=worker): same image, entrypoint and
+# environment as the web pod, but the entrypoint execs messenger:consume
+# instead of the web server. Waits for the web pod's migrations (DB-based
+# check in the image) before consuming, so no startup ordering is needed.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "synaplan.fullname" . }}
+  name: {{ include "synaplan.fullname" . }}-worker
   labels:
     {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
+  replicas: {{ .Values.worker.replicaCount }}
   selector:
     matchLabels:
       {{- include "synaplan.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
   template:
     metadata:
       annotations:
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
-        # This annotation tracks changes to the init-scripts configmap and triggers pod restarts.
-        # It is rendered last to ensure it always takes precedence over user-provided annotations.
-        checksum/init-scripts: {{ include (print $.Template.BasePath "/init-scripts-configmap.yaml") . | sha256sum }}
+        checksum/init-scripts: {{ include (print $.Template.BasePath "/init-scripts-aux-configmap.yaml") . | sha256sum }}
       labels:
         {{- include "synaplan.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -39,49 +43,44 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.additionalInitContainers }}
-      initContainers:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: worker
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: 80
-              protocol: TCP
           env:
+            - name: SYNAPLAN_ROLE
+              value: "worker"
+            # The role startup gate curls the web role's health endpoint;
+            # the image default (http://backend) is the compose hostname.
+            - name: SYNAPLAN_WEB_HEALTH_URL
+              value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}/api/health"
+            {{- with .Values.worker.transports }}
+            - name: SYNAPLAN_WORKER_TRANSPORTS
+              value: {{ . | quote }}
+            {{- end }}
             {{- include "synaplan.env" . | nindent 12 }}
-          {{- with .Values.livenessProbe }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.readinessProbe }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.resources }}
+          {{- with .Values.worker.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
             {{- include "synaplan.volumeMounts" . | nindent 12 }}
       volumes:
-        {{- include "synaplan.volumes" (dict "ctx" . "initScripts" (printf "%s-init-scripts" (include "synaplan.fullname" .))) | nindent 8 }}
-      {{- with .Values.nodeSelector }}
+        {{- include "synaplan.volumes" (dict "ctx" . "initScripts" (printf "%s-init-scripts-aux" (include "synaplan.fullname" .))) | nindent 8 }}
+      {{- with .Values.worker.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.worker.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.worker.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

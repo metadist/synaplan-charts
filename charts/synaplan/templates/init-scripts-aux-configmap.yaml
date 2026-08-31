@@ -1,0 +1,24 @@
+{{- /*
+Role-neutral subset of the init scripts, mounted by the worker and scheduler
+pods: only the CA setup and the .env bootstrap. The DB wait, schema update,
+prompt/model seeding and user extraInitScripts stay web-only - the image's
+own role logic already makes non-web roles wait for the web pod's
+migrations, and running doctrine:schema:update from several pods at once
+would race.
+*/ -}}
+{{- if or .Values.worker.enabled .Values.scheduler.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "synaplan.fullname" . }}-init-scripts-aux
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+data:
+  {{- if include "synaplan.customRootCA.enabled" . }}
+  00-setup-ca.sh: |
+    {{- include "synaplan.initScript.setupCa" . | nindent 4 }}
+  {{- end }}
+
+  01-setup-env.sh: |
+    {{- include "synaplan.initScript.setupEnv" . | nindent 4 }}
+{{- end }}

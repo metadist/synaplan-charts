@@ -20,3 +20,12 @@
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
+
+{{- if and (or .Values.worker.enabled .Values.scheduler.enabled) (not .Values.persistence.uploads.enabled) }}
+
+WARNING: worker/scheduler are enabled but persistence.uploads is not. Each pod
+gets its own emptyDir, so files uploaded through the web pod are INVISIBLE to
+the background jobs (extraction/indexing will fail on them). Enable
+persistence.uploads with storage all roles can mount (ReadWriteMany, or
+co-schedule the roles onto one node), or disable worker/scheduler.
+{{- end }}

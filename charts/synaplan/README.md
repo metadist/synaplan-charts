@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 4.3.6](https://img.shields.io/badge/AppVersion-4.3.6-informational?style=flat-square)
+![Version: 0.4.0](https://img.shields.io/badge/Version-0.4.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 4.3.6](https://img.shields.io/badge/AppVersion-4.3.6-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.3.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.4.0
 ```
 
 ### Install from local chart
@@ -96,6 +96,8 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | apiKeys.huggingface | string | `""` |  |
 | apiKeys.openai | string | `""` |  |
 | apiKeysSecretRef | string | `""` |  |
+| appSecret | string | `""` | Option 1: plain text (not recommended for production) |
+| appSecretRef | string | `""` | Option 2: name of an existing Secret holding the value under key app-secret. Takes precedence over appSecret. |
 | autoscaling.enabled | bool | `false` |  |
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
@@ -173,8 +175,16 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | readinessProbe.httpGet.port | string | `"http"` |  |
 | readinessProbe.initialDelaySeconds | int | `30` |  |
 | readinessProbe.periodSeconds | int | `5` |  |
+| redis.dsn | string | `""` | External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379). Takes precedence over the bundled Redis. Must not carry a path - the Messenger transports append their stream names to it. Plain value ends up in the pod spec; use dsnSecretRef for DSNs carrying credentials. |
+| redis.dsnSecretRef | string | `""` | Name of an existing Secret holding the external DSN under key redis-dsn. Takes precedence over dsn. |
+| redis.enabled | bool | `true` | Deploy a bundled single-node Redis. NOT persistent: queued async jobs are lost when it restarts. Disable to use an external Redis via dsn. |
+| redis.image.pullPolicy | string | `"IfNotPresent"` |  |
+| redis.image.repository | string | `"redis"` |  |
+| redis.image.tag | string | `"7.4-alpine"` |  |
+| redis.resources | object | `{}` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
+| scheduler | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"resources":{},"tolerations":[]}` | Scheduler (SYNAPLAN_ROLE=scheduler): periodic maintenance tasks. Singleton; same uploads-volume sharing caveat as the worker. |
 | securityContext | object | `{}` |  |
 | service.port | int | `80` |  |
 | service.type | string | `"ClusterIP"` |  |
@@ -190,6 +200,8 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"digest":"sha256:c2aa56d90a30fc9c55ee76e4a2e7857d5705e4ecf4c8f256740407e0b9f61cd8","pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.0.0"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
+| worker | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"replicaCount":1,"resources":{},"tolerations":[],"transports":""}` | Messenger worker (SYNAPLAN_ROLE=worker): consumes the async queues (AI jobs, extraction, indexing). Required for synaplan >= 4.0 async features. Shares the uploads volume with the web pod: with a ReadWriteOnce PVC the worker must be co-scheduled with the web pod (set affinity accordingly) or the PVC switched to ReadWriteMany. |
+| worker.transports | string | `""` | Space-separated Messenger transport list; empty = image default. |
 
 ## Usage
 
