@@ -83,6 +83,25 @@ ollama:
 
 See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM build configuration.
 
+### Office engine (Collabora CODE)
+
+The chart does not yet deploy Collabora. Office thumbnails, PDF export, preview
+and combine need `OFFICE_CONVERT_URL` on the **web and worker** pods. Append it
+to `env` (see values below) and point at CODE in the cluster or at an existing
+instance.
+
+Convert-to never receives a Synaplan user id. Integrator README — AI features,
+identity, 403 / `net.post_allow`, CODE 25.04 healthcheck, future sidecar
+sketch: [docs/collabora-office-engine.md](../../docs/collabora-office-engine.md).
+
+```yaml
+env:
+  - name: OFFICE_CONVERT_URL
+    value: http://collabora.office.svc.cluster.local:9980
+  - name: OFFICE_CONVERT_TIMEOUT_MS
+    value: "60000"
+```
+
 ## Values
 
 | Key | Type | Default | Description |
