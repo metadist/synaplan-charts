@@ -180,7 +180,7 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 | redis.enabled | bool | `true` | Deploy a bundled single-node Redis. NOT persistent: queued async jobs are lost when it restarts. Disable to use an external Redis via dsn. |
 | redis.image.pullPolicy | string | `"IfNotPresent"` |  |
 | redis.image.repository | string | `"redis"` |  |
-| redis.image.tag | string | `"7.4-alpine"` |  |
+| redis.image.tag | string | `"8.10-alpine"` |  |
 | redis.resources | object | `{}` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
