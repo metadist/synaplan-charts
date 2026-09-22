@@ -16,6 +16,22 @@ Synaplan uses [BGE-M3](https://huggingface.co/BAAI/bge-m3) as its embedding mode
 - **[Ollama](https://ollama.com/)** — Recommended for most deployments. Simple setup, supports CPU and GPU inference, broad model support.
 - **[NVIDIA Triton](https://developer.nvidia.com/triton-inference-server)** — For production GPU clusters requiring maximum throughput with TensorRT-LLM optimized models.
 
+## Office engine (Collabora CODE)
+
+Word / Excel / PowerPoint thumbnails, PDF export, inline preview, and combine
+need [Collabora Online](https://www.collaboraonline.com/) (`collabora/code`)
+reachable over HTTP(S). The chart does **not** ship that sidecar yet. Set
+`OFFICE_CONVERT_URL` on the web and worker pods, or reuse CODE you already run
+(Nextcloud, OpenCloud, another namespace).
+
+Convert-to is server-to-server: **Collabora never sees Synaplan users.** Identity
+stays in the app (login + file ownership). No Collabora accounts, no WOPI token
+on this path.
+
+Full integrator README (AI features, env, existing CODE, healthcheck, future
+Helm values): **[docs/collabora-office-engine.md](docs/collabora-office-engine.md)**.
+Product page: <https://docs.synaplan.com/index.php/office-documents>.
+
 ## Installation
 
 ### Prerequisites
