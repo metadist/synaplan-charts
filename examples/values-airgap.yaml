@@ -1,0 +1,42 @@
+# Air-gapped overlay for the Synaplan chart.
+#
+# Local inference and speech only. Cloud catalog rows are soft-disabled at
+# startup (kept in the database, hidden from users) and stay off when a later
+# release adds a provider. This file is an overlay, not a full values file:
+#
+#   helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
+#
+# Requires synaplan >= 4.3.6 (model:enable --only). Pull the Ollama models
+# before users sign in — a row appears only after that model is pulled.
+# Replace ollama.baseUrl with the in-cluster address of your Ollama service.
+#
+# `env` is a list, so Helm replaces the chart default rather than appending.
+# The APP_ENV / APP_DEBUG entries below repeat that default.
+
+triton:
+  # Chart default points at a Triton service. Blank it when this cluster has none.
+  url: ""
+
+ollama:
+  baseUrl: "http://ollama.synaplan.svc.cluster.local:11434"
+
+models:
+  providers:
+    # Allow-list. Cannot be combined with models.providers.enabled or .disabled.
+    only:
+      - ollama
+      - piper
+      - whisper
+
+env:
+  - name: APP_ENV
+    value: "prod"
+  - name: APP_DEBUG
+    value: "false"
+  # Chrome's Web Speech API sends audio to Google. Record for on-server Whisper instead.
+  - name: WEB_SPEECH_ENABLED
+    value: "false"
+  - name: WHISPER_ENABLED
+    value: "true"
+  - name: WHISPER_DEFAULT_MODEL
+    value: "base"

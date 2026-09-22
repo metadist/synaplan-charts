@@ -69,6 +69,12 @@ helmfile -e default apply
 
 See the [deployment README](deployments/synaplan-with-triton/README.md) for detailed prerequisites and configuration options.
 
+An air-gapped overlay that allow-lists Ollama, Piper, and Whisper (and turns off browser Web Speech) is [examples/values-airgap.yaml](examples/values-airgap.yaml):
+
+```bash
+helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
+```
+
 ## Development
 
 ### Prerequisites
