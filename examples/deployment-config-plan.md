@@ -107,7 +107,7 @@ There is also no writer a Deployment can call. Group policy today is `PUT` on th
 
 1. **The application remains the source of names.** Helm values map onto `FEATURE_*`, neighbour URLs, catalog keys (`service:providerId`), and `PolicyAllowList` keys. The chart does not invent `synaplan.features.computeGroups` as a private dialect that the PHP process has never heard of.
 2. **One home per setting.** A neighbour is a URL. A product flag is a `BCONFIG` key. A team exception is a group row. A person’s token is a connection. The same fact is not stored in two of those.
-3. **Git wins for everything this file covers.** Install defaults and group grants are applied at startup from values. The admin UI shows them locked (“managed by your operator”) and refuses the write. People still set their own preferences and still complete their own OAuth consent.
+3. **Git wins for everything this file covers.** Install defaults and group grants are applied at startup from values. The admin UI shows them locked (“managed by your operator”) and refuses the write. The lock on a group-policy row is a managed marker written by the apply command (§5.1). It is separate from the blocked bit: a blocked global row wins alone and the groups are not consulted. People still set their own preferences and still complete their own OAuth consent.
 4. **`false` is a pin. Absence is not.** For a feature that should vary by group, the chart emits no `FEATURE_*` variable. It writes the global row as off and the group rows as on. Emitting `true` would override the groups.
 5. **Groups grant. They do not deny.** Bool policies merge with OR, model lists merge with union. The way to keep contractors off compute is to leave `COMPUTE.ENABLED` off globally and grant it only on the groups that should have it. A person in two groups receives the union. Document that in the example; do not add a deny-list in the first cut.
 6. **Identity is the OIDC claim value.** The apply step upserts the directory group (`kind=directory`, `externalSource=oidc:<issuer>`, `externalId=<claim value>`) before it writes policy, so the grant exists before anyone has logged in. Login then only attaches members.
@@ -192,13 +192,16 @@ This is application work in `metadist/synaplan`, consumed afterwards by the char
    - `DROPBOX.ENABLED` — bool, merge OR. Means “members may start a Dropbox connection”. The Dropbox app key and secret remain owner-0.
    - `M365.ENABLED` — bool, merge OR. Means “members may use the Office add-in”. The Entra app registration remains owner-0.
    - `LINKS.OFFICE_ADDIN` if the product later splits Outlook from Word/Excel/PowerPoint. Until that split exists, `M365.ENABLED` is the one switch.
-2. **A console command** the init container can run, idempotent, non-interactive. Working name `app:iam:apply-group-policies`, reading a YAML file. For each entry it:
+2. **A console command** the init container can run, idempotent, non-interactive. Working name `app:iam:apply-group-policies`, reading a YAML file. The file uses the Helm fields in §5.2. The command writes only the `PolicyAllowList` key each field maps to, and it refuses any other field with a non-zero exit. For each group entry it:
    - upserts the directory group by issuer + external id (the same identity `DirectoryGroupSync` uses);
    - sets the display name when the file provides one;
-   - writes only allow-listed keys;
-   - deletes a key the file used to set and has since dropped, and only keys this command wrote (a marker, or a dedicated owner comment — not a blanket purge of admin-created rows);
-   - refuses unknown keys with a non-zero exit.
-3. **Global defaults in the same file**, applied as owner-0 rows with the blocked bit set when `managed: true`. Blocked is the lock the UI already understands (`AdminConfigLockController`). Managed mode, when the application grows `CONFIG.MANAGED_MODE=file`, makes every key present in the file read-only server-side. Until that mode exists, the blocked bit on those rows is the lock, and `FEATURE_*` remains the lock for the basic flags.
+   - writes only those mapped keys;
+   - deletes a key the file used to set and has since dropped, and only keys this command wrote (the managed marker on the row — not a blanket purge of admin-created rows);
+   - treats `groups: []` as a managed empty policy. Every group grant this command previously wrote is deleted. An owner-0 key this command wrote is deleted when `defaults` no longer lists it. Owner-0 defaults that are still present are written. The chart runs the command whenever `groupPolicies` is present, including that empty list. Omitting the Helm key leaves the database untouched: the command is not rendered.
+3. **Two locks, kept apart.** The blocked bit cannot both protect a row from the admin UI and let groups widen it. v5.0.3 uses that bit for both (`AdminConfigLockController` locks it, and the resolver lets a blocked global row win alone). This plan splits them.
+   - **Managed marker.** `managed: true` stamps a marker on every owner-0 default and every group row this command writes. The marker is part of this command, not the blocked bit, and not the later `CONFIG.MANAGED_MODE=file` switch. The lock controller and the policy write API treat a marked row as read-only while the blocked bit stays clear. The resolver ignores the marker, so group evaluation still runs. An admin cannot flip the global `COMPUTE.ENABLED` or `MODELS.ALLOWED` row and grant the capability to everyone; the write is refused, and the next apply restores the file.
+   - **Blocked bit.** Set only for Helm fields listed in `groupPolicies.blocked`, after the §5.2 mapping. A blocked global row wins alone and groups are not consulted (§2.2). Use it for a mapped field this installation will never grant, such as `dropbox` on a site with no Dropbox app. A field that appears in `blocked` and also on a group entry is a `helm template` error.
+   Global defaults are owner-0 rows for every mapped field present under `defaults`. A present `models.allowed`, including `[]`, is written as `MODELS.ALLOWED`. A field omitted from `defaults` is left untouched. `FEATURE_*` remains the lock for the basic installation pins. `CONFIG.MANAGED_MODE=file`, when the application grows it, is this same marker applied to every key in a profile file. Group grants do not wait for it.
 4. **`app:config:doctor`** (proposed, not shipped) prints effective value and source: pin, user, group, or admin. The chart’s test hook runs it. A typo in a group claim fails the hook instead of failing a user on Monday.
 
 `COMPUTE.WORKSPACES_ENABLED` and `COMPUTE.EGRESS_ENABLED` stay installation-wide in the first cut. Egress off means every compute run stays offline, which is the right openDesk default. Per-group egress is a later allow-list addition, not a reason to delay the on/off grant.
@@ -235,9 +238,12 @@ features:
   userSearch: false
   directorySync: true
   groupPolicies: true
-  webSpeech: false
   # null so that group grants in groupPolicies are consulted.
   compute: null
+
+# §4.1. speech.webSpeech → WEB_SPEECH_ENABLED.
+speech:
+  webSpeech: false
 
 office:
   convertUrl: "http://collabora.opendesk.svc.cluster.local:9980"
@@ -260,12 +266,16 @@ models:
     sound2text: "whisper:base"
 
 # Enterprise grants. externalId is the OIDC groups-claim value.
+# Field names map to PolicyAllowList keys in the table under this example.
 groupPolicies:
+  # Stamps the managed marker. Does not set the blocked bit.
   managed: true
+  # Helm fields stored with the blocked bit. Empty so the grants below are consulted.
+  blocked: []
   defaults:
     models:
-      allowed: []          # empty = every model enabled above
-    compute: false
+      allowed: []          # empty = every model enabled above; written as MODELS.ALLOWED
+    compute: false         # unblocked global off; synaplan-compute may grant
     dropbox: false
     m365: false
   groups:
@@ -280,22 +290,33 @@ groupPolicies:
     - externalId: synaplan-office
       m365: true
       dropbox: true
-      features:
-        documentTools: true
+      documentTools: true  # DOCUMENT_TOOLS.ENABLED, already on PolicyAllowList
 ```
+
+Helm fields on `defaults` or on a group, and the key the command writes:
+
+| Helm field | Policy key | On `PolicyAllowList` in v5.0.3 |
+| --- | --- | --- |
+| `models.allowed` | `MODELS.ALLOWED` | yes |
+| `compute` | `COMPUTE.ENABLED` | no — step A |
+| `dropbox` | `DROPBOX.ENABLED` | no — step A |
+| `m365` | `M365.ENABLED` | no — step A |
+| `documentTools` | `DOCUMENT_TOOLS.ENABLED` | yes |
+
+`externalId` is the group identity. The chart copies `oidc.directory.groupNames` into the file as the display name. The command accepts the fields in the table, `externalId`, and that display name. `features.documentTools` remains the installation pin (`FEATURE_DOCUMENT_TOOLS_ENABLED`). The group field is `documentTools`. A pin of `true` or `false` still wins over the group row (§2.2).
 
 A person in `synaplan-users` and `synaplan-compute` sees the union of the model lists and receives compute, because bools merge with OR and model lists merge with union. Put a restricted population in the restricted group only.
 
-`groupPolicies.defaults` is the owner-0 row. With `managed: true` that row is stored blocked for keys that must not be widened in the UI. Do not block `MODELS.ALLOWED` or `COMPUTE.ENABLED` if groups are supposed to grant beyond the default: a blocked global row wins alone and the group rows are skipped. Block the keys that are truly installation-fixed (for example registration, or a Dropbox app that this site will never offer). Leave the grant keys unlocked at the global layer and authoritative in the group file.
+`groupPolicies.defaults` is the owner-0 row, and `managed: true` locks it with the managed marker. The blocked bit stays clear, so the resolver still consults `synaplan-compute` and the group model lists. `blocked` is the list that sets that bit. The example leaves it empty because each default here is a floor a group may raise: `compute: false` and `models.allowed: []` are written and groups are still consulted. Putting `compute` or `models` in `blocked` while a group sets that field is a render error. Listing `dropbox` in `blocked`, with no group entry for it, is how a site records that Dropbox stays off.
 
 ### 5.3 Apply order
 
 The init container, after the database is reachable and migrations have run:
 
 1. Existing model script (`51-init-models.sh`). Unchanged contract.
-2. New script, only when `groupPolicies` is non-empty: render the YAML to a ConfigMap, run `app:iam:apply-group-policies /etc/synaplan/group-policies.yaml`.
-3. The same script writes owner-0 defaults for `COMPUTE.ENABLED`, `DROPBOX.ENABLED`, and `M365.ENABLED` from `groupPolicies.defaults`.
-4. Directory sync on login attaches users to groups that already have policy. Removing a claim value removes the directory membership and therefore the grant. The group row and its policy remain, so the next person in that group still matches.
+2. When `groupPolicies` is present, render the YAML to a ConfigMap and run `app:iam:apply-group-policies /etc/synaplan/group-policies.yaml`. Presence includes `groups: []` and a file that only carries owner-0 defaults. The script runs for that empty list. An absent `groupPolicies` key means the chart is not managing group policy: the script is not rendered, and rows already in the database stay where they are. Removing the last grant is an explicit empty list applied by this command.
+3. That command writes an owner-0 row for every mapped field present under `defaults`: `MODELS.ALLOWED` from `models.allowed` (including `[]`), `COMPUTE.ENABLED`, `DROPBOX.ENABLED`, `M365.ENABLED`, and `DOCUMENT_TOOLS.ENABLED` when `documentTools` is present. A field that appears only on a group is written only on that group. Fields listed in `blocked` are stored with the blocked bit. Every other key this command writes is unblocked and carries the managed marker.
+4. Directory sync on login attaches users to groups that already have policy. Removing a claim value from a token removes that person’s directory membership and therefore their grant. The group row and its policy remain, so the next person in that group still matches. Removing the group from the file, or applying `groups: []`, is step 2: the command deletes the policy keys it previously wrote.
 
 Web, worker, and scheduler all run step 2, or only the web role does and the others wait. Prefer once, on the web init, guarded by the Redis lock the application already uses (`LOCK_DSN`). Two replicas must not apply concurrently.
 
@@ -342,11 +363,11 @@ Application first where the binary does not have the behaviour. Chart second, as
 | Step | Repository | Delivers |
 | --- | --- | --- |
 | A | `synaplan` | `PolicyAllowList` gains `COMPUTE.ENABLED`, `DROPBOX.ENABLED`, `M365.ENABLED`, with the merge rules in §2.3. Requests honor them. Tests cover OR, union, and “blocked global row wins alone”. |
-| B | `synaplan` | `app:iam:apply-group-policies` as specified in §5.1. Upsert by issuer + external id. Idempotent. Non-zero exit on an unknown key. Covered by a command test with a fixture YAML. |
+| B | `synaplan` | `app:iam:apply-group-policies` as specified in §5.1. Upsert by issuer + external id. Writes every present default, including `MODELS.ALLOWED` when `models.allowed` is `[]`. Stamps the managed marker and leaves the blocked bit clear, except for fields listed in `blocked`. `groups: []` deletes grants this command previously wrote. Idempotent. Non-zero exit on an unknown field. Covered by a command test with a fixture YAML, including the empty-list case. |
 | C | `synaplan` | Owner-0 import of Dropbox and M365 credentials from env when the row is empty, same as provider keys. `FEATURE_*` unchanged. |
 | D | `synaplan-charts` | Bump `appVersion` to the release that contains A–C. Add `features`, `office`, `compute`, `speech`, and `oidc.directory` values. Template emits pins and neighbour URLs on all three roles. Render fails if `groupPolicies` is set and the image tag is older than that release. |
 | E | `synaplan-charts` | ConfigMap + init script for the group-policy file. Redis lock so only one replica applies. `examples/values-opendesk.yaml` and a short pointer in the chart README template (then `make docs`). |
-| F | `synaplan` then charts | `CONFIG.MANAGED_MODE=file` and `app:config:doctor`, then a Helm test that runs doctor. Until F, the blocked bit and the `FEATURE_*` lock are the guarantee that the UI cannot silently diverge. |
+| F | `synaplan` then charts | `CONFIG.MANAGED_MODE=file` and `app:config:doctor`, then a Helm test that runs doctor. The managed marker from step B already locks the keys this file writes, and `FEATURE_*` already locks the basic pins. Step F extends that marker to every key in a profile file. It is not the lock that makes a group grant survive the resolver. |
 
 Step D can ship the basic ON/OFF flags as soon as the image is 5.x, without waiting for A–C. Those flags need no new application command. Group grants wait for A and B. Shipping the values earlier would write a file nothing reads.
 
@@ -369,9 +390,11 @@ After the chart implements this, these are the checks. They are stated now so th
 2. The same render with `features.compute: true` and a non-empty `groupPolicies.groups` fails, because a forced-on pin and a group grant contradict each other.
 3. The same render with `appVersion` / `image.tag` below the command’s release fails when `groupPolicies` is set.
 4. On a cluster, a user whose token includes `synaplan-compute` can run compute, and a user whose token does not include it receives the feature-absent response. Neither user was configured in the UI.
-5. Removing `synaplan-office` from the values and re-applying removes the M365 and Dropbox grants for that group. Existing personal OAuth tokens stop being usable for new actions; they are not printed in logs.
-6. The admin Features page shows the pinned basic flags locked, with the variable name. Group policy pages show the Git-managed grants as locked when `managed: true` applies to that key.
-7. `make all` passes. The generated README lists the new values. The air-gap overlay still templates.
+5. Removing `synaplan-office` from the values and re-applying removes the M365 and Dropbox grants for that group. Applying `groupPolicies` with `groups: []` removes every grant this command previously wrote, including the last one. Deleting the `groupPolicies` key without that empty apply leaves the rows in place; that is not the removal path. Existing personal OAuth tokens stop being usable for new actions once the grant is gone; they are not printed in logs.
+6. The admin Features page shows the pinned basic flags locked, with the variable name. Group policy pages show the Git-managed grants as locked when `managed: true`, including the unblocked global `MODELS.ALLOWED` and `COMPUTE.ENABLED` rows. The lock shown there is the managed marker.
+7. `helm template` with `groupPolicies.managed: true` and `groups: []` still renders the policy file, and the init container still invokes `app:iam:apply-group-policies`.
+8. The same render fails when a field in `groupPolicies.blocked` is also set on a group.
+9. `make all` passes. The generated README lists the new values. The air-gap overlay still templates.
 
 ---
 
@@ -381,5 +404,5 @@ After the chart implements this, these are the checks. They are stated now so th
 - **Seeder freeze.** Anything written only by `insertIfMissing` will not follow Git on the second install. The apply command is insert-or-update for the keys it owns. Reusing the seeder would look successful and then stick forever.
 - **OR merge surprises.** A broad group plus a narrow group equals the broad group. The example in §5.2 is the documentation; the doctor output should say which group granted the winning value.
 - **Claim mismatch.** `synaplan-compute` in Helm and `/opendesk/synaplan-compute` in the token are different external ids. Doctor should list claim values seen at last login against ids declared in the file.
-- **Blocked-row footgun.** Locking `MODELS.ALLOWED` globally disables group lists. The template should refuse `managed: true` on a key that `groupPolicies.groups` also sets, or it should document that managed defaults and group grants are mutually exclusive per key. Prefer the render error.
+- **Blocked-row footgun.** Setting the blocked bit on `MODELS.ALLOWED` or `COMPUTE.ENABLED` disables group lists and group grants. `managed: true` does not set that bit. The template fails the render when a field in `groupPolicies.blocked` is also set under `groupPolicies.groups`. The UI lock for a grant key is the managed marker.
 - **Secret in the profile.** The apply command rejects a Dropbox or M365 secret that is not an `${env:…}` reference. The chart never puts those values in the ConfigMap; it injects them as environment variables from Secrets, and the YAML only names the variable.
