@@ -211,7 +211,7 @@ role deployments add SYNAPLAN_ROLE on top.
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.* or features.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, oidc.* or bootstrapAdmin.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
 {{- end }}
 {{- end }}
 {{- $switchEnv }}
@@ -243,16 +243,18 @@ urlFetch: FEATURE_MULTITASK_URL_FETCH_ENABLED
 compute: FEATURE_COMPUTE_ENABLED
 registration: REGISTRATION_ENABLED
 guestChat: GUEST_CHAT_ENABLED
+setupWizard: SETUP_WIZARD_ENABLED
 {{- end }}
 
 {{/*
-Installation switches: neighbour URLs (empty = off), speech and feature pins
-(null = not emitted). Shared by every role through synaplan.env.
+Installation switches: neighbour URLs (empty = off), speech, identity and
+feature pins (null = not emitted). Shared by every role through synaplan.env.
 */}}
 {{- define "synaplan.switchesEnv" -}}
 {{- $map := include "synaplan.featurePinMap" . | fromYaml }}
 {{- $features := .Values.features | default dict }}
 {{- $featurePinned := false }}
+{{- $pinnedNames := list }}
 {{- range $key, $value := $features }}
 {{- if not (hasKey $map $key) }}
 {{- fail (printf "features.%s is not a known feature pin. Known keys: %s" $key (keys $map | sortAlpha | join ", ")) }}
@@ -261,17 +263,36 @@ Installation switches: neighbour URLs (empty = off), speech and feature pins
 {{- if not (kindIs "bool" $value) }}
 {{- fail (printf "features.%s must be true, false or null, got %v" $key $value) }}
 {{- end }}
+{{- $pinnedNames = append $pinnedNames (index $map $key) }}
 {{- if hasPrefix "FEATURE_" (index $map $key) }}
 {{- $featurePinned = true }}
 {{- end }}
 {{- end }}
+{{- end }}
+{{- /* featurePins: GROUP.SETTING -> FEATURE_<GROUP>_<SETTING>, the same
+       derivation as FeatureFlagEnv::envVarFor. */}}
+{{- $extraPins := dict }}
+{{- range $key, $value := (.Values.featurePins | default dict) }}
+{{- if not (regexMatch `^[A-Za-z0-9_]+\.[A-Za-z0-9_.]+$` $key) }}
+{{- fail (printf "featurePins key %q must be a BCONFIG name GROUP.SETTING, e.g. COMPUTE.EGRESS_ENABLED" $key) }}
+{{- end }}
+{{- if not (kindIs "bool" $value) }}
+{{- fail (printf "featurePins.%s must be true or false, got %v" $key $value) }}
+{{- end }}
+{{- $envName := printf "FEATURE_%s" (regexReplaceAll "[^A-Za-z0-9]+" $key "_" | trimAll "_" | upper) }}
+{{- if has $envName $pinnedNames }}
+{{- fail (printf "featurePins.%s sets %s, which features.* or another featurePins key already sets" $key $envName) }}
+{{- end }}
+{{- $pinnedNames = append $pinnedNames $envName }}
+{{- $_ := set $extraPins $envName $value }}
+{{- $featurePinned = true }}
 {{- end }}
 {{- /* FEATURE_* pins for the September 2026 feature waves are read by
        synaplan >= 5.0.0; an older image ignores them, so the operator would
        believe a feature is off that is not. Non-semver tags skip the check. */}}
 {{- $tag := .Values.image.tag | default .Chart.AppVersion | toString | trimPrefix "v" }}
 {{- if and $featurePinned (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.0.0" $tag) }}
-{{- fail (printf "features.* pins need synaplan >= 5.0.0; effective image tag is %q, which ignores them. Set image.tag to 5.0.0 or newer, or leave features.* null." $tag) }}
+{{- fail (printf "features.* / featurePins need synaplan >= 5.0.0; effective image tag is %q, which ignores them. Set image.tag to 5.0.0 or newer, or leave them unset." $tag) }}
 {{- end }}
 {{- with .Values.qdrant.url }}
 # Qdrant (memories, vector search)
@@ -316,6 +337,35 @@ Installation switches: neighbour URLs (empty = off), speech and feature pins
 - name: {{ index $map $key }}
   value: {{ $value | toString | quote }}
 {{- end }}
+{{- end }}
+{{- range $envName := keys $extraPins | sortAlpha }}
+- name: {{ $envName }}
+  value: {{ index $extraPins $envName | toString | quote }}
+{{- end }}
+{{- if .Values.oidc.enabled }}
+{{- range $env, $key := dict "OIDC_ADMIN_ROLES" "adminRoles" "OIDC_ROLE_CLAIMS" "roleClaims" "OIDC_ROLE_MAPPING" "roleMapping" "OIDC_PROVIDER_LABEL" "providerLabel" "OIDC_BEARER_AUDIENCE" "bearerAudience" }}
+{{- with index $.Values.oidc $key }}
+- name: {{ $env }}
+  value: {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- with .Values.bootstrapAdmin.secretRef }}
+# First administrator (local accounts)
+- name: BOOTSTRAP_ADMIN_EMAIL
+  valueFrom:
+    secretKeyRef:
+      name: {{ . | quote }}
+      key: email
+- name: BOOTSTRAP_ADMIN_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ . | quote }}
+      key: password
+{{- end }}
+{{- if kindIs "bool" .Values.bootstrapAdmin.forcePasswordChange }}
+- name: BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE
+  value: {{ .Values.bootstrapAdmin.forcePasswordChange | toString | quote }}
 {{- end }}
 {{- end }}
 

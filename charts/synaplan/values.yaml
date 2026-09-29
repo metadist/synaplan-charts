@@ -199,6 +199,29 @@ features:
   registration: null
   # -- (bool) GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs)
   guestChat: null
+  # -- (bool) SETUP_WIZARD_ENABLED (first-run setup page on an empty database; false for SSO-only installs)
+  setupWizard: null
+
+# Any other BCONFIG flag the application pins from the environment, keyed by
+# its BCONFIG name GROUP.SETTING (synaplan >= 5.0.0). The chart derives the
+# variable the same way the application does: COMPUTE.EGRESS_ENABLED ->
+# FEATURE_COMPUTE_EGRESS_ENABLED, MODULES.GATE_TIKA -> FEATURE_MODULES_GATE_TIKA.
+# Values must be true or false. A key that maps to the same variable as a
+# features.* entry fails the render. Examples:
+#   featurePins:
+#     COMPUTE.EGRESS_ENABLED: false
+#     MULTITASK.MCP_FETCH_ENABLED: false
+#     MODULES.GATE_TIKA: true
+featurePins: {}
+
+# First administrator for installs with local accounts. SSO-only installs
+# grant admin through oidc.adminRoles instead and leave this empty.
+bootstrapAdmin:
+  # -- Name of an existing Secret with keys email and password
+  # (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off.
+  secretRef: ""
+  # -- (bool) BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default.
+  forcePasswordChange: null
 
 # OIDC authentication configuration
 oidc:
@@ -217,6 +240,18 @@ oidc:
   # -- Space-separated OIDC scopes requested during login.
   # Remove offline_access if your provider doesn't support it (internal app tokens provide a 7-day fallback).
   scopes: "openid email profile offline_access"
+  # -- Comma-separated claim values that make a user administrator on login
+  # (OIDC_ADMIN_ROLES). Empty = application default (admin, realm-admin, synaplan-admin, administrator).
+  adminRoles: ""
+  # -- Comma-separated dot paths the roles are read from (OIDC_ROLE_CLAIMS);
+  # {client_id} is replaced by clientId. Empty = application default (Keycloak realm/client roles + groups).
+  roleClaims: ""
+  # -- Extra role mapping "idp_role:SYMFONY_ROLE,..." (OIDC_ROLE_MAPPING). Empty = none.
+  roleMapping: ""
+  # -- Text on the sign-in button (OIDC_PROVIDER_LABEL). Empty = "Enterprise SSO".
+  providerLabel: ""
+  # -- Expected JWT audience for bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId.
+  bearerAudience: ""
 
 # Seed built-in system prompts on startup (idempotent)
 prompts:

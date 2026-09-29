@@ -31,6 +31,8 @@ oidc:
   clientId: "synaplan"
   clientSecretRef: "synaplan-oidc-credentials"
   autoRedirect: true
+  # Administrators come from the identity provider, nobody is promoted by hand.
+  adminRoles: "synaplan-admin"
 
 models:
   providers:
@@ -50,9 +52,10 @@ tts:
   enabled: true
 
 features:
-  # SSO-only: no local accounts, no anonymous trial.
+  # SSO-only: no local accounts, no anonymous trial, no first-run setup page.
   registration: false
   guestChat: false
+  setupWizard: false
   # No public directory of every account in the share dialog.
   userSearch: false
   # Outbound calls to arbitrary internet addresses.
@@ -61,3 +64,9 @@ features:
   # Features that need components this overlay does not install.
   desktopAgent: false
   compute: false
+
+featurePins:
+  # Saved-task steps that call MCP servers or reach the internet from compute.
+  MULTITASK.MCP_FETCH_ENABLED: false
+  MULTITASK.MCP_ACTION_ENABLED: false
+  COMPUTE.EGRESS_ENABLED: false

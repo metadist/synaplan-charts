@@ -114,6 +114,28 @@ pins the feature for the whole installation and locks the admin toggle; `null`
 below. Do not also set those variables in `env`: the render fails on a
 duplicate.
 
+Any other flag the application pins from the environment goes into
+`featurePins`, keyed by its BCONFIG name (`COMPUTE.EGRESS_ENABLED`,
+`MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
+`FEATURE_*` variable the same way the application does.
+
+Identity needs no clicks either: `oidc.adminRoles` / `oidc.roleClaims` /
+`oidc.roleMapping` decide who becomes administrator on login,
+`features.setupWizard: false` skips the first-run page on SSO-only installs, and
+`bootstrapAdmin.secretRef` creates a first local administrator where local
+accounts are used.
+
+Every other environment variable the application reads can be set through
+`env` (use `valueFrom.secretKeyRef` for secrets).
+
+**Not settable from Helm yet (synaplan 5.0.x):** settings the admin UI stores
+only in the database and that have no environment override — branding
+(`BRANDING.*`), tool policies (`TOOLS.POLICY.*`), sharing and audit options
+(`IAM.EVERYONE_SHARES`, `IAM.DIRECTORY_GROUPS_CLAIM`, …), the MCP client switch,
+digest and conversation-summary tuning, compute limits, vector-search
+thresholds, Microsoft 365 / Dropbox connectors, and group policies. They keep
+their shipped defaults until the application offers a declarative way to set them.
+
 An openDesk or air-gapped install starts from
 [examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
 login, the shared Collabora, local models and speech, and every feature that
@@ -138,6 +160,8 @@ reaches the internet pinned off.
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| bootstrapAdmin.forcePasswordChange | bool | `nil` | BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default. |
+| bootstrapAdmin.secretRef | string | `""` | Name of an existing Secret with keys email and password (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off. |
 | compute.tokenSecretRef | string | `""` | Name of an existing Secret holding the token under key compute-token. |
 | compute.url | string | `""` | Compute sidecar URL. Empty = off. |
 | customRootCA.crt | string | `""` | Option 1: inline PEM certificate (the chart creates a Secret from it) |
@@ -154,6 +178,7 @@ reaches the internet pinned off.
 | env[1].name | string | `"APP_DEBUG"` |  |
 | env[1].value | string | `"false"` |  |
 | extraInitScripts | object | `{}` |  |
+| featurePins | object | `{}` |  |
 | features.agents | bool | `nil` | FEATURE_AGENTS_ENABLED (AI assistant builder) |
 | features.compute | bool | `nil` | FEATURE_COMPUTE_ENABLED (installation kill switch for compute) |
 | features.customHttpTools | bool | `nil` | FEATURE_TOOLS_CUSTOM_HTTP_ENABLED (user-declared HTTP / OpenAPI tools, outbound calls) |
@@ -165,6 +190,7 @@ reaches the internet pinned off.
 | features.guestChat | bool | `nil` | GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs) |
 | features.platformLinks | bool | `nil` | FEATURE_PLATFORM_LINKS_ENABLED (Nextcloud / ownCloud / OpenCloud account linking) |
 | features.registration | bool | `nil` | REGISTRATION_ENABLED (local self-registration; false for SSO-only installs) |
+| features.setupWizard | bool | `nil` | SETUP_WIZARD_ENABLED (first-run setup page on an empty database; false for SSO-only installs) |
 | features.sharing | bool | `nil` | FEATURE_IAM_SHARING_ENABLED (needs groups) |
 | features.toolApprovals | bool | `nil` | FEATURE_TOOLS_APPROVALS_ENABLED (ask before a changing tool runs) |
 | features.tools | bool | `nil` | FEATURE_TOOLS_REGISTRY_ENABLED (MCP / HTTP / built-in tool registry, kill switch) |
@@ -209,12 +235,17 @@ reaches the internet pinned off.
 | nodeSelector | object | `{}` |  |
 | office.convertTimeoutMs | int | `60000` | Convert timeout in milliseconds. Only emitted when convertUrl is set. |
 | office.convertUrl | string | `""` | Convert-to base URL (e.g. http://collabora.office.svc.cluster.local:9980). Empty = off. |
+| oidc.adminRoles | string | `""` | Comma-separated claim values that make a user administrator on login (OIDC_ADMIN_ROLES). Empty = application default (admin, realm-admin, synaplan-admin, administrator). |
 | oidc.autoRedirect | bool | `true` | Auto-redirect to OIDC provider on login page |
+| oidc.bearerAudience | string | `""` | Expected JWT audience for bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId. |
 | oidc.clientId | string | `""` |  |
 | oidc.clientSecret | string | `""` |  |
 | oidc.clientSecretRef | string | `""` |  |
 | oidc.enabled | bool | `false` |  |
 | oidc.issuerURI | string | `""` |  |
+| oidc.providerLabel | string | `""` | Text on the sign-in button (OIDC_PROVIDER_LABEL). Empty = "Enterprise SSO". |
+| oidc.roleClaims | string | `""` | Comma-separated dot paths the roles are read from (OIDC_ROLE_CLAIMS); {client_id} is replaced by clientId. Empty = application default (Keycloak realm/client roles + groups). |
+| oidc.roleMapping | string | `""` | Extra role mapping "idp_role:SYMFONY_ROLE,..." (OIDC_ROLE_MAPPING). Empty = none. |
 | oidc.scopes | string | `"openid email profile offline_access"` | Space-separated OIDC scopes requested during login. Remove offline_access if your provider doesn't support it (internal app tokens provide a 7-day fallback). |
 | ollama.baseUrl | string | `""` | Ollama API base URL. Set this to use Ollama for LLM inference and bge-m3 embedding. Example: http://ollama.synaplan.svc.cluster.local:11434 |
 | persistence.uploads.accessMode | string | `"ReadWriteMany"` |  |

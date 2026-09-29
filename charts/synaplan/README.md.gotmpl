@@ -113,6 +113,28 @@ pins the feature for the whole installation and locks the admin toggle; `null`
 below. Do not also set those variables in `env`: the render fails on a
 duplicate.
 
+Any other flag the application pins from the environment goes into
+`featurePins`, keyed by its BCONFIG name (`COMPUTE.EGRESS_ENABLED`,
+`MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
+`FEATURE_*` variable the same way the application does.
+
+Identity needs no clicks either: `oidc.adminRoles` / `oidc.roleClaims` /
+`oidc.roleMapping` decide who becomes administrator on login,
+`features.setupWizard: false` skips the first-run page on SSO-only installs, and
+`bootstrapAdmin.secretRef` creates a first local administrator where local
+accounts are used.
+
+Every other environment variable the application reads can be set through
+`env` (use `valueFrom.secretKeyRef` for secrets).
+
+**Not settable from Helm yet (synaplan 5.0.x):** settings the admin UI stores
+only in the database and that have no environment override — branding
+(`BRANDING.*`), tool policies (`TOOLS.POLICY.*`), sharing and audit options
+(`IAM.EVERYONE_SHARES`, `IAM.DIRECTORY_GROUPS_CLAIM`, …), the MCP client switch,
+digest and conversation-summary tuning, compute limits, vector-search
+thresholds, Microsoft 365 / Dropbox connectors, and group policies. They keep
+their shipped defaults until the application offers a declarative way to set them.
+
 An openDesk or air-gapped install starts from
 [examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
 login, the shared Collabora, local models and speech, and every feature that
