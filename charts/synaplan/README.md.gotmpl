@@ -84,22 +84,39 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 
 ### Office engine (Collabora CODE)
 
-The chart does not yet deploy Collabora. Office thumbnails, PDF export, preview
-and combine need `OFFICE_CONVERT_URL` on the **web and worker** pods. Append it
-to `env` (see values below) and point at CODE in the cluster or at an existing
-instance.
+The chart does not deploy Collabora. Office thumbnails, PDF export, preview
+and combine need a convert-to endpoint. Set `office.convertUrl` to CODE in the
+cluster or to an existing instance; the chart emits `OFFICE_CONVERT_URL` and
+`OFFICE_CONVERT_TIMEOUT_MS` on the web, worker and scheduler pods.
 
 Convert-to never receives a Synaplan user id. Integrator README — AI features,
 identity, 403 / `net.post_allow`, CODE 25.04 healthcheck, future sidecar
 sketch: [docs/collabora-office-engine.md](../../docs/collabora-office-engine.md).
 
 ```yaml
-env:
-  - name: OFFICE_CONVERT_URL
-    value: http://collabora.office.svc.cluster.local:9980
-  - name: OFFICE_CONVERT_TIMEOUT_MS
-    value: "60000"
+office:
+  convertUrl: http://collabora.office.svc.cluster.local:9980
+  convertTimeoutMs: 60000
 ```
+
+### Installation switches (synaplan >= 5.0.0)
+
+Neighbour services are switched on by their URL and off by leaving it empty:
+`ollama.baseUrl`, `triton.url`, `qdrant.url`, `office.convertUrl`,
+`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`.
+
+Product features are pinned in `features.*` and `speech.*`. `true` or `false`
+pins the feature for the whole installation and locks the admin toggle; `null`
+(the default) leaves the decision to the admin UI. Each key maps to one
+`FEATURE_*` (or `REGISTRATION_ENABLED` / `GUEST_CHAT_ENABLED` /
+`WEB_SPEECH_ENABLED` / `WHISPER_ENABLED`) variable, listed in the values table
+below. Do not also set those variables in `env`: the render fails on a
+duplicate.
+
+An openDesk or air-gapped install starts from
+[examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
+login, the shared Collabora, local models and speech, and every feature that
+reaches the internet pinned off.
 
 {{ template "chart.valuesSection" . }}
 

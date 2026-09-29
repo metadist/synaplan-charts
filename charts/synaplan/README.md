@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.4.0](https://img.shields.io/badge/Version-0.4.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 4.3.6](https://img.shields.io/badge/AppVersion-4.3.6-informational?style=flat-square)
+![Version: 0.5.0](https://img.shields.io/badge/Version-0.5.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.0.6](https://img.shields.io/badge/AppVersion-5.0.6-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.4.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.5.0
 ```
 
 ### Install from local chart
@@ -85,22 +85,39 @@ See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM 
 
 ### Office engine (Collabora CODE)
 
-The chart does not yet deploy Collabora. Office thumbnails, PDF export, preview
-and combine need `OFFICE_CONVERT_URL` on the **web and worker** pods. Append it
-to `env` (see values below) and point at CODE in the cluster or at an existing
-instance.
+The chart does not deploy Collabora. Office thumbnails, PDF export, preview
+and combine need a convert-to endpoint. Set `office.convertUrl` to CODE in the
+cluster or to an existing instance; the chart emits `OFFICE_CONVERT_URL` and
+`OFFICE_CONVERT_TIMEOUT_MS` on the web, worker and scheduler pods.
 
 Convert-to never receives a Synaplan user id. Integrator README — AI features,
 identity, 403 / `net.post_allow`, CODE 25.04 healthcheck, future sidecar
 sketch: [docs/collabora-office-engine.md](../../docs/collabora-office-engine.md).
 
 ```yaml
-env:
-  - name: OFFICE_CONVERT_URL
-    value: http://collabora.office.svc.cluster.local:9980
-  - name: OFFICE_CONVERT_TIMEOUT_MS
-    value: "60000"
+office:
+  convertUrl: http://collabora.office.svc.cluster.local:9980
+  convertTimeoutMs: 60000
 ```
+
+### Installation switches (synaplan >= 5.0.0)
+
+Neighbour services are switched on by their URL and off by leaving it empty:
+`ollama.baseUrl`, `triton.url`, `qdrant.url`, `office.convertUrl`,
+`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`.
+
+Product features are pinned in `features.*` and `speech.*`. `true` or `false`
+pins the feature for the whole installation and locks the admin toggle; `null`
+(the default) leaves the decision to the admin UI. Each key maps to one
+`FEATURE_*` (or `REGISTRATION_ENABLED` / `GUEST_CHAT_ENABLED` /
+`WEB_SPEECH_ENABLED` / `WHISPER_ENABLED`) variable, listed in the values table
+below. Do not also set those variables in `env`: the render fails on a
+duplicate.
+
+An openDesk or air-gapped install starts from
+[examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
+login, the shared Collabora, local models and speech, and every feature that
+reaches the internet pinned off.
 
 ## Values
 
@@ -121,6 +138,8 @@ env:
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| compute.tokenSecretRef | string | `""` | Name of an existing Secret holding the token under key compute-token. |
+| compute.url | string | `""` | Compute sidecar URL. Empty = off. |
 | customRootCA.crt | string | `""` | Option 1: inline PEM certificate (the chart creates a Secret from it) |
 | customRootCA.secretRef | string | `""` | Option 2: name of an existing Secret holding the CA under key ca.crt. Takes precedence over crt. |
 | database.host | string | `"mariadb-cluster"` |  |
@@ -135,6 +154,23 @@ env:
 | env[1].name | string | `"APP_DEBUG"` |  |
 | env[1].value | string | `"false"` |  |
 | extraInitScripts | object | `{}` |  |
+| features.agents | bool | `nil` | FEATURE_AGENTS_ENABLED (AI assistant builder) |
+| features.compute | bool | `nil` | FEATURE_COMPUTE_ENABLED (installation kill switch for compute) |
+| features.customHttpTools | bool | `nil` | FEATURE_TOOLS_CUSTOM_HTTP_ENABLED (user-declared HTTP / OpenAPI tools, outbound calls) |
+| features.desktopAgent | bool | `nil` | FEATURE_DESKTOP_AGENT_ENABLED (desktop client pairing) |
+| features.directorySync | bool | `nil` | FEATURE_IAM_DIRECTORY_SYNC_ENABLED (groups from the OIDC groups claim) |
+| features.documentTools | bool | `nil` | FEATURE_DOCUMENT_TOOLS_ENABLED (Word / Excel / PowerPoint tools) |
+| features.groupPolicies | bool | `nil` | FEATURE_IAM_GROUP_POLICIES_ENABLED (needs groups) |
+| features.groups | bool | `nil` | FEATURE_IAM_GROUPS_ENABLED (people & groups) |
+| features.guestChat | bool | `nil` | GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs) |
+| features.platformLinks | bool | `nil` | FEATURE_PLATFORM_LINKS_ENABLED (Nextcloud / ownCloud / OpenCloud account linking) |
+| features.registration | bool | `nil` | REGISTRATION_ENABLED (local self-registration; false for SSO-only installs) |
+| features.sharing | bool | `nil` | FEATURE_IAM_SHARING_ENABLED (needs groups) |
+| features.toolApprovals | bool | `nil` | FEATURE_TOOLS_APPROVALS_ENABLED (ask before a changing tool runs) |
+| features.tools | bool | `nil` | FEATURE_TOOLS_REGISTRY_ENABLED (MCP / HTTP / built-in tool registry, kill switch) |
+| features.urlFetch | bool | `nil` | FEATURE_MULTITASK_URL_FETCH_ENABLED (watched pages, fetches public URLs) |
+| features.userSearch | bool | `nil` | FEATURE_IAM_USER_SEARCH_ENABLED (find any account by name/email in the share dialog) |
+| features.workflows | bool | `nil` | FEATURE_WORKFLOWS_BUILDER_ENABLED (Saved Tasks steps + webhook trigger) |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
@@ -171,6 +207,8 @@ env:
 | models.providers.only | list | `[]` | Allow-list: enable only these providers and disable every other catalog provider (air-gap) |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
+| office.convertTimeoutMs | int | `60000` | Convert timeout in milliseconds. Only emitted when convertUrl is set. |
+| office.convertUrl | string | `""` | Convert-to base URL (e.g. http://collabora.office.svc.cluster.local:9980). Empty = off. |
 | oidc.autoRedirect | bool | `true` | Auto-redirect to OIDC provider on login page |
 | oidc.clientId | string | `""` |  |
 | oidc.clientSecret | string | `""` |  |
@@ -189,6 +227,7 @@ env:
 | podSecurityContext | object | `{}` |  |
 | prompts.seed | bool | `true` |  |
 | publicUrl | string | `""` |  |
+| qdrant.url | string | `""` | Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333). Empty = off: the application switches memories and Qdrant search off. |
 | readinessProbe.failureThreshold | int | `3` |  |
 | readinessProbe.httpGet.path | string | `"/"` |  |
 | readinessProbe.httpGet.port | string | `"http"` |  |
@@ -211,12 +250,15 @@ env:
 | serviceAccount.automount | bool | `true` |  |
 | serviceAccount.create | bool | `true` |  |
 | serviceAccount.name | string | `""` |  |
+| speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
+| speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
+| speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
 | tika.enabled | bool | `false` |  |
 | tika.url | string | `"http://tika.synaplan.svc.cluster.local:9998"` |  |
 | tolerations | list | `[]` |  |
 | triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
-| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"digest":"sha256:c2aa56d90a30fc9c55ee76e4a2e7857d5705e4ecf4c8f256740407e0b9f61cd8","pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.0"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
+| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.11-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"digest":"sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc","pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.0"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
 | worker | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"replicaCount":1,"resources":{},"tolerations":[],"transports":""}` | Messenger worker (SYNAPLAN_ROLE=worker): consumes the async queues (AI jobs, extraction, indexing). Required for synaplan >= 4.0 async features. Shares the uploads volume with the web pod: with a ReadWriteOnce PVC the worker must be co-scheduled with the web pod (set affinity accordingly) or the PVC switched to ReadWriteMany. |

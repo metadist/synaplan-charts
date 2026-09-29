@@ -120,6 +120,86 @@ tika:
   enabled: false
   url: "http://tika.synaplan.svc.cluster.local:9998"
 
+# Qdrant vector database: user memories and Qdrant-backed vector search. The
+# chart does not deploy Qdrant.
+qdrant:
+  # -- Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333).
+  # Empty = off: the application switches memories and Qdrant search off.
+  url: ""
+
+# Office engine: Collabora CODE convert-to for thumbnails, PDF export, preview
+# and combine. The chart does not deploy Collabora; on openDesk point at the
+# shared in-cluster CODE service (ClusterIP, never a public URL).
+# See docs/collabora-office-engine.md.
+office:
+  # -- Convert-to base URL (e.g. http://collabora.office.svc.cluster.local:9980).
+  # Empty = off.
+  convertUrl: ""
+  # -- Convert timeout in milliseconds. Only emitted when convertUrl is set.
+  convertTimeoutMs: 60000
+
+# Secure compute sidecar (short Python / Node file work in chat). The chart
+# does not deploy the sidecar. Both values are needed; features.compute can
+# still pin the feature off.
+compute:
+  # -- Compute sidecar URL. Empty = off.
+  url: ""
+  # -- Name of an existing Secret holding the token under key compute-token.
+  tokenSecretRef: ""
+
+# Speech input. null = not emitted, the application default applies.
+speech:
+  # -- (bool) Browser Web Speech API. It streams microphone audio to the
+  # browser vendor's cloud: set false for sovereign / air-gapped installs.
+  webSpeech: null
+  # -- (bool) Local whisper.cpp speech-to-text (binary ships in the image).
+  whisper: null
+  # -- Whisper model name (e.g. base, small). Only emitted when set.
+  whisperModel: ""
+
+# Installation-wide feature pins (synaplan >= 5.0.0). Each key maps to one
+# environment variable the application already knows:
+#   true  = pinned on for everyone, the admin toggle shows as locked
+#   false = pinned off for everyone
+#   null  = not emitted, the database row (admin UI) decides
+# Leave a feature null when it should vary per group; a pin overrides group
+# policy. Unknown keys fail the render. Do not set the same variables in `env`.
+features:
+  # -- (bool) FEATURE_IAM_GROUPS_ENABLED (people & groups)
+  groups: null
+  # -- (bool) FEATURE_IAM_SHARING_ENABLED (needs groups)
+  sharing: null
+  # -- (bool) FEATURE_IAM_USER_SEARCH_ENABLED (find any account by name/email in the share dialog)
+  userSearch: null
+  # -- (bool) FEATURE_IAM_DIRECTORY_SYNC_ENABLED (groups from the OIDC groups claim)
+  directorySync: null
+  # -- (bool) FEATURE_IAM_GROUP_POLICIES_ENABLED (needs groups)
+  groupPolicies: null
+  # -- (bool) FEATURE_AGENTS_ENABLED (AI assistant builder)
+  agents: null
+  # -- (bool) FEATURE_WORKFLOWS_BUILDER_ENABLED (Saved Tasks steps + webhook trigger)
+  workflows: null
+  # -- (bool) FEATURE_TOOLS_REGISTRY_ENABLED (MCP / HTTP / built-in tool registry, kill switch)
+  tools: null
+  # -- (bool) FEATURE_TOOLS_APPROVALS_ENABLED (ask before a changing tool runs)
+  toolApprovals: null
+  # -- (bool) FEATURE_TOOLS_CUSTOM_HTTP_ENABLED (user-declared HTTP / OpenAPI tools, outbound calls)
+  customHttpTools: null
+  # -- (bool) FEATURE_DOCUMENT_TOOLS_ENABLED (Word / Excel / PowerPoint tools)
+  documentTools: null
+  # -- (bool) FEATURE_DESKTOP_AGENT_ENABLED (desktop client pairing)
+  desktopAgent: null
+  # -- (bool) FEATURE_PLATFORM_LINKS_ENABLED (Nextcloud / ownCloud / OpenCloud account linking)
+  platformLinks: null
+  # -- (bool) FEATURE_MULTITASK_URL_FETCH_ENABLED (watched pages, fetches public URLs)
+  urlFetch: null
+  # -- (bool) FEATURE_COMPUTE_ENABLED (installation kill switch for compute)
+  compute: null
+  # -- (bool) REGISTRATION_ENABLED (local self-registration; false for SSO-only installs)
+  registration: null
+  # -- (bool) GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs)
+  guestChat: null
+
 # OIDC authentication configuration
 oidc:
   enabled: false
@@ -204,7 +284,9 @@ tts:
   image:
     repository: ghcr.io/metadist/synaplan-tts
     tag: "2.1.0"
-    digest: "sha256:c2aa56d90a30fc9c55ee76e4a2e7857d5705e4ecf4c8f256740407e0b9f61cd8"
+    # Must be the digest of the tag above: the template renders tag@digest and
+    # the runtime pulls by digest, so a stale digest silently runs an older image.
+    digest: "sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"
     pullPolicy: IfNotPresent
   port: 10200
   defaultVoice: "en_US-lessac-medium"

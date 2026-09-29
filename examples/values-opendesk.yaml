@@ -1,0 +1,63 @@
+# openDesk / sovereign overlay for the Synaplan chart (synaplan >= 5.0.0).
+#
+# Reuses what openDesk already runs: Keycloak (Nubus) for login and Collabora
+# CODE for document conversion. Local inference and speech only; every feature
+# that sends user data to a third party is pinned off. This file is an overlay,
+# not a full values file:
+#
+#   helm install synaplan ./charts/synaplan -f my-values.yaml -f examples/values-opendesk.yaml
+#
+# Replace the service addresses and the issuer with your cluster's. Collabora
+# must allow the Synaplan pods in net.post_allow (see
+# docs/collabora-office-engine.md). Pull the Ollama models before users sign in.
+
+triton:
+  # Chart default points at a Triton service. Blank it when this cluster has none.
+  url: ""
+
+ollama:
+  baseUrl: "http://ollama.synaplan.svc.cluster.local:11434"
+
+qdrant:
+  url: "http://qdrant.synaplan.svc.cluster.local:6333"
+
+office:
+  # openDesk's shared CODE instance, ClusterIP only.
+  convertUrl: "http://collabora-online.opendesk.svc.cluster.local:9980"
+
+oidc:
+  enabled: true
+  issuerURI: "https://id.example.opendesk.lan/realms/opendesk"
+  clientId: "synaplan"
+  clientSecretRef: "synaplan-oidc-credentials"
+  autoRedirect: true
+
+models:
+  providers:
+    # Allow-list: cloud providers added in a later release stay off.
+    only:
+      - ollama
+      - piper
+      - whisper
+
+speech:
+  # Chrome's Web Speech API sends audio to Google. Record for on-server Whisper instead.
+  webSpeech: false
+  whisper: true
+  whisperModel: "base"
+
+tts:
+  enabled: true
+
+features:
+  # SSO-only: no local accounts, no anonymous trial.
+  registration: false
+  guestChat: false
+  # No public directory of every account in the share dialog.
+  userSearch: false
+  # Outbound calls to arbitrary internet addresses.
+  customHttpTools: false
+  urlFetch: false
+  # Features that need components this overlay does not install.
+  desktopAgent: false
+  compute: false

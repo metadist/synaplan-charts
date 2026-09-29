@@ -204,9 +204,118 @@ role deployments add SYNAPLAN_ROLE on top.
 - name: SYNAPLAN_TTS_URL
   value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
 {{- end }}
+{{- $switchEnv := include "synaplan.switchesEnv" . }}
+{{- $managed := list }}
+{{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
+{{- $managed = append $managed (trimPrefix "- name: " .) }}
+{{- end }}
+{{- range .Values.env }}
+{{- if has .name $managed }}
+{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.* or features.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- end }}
+{{- end }}
+{{- $switchEnv }}
 {{- with .Values.env }}
 # Additional environment variables
 {{- toYaml . | nindent 0 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Feature pins: Helm key -> environment variable. The FEATURE_* names are the
+ones the application derives from the BCONFIG key (FeatureFlagEnv::envVarFor).
+*/}}
+{{- define "synaplan.featurePinMap" -}}
+groups: FEATURE_IAM_GROUPS_ENABLED
+sharing: FEATURE_IAM_SHARING_ENABLED
+userSearch: FEATURE_IAM_USER_SEARCH_ENABLED
+directorySync: FEATURE_IAM_DIRECTORY_SYNC_ENABLED
+groupPolicies: FEATURE_IAM_GROUP_POLICIES_ENABLED
+agents: FEATURE_AGENTS_ENABLED
+workflows: FEATURE_WORKFLOWS_BUILDER_ENABLED
+tools: FEATURE_TOOLS_REGISTRY_ENABLED
+toolApprovals: FEATURE_TOOLS_APPROVALS_ENABLED
+customHttpTools: FEATURE_TOOLS_CUSTOM_HTTP_ENABLED
+documentTools: FEATURE_DOCUMENT_TOOLS_ENABLED
+desktopAgent: FEATURE_DESKTOP_AGENT_ENABLED
+platformLinks: FEATURE_PLATFORM_LINKS_ENABLED
+urlFetch: FEATURE_MULTITASK_URL_FETCH_ENABLED
+compute: FEATURE_COMPUTE_ENABLED
+registration: REGISTRATION_ENABLED
+guestChat: GUEST_CHAT_ENABLED
+{{- end }}
+
+{{/*
+Installation switches: neighbour URLs (empty = off), speech and feature pins
+(null = not emitted). Shared by every role through synaplan.env.
+*/}}
+{{- define "synaplan.switchesEnv" -}}
+{{- $map := include "synaplan.featurePinMap" . | fromYaml }}
+{{- $features := .Values.features | default dict }}
+{{- $featurePinned := false }}
+{{- range $key, $value := $features }}
+{{- if not (hasKey $map $key) }}
+{{- fail (printf "features.%s is not a known feature pin. Known keys: %s" $key (keys $map | sortAlpha | join ", ")) }}
+{{- end }}
+{{- if not (kindIs "invalid" $value) }}
+{{- if not (kindIs "bool" $value) }}
+{{- fail (printf "features.%s must be true, false or null, got %v" $key $value) }}
+{{- end }}
+{{- if hasPrefix "FEATURE_" (index $map $key) }}
+{{- $featurePinned = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- /* FEATURE_* pins for the September 2026 feature waves are read by
+       synaplan >= 5.0.0; an older image ignores them, so the operator would
+       believe a feature is off that is not. Non-semver tags skip the check. */}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion | toString | trimPrefix "v" }}
+{{- if and $featurePinned (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.0.0" $tag) }}
+{{- fail (printf "features.* pins need synaplan >= 5.0.0; effective image tag is %q, which ignores them. Set image.tag to 5.0.0 or newer, or leave features.* null." $tag) }}
+{{- end }}
+{{- with .Values.qdrant.url }}
+# Qdrant (memories, vector search)
+- name: QDRANT_URL
+  value: {{ . | quote }}
+{{- end }}
+{{- with .Values.office.convertUrl }}
+# Office engine (Collabora convert-to)
+- name: OFFICE_CONVERT_URL
+  value: {{ . | quote }}
+- name: OFFICE_CONVERT_TIMEOUT_MS
+  value: {{ $.Values.office.convertTimeoutMs | int | toString | quote }}
+{{- end }}
+{{- with .Values.compute.url }}
+# Secure compute sidecar
+- name: COMPUTE_URL
+  value: {{ . | quote }}
+{{- end }}
+{{- with .Values.compute.tokenSecretRef }}
+- name: COMPUTE_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ . | quote }}
+      key: compute-token
+{{- end }}
+{{- if kindIs "bool" .Values.speech.webSpeech }}
+# Speech input
+- name: WEB_SPEECH_ENABLED
+  value: {{ .Values.speech.webSpeech | toString | quote }}
+{{- end }}
+{{- if kindIs "bool" .Values.speech.whisper }}
+- name: WHISPER_ENABLED
+  value: {{ .Values.speech.whisper | toString | quote }}
+{{- end }}
+{{- with .Values.speech.whisperModel }}
+- name: WHISPER_DEFAULT_MODEL
+  value: {{ . | quote }}
+{{- end }}
+{{- range $key := keys $features | sortAlpha }}
+{{- $value := index $features $key }}
+{{- if kindIs "bool" $value }}
+- name: {{ index $map $key }}
+  value: {{ $value | toString | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
 
