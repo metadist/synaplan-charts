@@ -214,6 +214,37 @@ features:
 #     MODULES.GATE_TIKA: true
 featurePins: {}
 
+# Admin settings stored in the database (BCONFIG), keyed by their name
+# GROUP.SETTING. Synaplan >= 5.1.0 reads each one from
+# CONFIG_<GROUP>_<SETTING> and locks the field in the admin UI. An empty
+# map leaves the database value. true/false are sent as "true"/"false".
+# A map or list is sent as JSON (for IAM.DIRECTORY_GROUP_NAMES).
+# These keys are refused: the application stores them encrypted or uses
+# them as bookkeeping, so a pin would not take effect:
+#   M365.CLIENT_SECRET, DROPBOX.APP_SECRET, DIGEST.CURSOR
+# A key that features.* or featurePins already pins is refused too.
+# A semver image tag below 5.1.0 fails the render (5.0.6 ignores CONFIG_*).
+#   settings:
+#     "IAM.DIRECTORY_GROUPS_CLAIM": "groups"
+#     "IAM.ADMIN_IMPERSONATION": "audited"
+#     "MCP.CLIENT_ENABLED": false
+#     "BRANDING.BRAND_NAME": "VS-AP"
+#     "IAM.DIRECTORY_GROUP_NAMES":
+#       synaplan-users: "Synaplan users"
+
+# -- BCONFIG admin settings (GROUP.SETTING -> CONFIG_*). Empty = database default. Requires synaplan >= 5.1.0.
+settings: {}
+
+# The same settings, with the value read from an existing Secret so it is
+# not written into the pod spec. Same key rules and the same 5.1.0 gate.
+#   settingSecrets:
+#     "M365.CLIENT_ID":
+#       name: synaplan-m365
+#       key: client-id
+
+# -- BCONFIG admin settings whose value comes from a Secret ({name, key}). Requires synaplan >= 5.1.0.
+settingSecrets: {}
+
 # First administrator for installs with local accounts. SSO-only installs
 # grant admin through oidc.adminRoles instead and leave this empty.
 bootstrapAdmin:

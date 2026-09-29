@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.5.0](https://img.shields.io/badge/Version-0.5.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.0.6](https://img.shields.io/badge/AppVersion-5.0.6-informational?style=flat-square)
+![Version: 0.6.0](https://img.shields.io/badge/Version-0.6.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.0.6](https://img.shields.io/badge/AppVersion-5.0.6-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.5.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.6.0
 ```
 
 ### Install from local chart
@@ -64,13 +64,7 @@ To deploy Ollama in your cluster, you can use the [ollama-helm](https://github.c
 
 #### Option 2: NVIDIA Triton
 
-[NVIDIA Triton Inference Server](https://developer.nvidia.com/triton-inference-server) is a high-performance inference platform designed for production GPU clusters. Use Triton when you need maximum throughput with TensorRT-LLM optimized models.
-
-Triton advantages:
-- TensorRT-LLM compiled models for maximum GPU throughput
-- Dynamic batching and model concurrency
-- Multi-model serving with fine-grained resource control
-- Production-grade metrics and monitoring
+[NVIDIA Triton Inference Server](https://developer.nvidia.com/triton-inference-server) serves the models in the `triton` chart. The default backend is vLLM on GPU. A model can instead use the Python backend (CPU, for development) or the embedding backend (bge-m3). Pick one backend per model.
 
 Triton requires a separate deployment using the `triton` chart included in this repository:
 
@@ -81,7 +75,7 @@ ollama:
   baseUrl: ""
 ```
 
-See the [triton chart](../triton/) for deployment instructions and TensorRT-LLM build configuration.
+See the [triton chart](../triton/) for the model list, vLLM defaults, and the embedding backend.
 
 ### Office engine (Collabora CODE)
 
@@ -128,13 +122,45 @@ accounts are used.
 Every other environment variable the application reads can be set through
 `env` (use `valueFrom.secretKeyRef` for secrets).
 
-**Not settable from Helm yet (synaplan 5.0.x):** settings the admin UI stores
-only in the database and that have no environment override — branding
-(`BRANDING.*`), tool policies (`TOOLS.POLICY.*`), sharing and audit options
-(`IAM.EVERYONE_SHARES`, `IAM.DIRECTORY_GROUPS_CLAIM`, …), the MCP client switch,
-digest and conversation-summary tuning, compute limits, vector-search
-thresholds, Microsoft 365 / Dropbox connectors, and group policies. They keep
-their shipped defaults until the application offers a declarative way to set them.
+### Admin settings (synaplan >= 5.1.0)
+
+Settings the admin UI stores in the database — branding, sharing and audit
+options, tool policies, the MCP client, digest tuning, compute limits — are
+pinned with `settings`, keyed by the BCONFIG name. The chart emits
+`CONFIG_<GROUP>_<SETTING>` on the web, worker and scheduler pods. The
+application locks the field and shows the variable name. `true` and `false`
+are sent as the strings `true` and `false`. A map or a list is sent as JSON.
+
+```yaml
+settings:
+  "IAM.DIRECTORY_GROUPS_CLAIM": "groups"
+  "IAM.EVERYONE_SHARES": "admins_only"
+  "IAM.ADMIN_IMPERSONATION": "audited"
+  "IAM.AUDIT_RETENTION_DAYS": 365
+  "MCP.CLIENT_ENABLED": false
+  "BRANDING.BRAND_NAME": "VS-AP"
+  "IAM.DIRECTORY_GROUP_NAMES":
+    synaplan-users: "Synaplan users"
+```
+
+`settingSecrets` is the same map when the value must come from a Secret
+(`name` and `key`). Do not put `M365.CLIENT_SECRET`, `DROPBOX.APP_SECRET` or
+`DIGEST.CURSOR` in either map: the application stores the first two encrypted
+and uses the third as bookkeeping, so a `CONFIG_*` pin would not take effect.
+Microsoft 365 and Dropbox stay off until those secrets can be imported.
+
+A boolean that `features.*` or `featurePins` already pins must not be repeated
+under `settings`. The feature pin wins, and the render fails on the duplicate.
+
+Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
+(or the chart `appVersion`, when the tag is empty) is a complete semver below
+5.1.0 and either map is non-empty. An older prerelease such as `5.0.6-alpine`
+fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
+that is not a complete semver skips that check.
+
+An overlay with the settings an openDesk install usually pins is
+[examples/values-managed-settings.yaml](../../examples/values-managed-settings.yaml).
+It is separate from the 5.0 overlay because it needs synaplan >= 5.1.0.
 
 An openDesk or air-gapped install starts from
 [examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
@@ -281,6 +307,8 @@ reaches the internet pinned off.
 | serviceAccount.automount | bool | `true` |  |
 | serviceAccount.create | bool | `true` |  |
 | serviceAccount.name | string | `""` |  |
+| settingSecrets | object | `{}` | BCONFIG admin settings whose value comes from a Secret ({name, key}). Requires synaplan >= 5.1.0. |
+| settings | object | `{}` | BCONFIG admin settings (GROUP.SETTING -> CONFIG_*). Empty = database default. Requires synaplan >= 5.1.0. |
 | speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
 | speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
