@@ -1,0 +1,28 @@
+# Database settings for an install that must not be clicked into shape.
+#
+# Requires synaplan >= 5.1.0. That release reads CONFIG_<GROUP>_<SETTING>
+# and locks the admin field. synaplan 5.0.6 ignores these variables, so the
+# chart refuses to render this file against a semver tag below 5.1.0.
+#
+#   helm install synaplan ./charts/synaplan \
+#     -f my-values.yaml \
+#     -f examples/values-opendesk.yaml \
+#     -f examples/values-managed-settings.yaml \
+#     --set image.tag=5.1.0
+#
+# Omit a key to leave the database value. Do not repeat a key that
+# features.* or featurePins already pins. M365.CLIENT_SECRET,
+# DROPBOX.APP_SECRET and DIGEST.CURSOR cannot be set here.
+
+settings:
+  # Claim Keycloak puts group membership in. Default is already "groups";
+  # pinning it keeps a realm mapper change from depending on the admin UI.
+  "IAM.DIRECTORY_GROUPS_CLAIM": "groups"
+  # Who may share with every account. admins_only until an operator widens it.
+  "IAM.EVERYONE_SHARES": "admins_only"
+  # "View as user" writes an audit row. "disabled" removes the action.
+  "IAM.ADMIN_IMPERSONATION": "audited"
+  "IAM.AUDIT_RETENTION_DAYS": 365
+  # Outbound calls to MCP servers the user configures. Off on a sovereign install.
+  "MCP.CLIENT_ENABLED": false
+  "MCP.OAUTH_CONNECTORS_ENABLED": false

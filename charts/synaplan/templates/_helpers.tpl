@@ -211,7 +211,7 @@ role deployments add SYNAPLAN_ROLE on top.
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, oidc.* or bootstrapAdmin.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
 {{- end }}
 {{- end }}
 {{- $switchEnv }}
@@ -366,6 +366,145 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- if kindIs "bool" .Values.bootstrapAdmin.forcePasswordChange }}
 - name: BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE
   value: {{ .Values.bootstrapAdmin.forcePasswordChange | toString | quote }}
+{{- end }}
+{{- include "synaplan.settingsEnv" . }}
+{{- end }}
+
+{{/*
+Admin settings that live in BCONFIG. Synaplan >= 5.1.0 reads
+CONFIG_<GROUP>_<SETTING> (ConfigEnvOverride::envVarFor) and locks the admin
+field. 5.0.6 ignores those variables, so a semver tag below 5.1.0 fails the
+render instead of installing a pin that does nothing. Non-semver tags (a
+branch build, a digest) skip the check.
+*/}}
+{{- define "synaplan.settingsEnv" -}}
+{{- $settings := .Values.settings | default dict }}
+{{- $secrets := .Values.settingSecrets | default dict }}
+{{- if not (kindIs "map" $settings) }}
+{{- fail "settings must be a map of BCONFIG name to value, e.g. {\"IAM.DIRECTORY_GROUPS_CLAIM\": \"groups\"}" }}
+{{- end }}
+{{- if not (kindIs "map" $secrets) }}
+{{- fail "settingSecrets must be a map of BCONFIG name to {name, key} (an existing Secret)" }}
+{{- end }}
+{{- $groups := list "ACCESS" "AGENTS" "BRANDING" "BUNDLE" "COMPUTE" "CONVERSATION_SUMMARY" "DESKTOP_AGENT" "DIGEST" "DOCUMENT_TOOLS" "DROPBOX" "IAM" "M365" "MARKETING_NEWS" "MCP" "MEDIA" "MOBILE" "MULTITASK" "PLATFORM_LINKS" "PROGRESS_NARRATION" "QDRANT_SEARCH" "SAVEDTASKS" "TOOLS" "USAGE_TAXIMETER" "WORKFLOWS" }}
+{{- /* Keys the application stores encrypted, or that are bookkeeping. A CONFIG_ pin is returned as plaintext and then decrypted, so it can never work. */}}
+{{- $excluded := list "M365.CLIENT_SECRET" "DROPBOX.APP_SECRET" "DIGEST.CURSOR" }}
+{{- /* BCONFIG name behind each features.* pin. A bool there already emits FEATURE_* (or REGISTRATION_ENABLED / GUEST_CHAT_ENABLED), which wins over CONFIG_*. */}}
+{{- $featureKeys := dict "groups" "IAM.GROUPS_ENABLED" "sharing" "IAM.SHARING_ENABLED" "userSearch" "IAM.USER_SEARCH_ENABLED" "directorySync" "IAM.DIRECTORY_SYNC_ENABLED" "groupPolicies" "IAM.GROUP_POLICIES_ENABLED" "agents" "AGENTS.ENABLED" "workflows" "WORKFLOWS.BUILDER_ENABLED" "tools" "TOOLS.REGISTRY_ENABLED" "toolApprovals" "TOOLS.APPROVALS_ENABLED" "customHttpTools" "TOOLS.CUSTOM_HTTP_ENABLED" "documentTools" "DOCUMENT_TOOLS.ENABLED" "desktopAgent" "DESKTOP_AGENT.ENABLED" "platformLinks" "PLATFORM_LINKS.ENABLED" "urlFetch" "MULTITASK.URL_FETCH_ENABLED" "compute" "COMPUTE.ENABLED" "registration" "ACCESS.REGISTRATION_ENABLED" "guestChat" "ACCESS.GUEST_CHAT_ENABLED" }}
+{{- $pinned := list }}
+{{- range $key, $value := (.Values.features | default dict) }}
+{{- if kindIs "bool" $value }}
+{{- with index $featureKeys $key }}
+{{- $pinned = append $pinned . }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range $key, $value := (.Values.featurePins | default dict) }}
+{{- $pinned = append $pinned $key }}
+{{- end }}
+{{- $rendered := dict }}
+{{- $secretRefs := dict }}
+{{- range $key, $value := $settings }}
+{{- if has $key (keys $secrets) }}
+{{- fail (printf "settings.%s is also set under settingSecrets. Use one of them." $key) }}
+{{- end }}
+{{- $_ := set $rendered $key (include "synaplan.settingLiteral" (dict "key" $key "value" $value "groups" $groups "excluded" $excluded "pinned" $pinned)) }}
+{{- end }}
+{{- range $key, $spec := $secrets }}
+{{- include "synaplan.settingKey" (dict "key" $key "groups" $groups "excluded" $excluded "pinned" $pinned) }}
+{{- if not (kindIs "map" $spec) }}
+{{- fail (printf "settingSecrets.%s must be {name, key} naming an existing Secret" $key) }}
+{{- end }}
+{{- $secretName := $spec.name | default "" | toString }}
+{{- $secretKey := $spec.key | default "" | toString }}
+{{- if or (eq $secretName "") (eq $secretKey "") }}
+{{- fail (printf "settingSecrets.%s needs both name and key" $key) }}
+{{- end }}
+{{- $_ := set $secretRefs $key (dict "name" $secretName "key" $secretKey) }}
+{{- end }}
+{{- $envSeen := dict }}
+{{- range $key := concat (keys $rendered) (keys $secretRefs) }}
+{{- $envName := include "synaplan.settingEnvName" $key }}
+{{- if hasKey $envSeen $envName }}
+{{- fail (printf "settings key %s and %s both emit %s" (index $envSeen $envName) $key $envName) }}
+{{- end }}
+{{- $_ := set $envSeen $envName $key }}
+{{- end }}
+{{- if gt (len $envSeen) 0 }}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion | toString | trimPrefix "v" }}
+{{- if and (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.1.0" $tag) }}
+{{- fail (printf "settings / settingSecrets need synaplan >= 5.1.0 (the release that reads CONFIG_<GROUP>_<SETTING>); effective image tag is %q, which ignores them. Set image.tag to 5.1.0 or newer, or leave settings empty." $tag) }}
+{{- end }}
+# Admin settings (BCONFIG). The application locks each field and names the variable.
+{{- range $key := keys $rendered | sortAlpha }}
+- name: {{ include "synaplan.settingEnvName" $key }}
+  value: {{ index $rendered $key | quote }}
+{{- end }}
+{{- range $key := keys $secretRefs | sortAlpha }}
+{{- $spec := index $secretRefs $key }}
+- name: {{ include "synaplan.settingEnvName" $key }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $spec.name | quote }}
+      key: {{ $spec.key | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+CONFIG_<GROUP>_<SETTING>, the same derivation as ConfigEnvOverride::envVarFor.
+*/}}
+{{- define "synaplan.settingEnvName" -}}
+{{- printf "CONFIG_%s" (regexReplaceAll "[^A-Za-z0-9]+" . "_" | trimAll "_" | upper) }}
+{{- end }}
+
+{{/*
+Reject a BCONFIG key the application will not honor. Called for its failure;
+the include output is empty.
+*/}}
+{{- define "synaplan.settingKey" -}}
+{{- $key := .key }}
+{{- if not (regexMatch `^[A-Za-z0-9_]+\.[A-Za-z0-9_.]+$` $key) }}
+{{- fail (printf "settings key %q must be a BCONFIG name GROUP.SETTING, e.g. IAM.DIRECTORY_GROUPS_CLAIM" $key) }}
+{{- end }}
+{{- $excludedUpper := list }}
+{{- range .excluded }}
+{{- $excludedUpper = append $excludedUpper (upper .) }}
+{{- end }}
+{{- if has (upper $key) $excludedUpper }}
+{{- fail (printf "settings.%s cannot be pinned: the application stores it encrypted or uses it as bookkeeping, and a CONFIG_ value would not take effect. Leave it unset." $key) }}
+{{- end }}
+{{- $group := upper (index (splitn "." 2 $key) "_0") }}
+{{- if not (has $group .groups) }}
+{{- fail (printf "settings.%s is not an admin setting the application reads from CONFIG_*. Known groups: %s. Feature on/off switches belong in features.* or featurePins." $key (join ", " .groups)) }}
+{{- end }}
+{{- $pinnedUpper := list }}
+{{- range .pinned }}
+{{- $pinnedUpper = append $pinnedUpper (upper .) }}
+{{- end }}
+{{- if has (upper $key) $pinnedUpper }}
+{{- fail (printf "settings.%s is already pinned by features.* or featurePins. Leave it out of settings; that pin wins." $key) }}
+{{- end }}
+{{- end }}
+
+{{/*
+String the application should see. Booleans become "true"/"false" (accepted by
+filter_var). Maps and lists become JSON (IAM.DIRECTORY_GROUP_NAMES).
+*/}}
+{{- define "synaplan.settingLiteral" -}}
+{{- include "synaplan.settingKey" . }}
+{{- $value := .value }}
+{{- if or (kindIs "invalid" $value) (and (kindIs "string" $value) (eq (trim $value) "")) }}
+{{- fail (printf "settings.%s is empty. Omit the key to leave the database value; an empty variable does not pin the setting." .key) }}
+{{- end }}
+{{- if or (kindIs "map" $value) (kindIs "slice" $value) }}
+{{- $value | mustToJson }}
+{{- else if kindIs "string" $value }}
+{{- $value }}
+{{- else if or (kindIs "bool" $value) (kindIs "float64" $value) (kindIs "int" $value) (kindIs "int64" $value) }}
+{{- $value | toString }}
+{{- else }}
+{{- fail (printf "settings.%s must be a string, number, boolean, list or map, got %v" .key $value) }}
 {{- end }}
 {{- end }}
 

@@ -1,6 +1,10 @@
 # Deployment configuration plan
 
-**Status:** proposal. This file is the plan only. It does not change the chart, the templates, or the application.
+**Status:** proposal for group policy (steps A–C and E below). The installation
+switches in §4 shipped in chart 0.5.0. Chart 0.6.0 adds `settings` and
+`settingSecrets`, which emit `CONFIG_<GROUP>_<SETTING>` for every admin
+setting synaplan >= 5.1.0 reads from the environment. Group grants are still
+not in the chart: the application has no apply command for them yet.
 
 **Audience:** the operator who installs Synaplan on Kubernetes, including an [openDesk](https://www.opendesk.eu/) estate, and who sets install defaults from Git. The admin UI is a viewer of those defaults, not the place they are typed in.
 
