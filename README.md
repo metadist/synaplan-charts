@@ -1,133 +1,237 @@
 # Synaplan Charts
 
-Official Helm charts for deploying Synaplan and its infrastructure components on Kubernetes.
+Official Helm charts for deploying Synaplan on Kubernetes. Neighbours, feature
+pins, identity, the model catalog, and admin settings are Helm values. A pinned
+value is locked in the admin UI.
+
+The value reference for the application chart is
+[charts/synaplan/README.md](charts/synaplan/README.md).
 
 ## Charts
 
-This repository contains the following charts:
+| Chart | Version in this repo | What it runs |
+| ----- | -------------------- | ------------ |
+| [synaplan](charts/synaplan/) | 0.6.0 | Synaplan 5.0.6, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
+| [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 
-- **[synaplan](charts/synaplan/)** - AI-powered document analysis and planning platform
-- **[triton](charts/triton/)** - (Optional) NVIDIA Triton Inference Server with TensorRT-LLM support
+## AI backends
 
-## AI Backends
+Synaplan uses [BGE-M3](https://huggingface.co/BAAI/bge-m3) for RAG embeddings.
+Chat models and the embedding model run on the backend you point at:
 
-Synaplan uses [BGE-M3](https://huggingface.co/BAAI/bge-m3) as its embedding model for RAG-powered semantic search across 100+ languages. The embedding model (and chat LLMs) run on whichever backend you configure:
+- **[Ollama](https://ollama.com/)** — the usual choice. One service, CPU or GPU.
+- **[NVIDIA Triton](https://developer.nvidia.com/triton-inference-server)** — the
+  `triton` chart, when you want that model server in the cluster. vLLM is the
+  GPU backend. An empty `triton.url` leaves Triton off.
 
-- **[Ollama](https://ollama.com/)** — Recommended for most deployments. Simple setup, supports CPU and GPU inference, broad model support.
-- **[NVIDIA Triton](https://developer.nvidia.com/triton-inference-server)** — For production GPU clusters requiring maximum throughput with TensorRT-LLM optimized models.
+```yaml
+# Ollama
+triton:
+  url: ""
+ollama:
+  baseUrl: "http://ollama.synaplan.svc.cluster.local:11434"
+
+# Triton
+triton:
+  url: "triton:8001"
+ollama:
+  baseUrl: ""
+```
 
 ## Office engine (Collabora CODE)
 
-Word / Excel / PowerPoint thumbnails, PDF export, inline preview, and combine
-need [Collabora Online](https://www.collaboraonline.com/) (`collabora/code`)
-reachable over HTTP(S). The chart does **not** ship that sidecar yet. Set
-`OFFICE_CONVERT_URL` on the web and worker pods, or reuse CODE you already run
-(Nextcloud, OpenCloud, another namespace).
+Word, Excel, and PowerPoint thumbnails, PDF export, preview, and combine need
+[Collabora Online](https://www.collaboraonline.com/) (`collabora/code`). The
+chart does not deploy Collabora. Set `office.convertUrl` to CODE you already
+run (openDesk, Nextcloud, OpenCloud, another namespace). The chart emits
+`OFFICE_CONVERT_URL` and `OFFICE_CONVERT_TIMEOUT_MS` on the web, worker, and
+scheduler pods.
 
-Convert-to is server-to-server: **Collabora never sees Synaplan users.** Identity
-stays in the app (login + file ownership). No Collabora accounts, no WOPI token
-on this path.
+Convert-to is server-to-server. Collabora does not see Synaplan users.
 
-Full integrator README (AI features, env, existing CODE, healthcheck, future
-Helm values): **[docs/collabora-office-engine.md](docs/collabora-office-engine.md)**.
+```yaml
+office:
+  convertUrl: http://collabora.office.svc.cluster.local:9980
+  convertTimeoutMs: 60000
+```
+
+Integrator notes (identity, `net.post_allow`, the CODE healthcheck):
+[docs/collabora-office-engine.md](docs/collabora-office-engine.md).
 Product page: <https://docs.synaplan.com/index.php/office-documents>.
 
-## Installation
+## Install switches
 
-### Prerequisites
+An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 
-- Kubernetes 1.24+
-- Helm 3.14+
-- kubectl configured to communicate with your cluster
+| Value | Off when |
+| ----- | -------- |
+| `ollama.baseUrl` | `""` |
+| `triton.url` | `""` |
+| `qdrant.url` | `""` (memories and Qdrant search stay off; the chart does not deploy Qdrant) |
+| `office.convertUrl` | `""` |
+| `compute.url` plus `compute.tokenSecretRef` | URL empty, or the token Secret is absent |
+| `tika.enabled` | `false` |
+| `tts.enabled` | `false` |
 
-### Install from GHCR
+Speech (`synaplan` >= 5.0.0). `null` leaves the application default:
 
-Charts are published to GitHub Container Registry (GHCR) as OCI artifacts:
-
-```bash
-# Install a stable release (recommended for production)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.1.0
-helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
-
-# Or install a development build (for testing unreleased features)
-# Development builds are tagged as: 0.0.0-dev.<commit-hash>
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.0.0-dev.abc1234
+```yaml
+speech:
+  webSpeech: false    # browser speech sends audio to the vendor cloud
+  whisper: true       # whisper.cpp in the image
+  whisperModel: base
 ```
 
-> **Note**: Charts are publicly accessible. Authentication is only required for publishing.
->
-> **Versioning**:
-> - **Stable releases** (`0.1.0`, `0.2.0`, etc.) - Created from git tags, immutable, production-ready
-> - **Development builds** (`0.0.0-dev.abc1234`) - Built from main branch on every push, for testing only
+Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
+`null` leaves the database row:
 
-### Install from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/metadist/synaplan-charts.git
-cd synaplan-charts
-
-# Install charts
-helm install synaplan ./charts/synaplan
-helm install triton ./charts/triton
+```yaml
+features:
+  registration: false   # SSO-only: no local sign-up
+  guestChat: false
+  setupWizard: false
+  userSearch: false
+  customHttpTools: false
+  urlFetch: false
+  desktopAgent: false
+  compute: false
 ```
 
-## Example Deployment
+Any other flag the application reads as `FEATURE_<GROUP>_<SETTING>` goes in
+`featurePins`, keyed by the BCONFIG name (`COMPUTE.EGRESS_ENABLED`,
+`MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`). Do not also set those
+variables in `env`. The render fails on a duplicate.
 
-An example deployment with Synaplan, Triton, and MariaDB is available in [deployments/synaplan-with-triton/](deployments/synaplan-with-triton/).
+Who is an administrator comes from the identity provider:
+
+```yaml
+oidc:
+  enabled: true
+  autoRedirect: true
+  scopes: "openid email profile groups"
+  adminRoles: "synaplan-admin"   # OIDC_ADMIN_ROLES
+  # roleClaims, roleMapping, providerLabel, bearerAudience — empty keeps the application default
+```
+
+A local first administrator, when you are not using SSO, is
+`bootstrapAdmin.secretRef` (Secret keys `email` and `password`).
+
+The model catalog is applied at startup by `models.providers.only` (an
+allow-list; preferred for air-gapped installs), or by `models.providers.enabled`
+/ `disabled`, then `models.enabled` / `models.disabled` and `models.defaults`.
+Provider toggles need synaplan >= 4.3.6. `only` cannot be combined with
+`enabled` or `disabled`.
+
+Redis is on by default (`redis.enabled`). The worker and the scheduler are on
+by default. They share the same environment as the web pod.
+
+## Admin settings (synaplan >= 5.1.0)
+
+Settings that live in the database — branding, sharing and audit, tool
+policies, the MCP client, digest tuning, compute limits — are `settings`,
+keyed by `GROUP.SETTING`. The chart emits `CONFIG_<GROUP>_<SETTING>`. The
+admin field locks and shows that variable name. `true` and `false` are sent as
+the strings `true` and `false`. A map or a list is sent as JSON.
+
+```yaml
+settings:
+  "IAM.DIRECTORY_GROUPS_CLAIM": "groups"
+  "IAM.EVERYONE_SHARES": "admins_only"
+  "IAM.ADMIN_IMPERSONATION": "audited"
+  "IAM.AUDIT_RETENTION_DAYS": 365
+  "MCP.CLIENT_ENABLED": false
+  "BRANDING.BRAND_NAME": "VS-AP"
+```
+
+`settingSecrets` is the same map when the value comes from a Secret (`name`
+and `key`). Leave `M365.CLIENT_SECRET`, `DROPBOX.APP_SECRET`, and
+`DIGEST.CURSOR` unset: the application stores the first two encrypted and uses
+the third as bookkeeping, so a `CONFIG_*` pin would not take effect.
+
+Do not repeat a key that `features.*` or `featurePins` already pins. Synaplan
+5.0.6 ignores `CONFIG_*`, so a complete semver image tag below 5.1.0 fails the
+render when either map is set. `5.0.6-alpine` fails. `5.1.0-rc.1` is accepted.
+A tag that is not a complete semver skips that check.
+
+## Example values
+
+Overlays, applied with `-f` next to your own values file:
+
+```bash
+# Local models and speech. Cloud providers added later stay off.
+helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
+
+# openDesk: Keycloak, shared Collabora, internet-facing features pinned off.
+# synaplan >= 5.0.0
+helm install synaplan ./charts/synaplan -f examples/values-opendesk.yaml
+
+# Database settings (IAM, MCP client). synaplan >= 5.1.0
+helm install synaplan ./charts/synaplan \
+  -f examples/values-opendesk.yaml \
+  -f examples/values-managed-settings.yaml \
+  --set image.tag=5.1.0
+```
+
+| File | Use |
+| ---- | --- |
+| [examples/values-airgap.yaml](examples/values-airgap.yaml) | Ollama, Piper, and Whisper only. Browser Web Speech off |
+| [examples/values-opendesk.yaml](examples/values-opendesk.yaml) | SSO, shared Collabora, sovereign feature pins |
+| [examples/values-managed-settings.yaml](examples/values-managed-settings.yaml) | IAM options and the MCP client, without the admin UI |
+
+A full stack with Triton and MariaDB is
+[deployments/synaplan-with-triton/](deployments/synaplan-with-triton/). One
+environment, named `default`:
 
 ```bash
 cd deployments/synaplan-with-triton
-
-# Deploy with default environment
 helmfile -e default apply
 ```
 
-See the [deployment README](deployments/synaplan-with-triton/README.md) for detailed prerequisites and configuration options.
+## Installation
 
-An air-gapped overlay that allow-lists Ollama, Piper, and Whisper (and turns off browser Web Speech) is [examples/values-airgap.yaml](examples/values-airgap.yaml):
+- Kubernetes 1.24+
+- Helm 3.14+
+- kubectl pointed at the cluster
+
+Charts are published to GHCR when a git tag `synaplan-vX.Y.Z` or
+`triton-vX.Y.Z` is pushed. The versions in this checkout are synaplan
+**0.6.0** and triton **0.1.0**.
 
 ```bash
-helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
+# Published release (after the matching tag exists)
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.6.0
+helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
+
+# This checkout, including values that are not in an older GHCR release yet
+helm install synaplan ./charts/synaplan
+helm install triton ./charts/triton
+
+# Development build from main: 0.0.0-dev.<commit>
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.0.0-dev.abc1234
 ```
+
+Charts are public. Authentication is only required to publish.
 
 ## Development
 
-### Prerequisites
-
-- helm-docs
-- kubeconform
-- helmfile (for testing deployment examples)
-
-Install tools:
+helm-docs, kubeconform, and helmfile (for the example deployment).
 
 ```bash
 make install-helm-docs
 make install-kubeconform
-```
 
-### Common Tasks
-
-```bash
-# Generate documentation
-make docs
-
-# Lint charts
+make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
-
-# Validate against Kubernetes API
 make validate
-
-# Package charts
 make package
-
-# Run all checks
 make all
 ```
 
+`charts/*/README.md` is generated. Edit the `.gotmpl` file, then `make docs`.
+
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on contributing to this project, including the release process.
+See [CONTRIBUTING.md](CONTRIBUTING.md), including how a git tag becomes a GHCR release.
 
 ## License
 
