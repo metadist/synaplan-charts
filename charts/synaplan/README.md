@@ -159,8 +159,10 @@ A boolean that `features.*` or `featurePins` already pins must not be repeated
 under `settings`. The feature pin wins, and the render fails on the duplicate.
 
 Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
-(or the chart `appVersion`, when the tag is empty) is a semver below 5.1.0
-and either map is non-empty. A non-semver tag skips that check.
+(or the chart `appVersion`, when the tag is empty) is a complete semver below
+5.1.0 and either map is non-empty. An older prerelease such as `5.0.6-alpine`
+fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
+that is not a complete semver skips that check.
 
 An overlay with the settings an openDesk install usually pins is
 [examples/values-managed-settings.yaml](../../examples/values-managed-settings.yaml).

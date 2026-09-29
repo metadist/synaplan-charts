@@ -374,16 +374,21 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 Admin settings that live in BCONFIG. Synaplan >= 5.1.0 reads
 CONFIG_<GROUP>_<SETTING> (ConfigEnvOverride::envVarFor) and locks the admin
 field. 5.0.6 ignores those variables, so a semver tag below 5.1.0 fails the
-render instead of installing a pin that does nothing. Non-semver tags (a
-branch build, a digest) skip the check.
+render instead of installing a pin that does nothing. That includes an older
+prerelease such as 5.0.6-alpine. A prerelease of 5.1.0 or newer is accepted.
+A tag that is not a complete semver (a branch name, a digest) skips the check.
 */}}
 {{- define "synaplan.settingsEnv" -}}
-{{- $settings := .Values.settings | default dict }}
-{{- $secrets := .Values.settingSecrets | default dict }}
-{{- if not (kindIs "map" $settings) }}
+{{- $settings := .Values.settings }}
+{{- if kindIs "invalid" $settings }}
+{{- $settings = dict }}
+{{- else if not (kindIs "map" $settings) }}
 {{- fail "settings must be a map of BCONFIG name to value, e.g. {\"IAM.DIRECTORY_GROUPS_CLAIM\": \"groups\"}" }}
 {{- end }}
-{{- if not (kindIs "map" $secrets) }}
+{{- $secrets := .Values.settingSecrets }}
+{{- if kindIs "invalid" $secrets }}
+{{- $secrets = dict }}
+{{- else if not (kindIs "map" $secrets) }}
 {{- fail "settingSecrets must be a map of BCONFIG name to {name, key} (an existing Secret)" }}
 {{- end }}
 {{- $groups := list "ACCESS" "AGENTS" "BRANDING" "BUNDLE" "COMPUTE" "CONVERSATION_SUMMARY" "DESKTOP_AGENT" "DIGEST" "DOCUMENT_TOOLS" "DROPBOX" "IAM" "M365" "MARKETING_NEWS" "MCP" "MEDIA" "MOBILE" "MULTITASK" "PLATFORM_LINKS" "PROGRESS_NARRATION" "QDRANT_SEARCH" "SAVEDTASKS" "TOOLS" "USAGE_TAXIMETER" "WORKFLOWS" }}
@@ -432,8 +437,9 @@ branch build, a digest) skip the check.
 {{- end }}
 {{- if gt (len $envSeen) 0 }}
 {{- $tag := .Values.image.tag | default .Chart.AppVersion | toString | trimPrefix "v" }}
-{{- if and (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.1.0" $tag) }}
-{{- fail (printf "settings / settingSecrets need synaplan >= 5.1.0 (the release that reads CONFIG_<GROUP>_<SETTING>); effective image tag is %q, which ignores them. Set image.tag to 5.1.0 or newer, or leave settings empty." $tag) }}
+{{- /* Full semver only. A prefix match would send 5.0.6_branch into semverCompare, which aborts the render. A constraint without a prerelease ignores prereleases, so >=5.1.0-0 is what rejects 5.0.6-alpine and still accepts 5.1.0-rc.1. */}}
+{{- if and (regexMatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` $tag) (not (semverCompare ">=5.1.0-0" $tag)) }}
+{{- fail (printf "settings / settingSecrets need synaplan >= 5.1.0 (the release that reads CONFIG_<GROUP>_<SETTING>); effective image tag is %q, which ignores them. Set image.tag to 5.1.0 or newer (a 5.1.0 prerelease is accepted; 5.0.6-alpine is not), or leave settings empty." $tag) }}
 {{- end }}
 # Admin settings (BCONFIG). The application locks each field and names the variable.
 {{- range $key := keys $rendered | sortAlpha }}
