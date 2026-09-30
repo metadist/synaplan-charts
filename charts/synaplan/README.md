@@ -228,7 +228,9 @@ reaches the internet pinned off.
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
 | image.tag | string | `""` |  |
 | imagePullSecrets | list | `[]` |  |
-| ingress.annotations | object | `{}` |  |
+| ingress.annotations."nginx.ingress.kubernetes.io/proxy-buffer-size" | string | `"16k"` |  |
+| ingress.annotations."nginx.ingress.kubernetes.io/proxy-buffers-number" | string | `"4"` |  |
+| ingress.annotations."nginx.ingress.kubernetes.io/proxy-busy-buffers-size" | string | `"16k"` |  |
 | ingress.className | string | `""` |  |
 | ingress.enabled | bool | `false` |  |
 | ingress.hosts[0].host | string | `"synaplan.local"` |  |
