@@ -1,0 +1,87 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.homepageLine" . }}
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+{{ template "chart.requirementsSection" . }}
+
+## What it runs
+
+One Deployment and one ClusterIP Service with the
+[`synaplan-stt` image](../../images/stt/): whisper.cpp `whisper-server` 1.9.4
+with the German Whisper large-v3-turbo fine-tune (q8_0) and the Silero VAD
+model baked in. Nothing is downloaded at start, so the chart works air-gapped
+once the image is mirrored.
+
+API: OpenAI-compatible `POST /v1/audio/transcriptions`, `GET /health`.
+One pod decodes one request at a time; on a current NVIDIA GPU that is about
+70× real time (0.17 s for 12.5 s of speech), so one pod serves many
+meetings. The cpu variant runs about 2× real time on 8 threads.
+
+## Installation
+
+```bash
+# GPU node (NVIDIA device plugin or GPU operator installed)
+helm install stt oci://ghcr.io/metadist/synaplan-charts/stt -n synaplan
+
+# No GPU
+helm install stt oci://ghcr.io/metadist/synaplan-charts/stt -n synaplan \
+  --set image.variant=cpu --set server.threads=8 \
+  --set resources.requests.cpu=4 --set resources.limits.cpu=8
+```
+
+Then point Synaplan at it (synaplan chart, Synaplan with Whisper server mode):
+
+```yaml
+speech:
+  whisper: true
+  whisperServerUrl: "http://stt.synaplan.svc.cluster.local:8080"
+```
+
+## GPU scheduling
+
+With `image.variant: cuda` the chart requests `gpu.count` of
+`gpu.resourceName` (default one `nvidia.com/gpu`). Add the node selector and
+tolerations of your GPU pool:
+
+```yaml
+nodeSelector:
+  nvidia.com/gpu.present: "true"
+tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+```
+
+The server needs about 1.6 GB of GPU memory. To share a GPU with other
+workloads use the GPU operator's time-slicing or MIG; the pod still requests
+one `nvidia.com/gpu` (one slice).
+
+## Security
+
+The pod runs as UID 65532 with a read-only root filesystem, no service
+account token and no capabilities. Audio is written only to the `/tmp`
+emptyDir while ffmpeg converts it. Keep the Service `ClusterIP` and turn on
+`networkPolicy` so that only Synaplan reaches it:
+
+```yaml
+networkPolicy:
+  enabled: true
+  from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: synaplan
+```
+
+## Configuration
+
+{{ template "chart.valuesSection" . }}

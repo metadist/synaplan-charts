@@ -6,6 +6,7 @@ on:
     tags:
       - 'synaplan-v*.*.*'
       - 'triton-v*.*.*'
+      - 'stt-v*.*.*'
   pull_request:
     branches: [main]
 
@@ -224,7 +225,7 @@ jobs:
 
           # Validate chart exists
           if [ ! -d "charts/$CHART_NAME" ]; then
-            echo "::error::Chart 'charts/$CHART_NAME' does not exist. Valid charts: synaplan, triton"
+            echo "::error::Chart 'charts/$CHART_NAME' does not exist. Valid charts: $(ls charts | tr '\n' ' ')"
             exit 1
           fi
 

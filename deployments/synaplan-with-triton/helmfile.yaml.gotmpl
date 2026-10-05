@@ -15,6 +15,14 @@ environments:
 */}}
 {{ $tritonMode := .Values.services.triton.mode | default "gpu" }}
 {{ $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
+{{/*
+  services.stt.mode (speech-to-text server, charts/stt):
+    ""    — no release (default); Synaplan uses the whisper.cpp binary in its pod
+    "gpu" — CUDA image, one nvidia.com/gpu
+    "cpu" — CPU image
+*/}}
+{{ $sttMode := .Values | get "services.stt.mode" "" }}
+{{ $sttLocal := or (eq $sttMode "gpu") (eq $sttMode "cpu") }}
 
 repositories:
   - name: mariadb-operator
@@ -62,6 +70,9 @@ releases:
       {{- if $tritonLocal }}
       - {{ $ns }}/triton
       {{- end }}
+      {{- if $sttLocal }}
+      - {{ $ns }}/stt
+      {{- end }}
     values:
       - values-synaplan.yaml.gotmpl
 
@@ -74,5 +85,22 @@ releases:
       - values-triton-gpu.yaml
       {{- else }}
       - values-triton-cpu.yaml
+      {{- end }}
+  {{- end }}
+
+  {{- if $sttLocal }}
+  - name: stt
+    namespace: {{ $ns }}
+    chart: ../../charts/stt
+    values:
+      - values-stt-{{ $sttMode }}.yaml
+      - networkPolicy:
+          enabled: true
+          from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: synaplan
+      {{- with .Values | get "services.stt.values" dict }}
+      - {{- toYaml . | nindent 8 }}
       {{- end }}
   {{- end }}

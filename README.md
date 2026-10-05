@@ -13,6 +13,7 @@ The value reference for the application chart is
 | ----- | -------------------- | ------------ |
 | [synaplan](charts/synaplan/) | 0.6.0 | Synaplan 5.0.6, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
+| [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](images/stt/)) |
 
 ## AI backends
 
@@ -72,6 +73,7 @@ An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 | `compute.url` plus `compute.tokenSecretRef` | URL empty, or the token Secret is absent |
 | `tika.enabled` | `false` |
 | `tts.enabled` | `false` |
+| `speech.whisperServerUrl` | `""` (speech-to-text runs on the whisper.cpp binary in the pod) |
 
 Speech (`synaplan` >= 5.0.0). `null` leaves the application default:
 
@@ -81,6 +83,18 @@ speech:
   whisper: true       # whisper.cpp in the image
   whisperModel: base
 ```
+
+With GPU nodes, install the [`stt` chart](charts/stt/) and send speech there
+(Synaplan with the Whisper server mode; older images ignore the URL):
+
+```yaml
+speech:
+  whisper: true
+  whisperServerUrl: "http://stt.synaplan.svc.cluster.local:8080"
+```
+
+In the example helmfile deployment, `services.stt.mode: gpu` (or `cpu`) adds
+the release and sets this URL.
 
 Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
 `null` leaves the database row:
@@ -193,9 +207,10 @@ helmfile -e default apply
 - Helm 3.14+
 - kubectl pointed at the cluster
 
-Charts are published to GHCR when a git tag `synaplan-vX.Y.Z` or
-`triton-vX.Y.Z` is pushed. The versions in this checkout are synaplan
-**0.6.0** and triton **0.1.0**.
+Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
+`triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
+synaplan **0.6.0**, triton **0.1.0** and stt **0.1.0**. The `synaplan-stt`
+image is published by a `stt-image-vX.Y.Z` tag.
 
 ```bash
 # Published release (after the matching tag exists)

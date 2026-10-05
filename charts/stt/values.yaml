@@ -1,0 +1,174 @@
+# Speech-to-text server for Synaplan. Point the synaplan chart at it with
+# speech.whisperServerUrl: "http://<release>-stt.<namespace>.svc.cluster.local:8080"
+# (or "http://stt.<namespace>..." when the release is named stt).
+
+# -- Server pods. One GPU pod decodes about 70x real time; every pod needs its
+# own GPU (or a time-sliced / MIG share).
+replicaCount: 1
+
+# -- Rollout strategy. No surge: an update must not wait for a second free GPU.
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
+
+image:
+  # -- Image repository
+  repository: ghcr.io/metadist/synaplan-stt
+  # -- `cuda` (NVIDIA GPU) or `cpu`. Selects the image tag and whether a GPU is requested.
+  variant: cuda
+  # -- Image tag. Empty means `<appVersion>-<variant>`.
+  tag: ""
+  # -- Image digest (`sha256:...`), rendered as `tag@digest`. Must belong to the tag.
+  digest: ""
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets
+imagePullSecrets: []
+
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full resource name
+fullnameOverride: ""
+
+gpu:
+  # -- Extended resource of the GPU (NVIDIA device plugin or GPU operator).
+  # Requested only with `image.variant: cuda`.
+  resourceName: nvidia.com/gpu
+  # -- GPUs per pod
+  count: 1
+  # -- RuntimeClass for GPU pods (e.g. `nvidia`). Empty uses the node default.
+  runtimeClassName: ""
+
+server:
+  # -- Default spoken language. A request's `language` field wins; `auto` detects.
+  language: de
+  # -- CPU threads. For `image.variant: cpu` set this to the CPU limit.
+  threads: 4
+  # -- ggml model path in the container. The image ships
+  # `/models/ggml-large-v3-turbo-german-q8_0.bin`; mount another model with
+  # `extraVolumes` and point here.
+  model: /models/ggml-large-v3-turbo-german-q8_0.bin
+  # -- OpenAI-compatible transcription path
+  inferencePath: /v1/audio/transcriptions
+  vad:
+    # -- Silero voice activity detection in the server: drops silence before decoding.
+    enabled: false
+    # -- VAD model path (shipped in the image)
+    model: /models/ggml-silero-v5.1.2.bin
+  # -- Extra whisper-server arguments, e.g. `["--no-flash-attn"]`
+  extraArgs: []
+
+service:
+  # -- Service type. Keep ClusterIP: audio must not leave the cluster.
+  type: ClusterIP
+  # -- Service port
+  port: 8080
+
+# -- Container resources. With `image.variant: cuda` the chart adds the GPU
+# limit from `gpu.*`. For the cpu variant raise the CPU request and limit.
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    memory: 4Gi
+
+# -- Scratch space for ffmpeg conversion (mounted at /tmp; the root
+# filesystem is read-only).
+tmpSizeLimit: 2Gi
+
+# -- Extra environment variables
+extraEnv: []
+
+# -- Init containers, e.g. an `oras pull` of another model into a shared volume
+initContainers: []
+
+# -- Extra volumes
+extraVolumes: []
+
+# -- Extra volume mounts for the server container
+extraVolumeMounts: []
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod labels
+podLabels: {}
+
+# -- Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# -- Startup probe: the model loads in a few seconds; first image pull is not counted
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 5
+  failureThreshold: 60
+
+# -- Liveness probe. Generous: one long request holds the decoder.
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# -- Readiness probe
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+networkPolicy:
+  # -- Only let the listed peers reach the server. Audio is personal data.
+  enabled: false
+  # -- NetworkPolicy peers allowed to connect. Empty means every pod in the
+  # release namespace.
+  from: []
+  # - podSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/instance: synaplan
+
+# -- Priority class
+priorityClassName: ""
+
+# -- Node selector, e.g. `nvidia.com/gpu.present: "true"`
+nodeSelector: {}
+
+# -- Tolerations, e.g. for tainted GPU nodes
+tolerations: []
+# - key: nvidia.com/gpu
+#   operator: Exists
+#   effect: NoSchedule
+
+# -- Affinity
+affinity: {}
+
+tests:
+  image:
+    # -- Image for `helm test`
+    repository: curlimages/curl
+    # -- Tag for `helm test`
+    tag: "8.11.1"

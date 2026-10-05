@@ -65,7 +65,25 @@ git push origin synaplan-v0.2.0
 # For triton v0.2.0
 git tag triton-v0.2.0
 git push origin triton-v0.2.0
+
+# For stt v0.1.0
+git tag stt-v0.1.0
+git push origin stt-v0.1.0
 ```
+
+The `stt` chart's default image tag is `<appVersion>-<variant>` of
+`ghcr.io/metadist/synaplan-stt`, built from `images/stt` by the `STT Image`
+workflow. Publish the image first, then the chart:
+
+```bash
+git tag stt-image-v0.1.0      # -> synaplan-stt:0.1.0-cuda and 0.1.0-cpu
+git push origin stt-image-v0.1.0
+git tag stt-v0.1.0            # chart; appVersion "0.1.0" in charts/stt/Chart.yaml
+git push origin stt-v0.1.0
+```
+
+A new image version needs `appVersion` in `charts/stt/Chart.yaml` raised in
+the same pull request.
 
 **That's it!** No need to manually update Chart.yaml or worry about version mismatches.
 

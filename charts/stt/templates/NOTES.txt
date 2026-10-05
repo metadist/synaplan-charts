@@ -1,0 +1,18 @@
+Speech-to-text server ({{ include "stt.variant" . }}) is starting:
+
+  {{ include "stt.image" . }}
+
+In-cluster endpoint (OpenAI-compatible):
+
+  http://{{ include "stt.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}{{ .Values.server.inferencePath }}
+
+Point Synaplan at it (synaplan chart, Synaplan with Whisper server mode):
+
+  speech:
+    whisper: true
+    whisperServerUrl: "http://{{ include "stt.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}"
+
+Check:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "stt.fullname" . }}
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

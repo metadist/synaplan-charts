@@ -32,3 +32,8 @@ services:
           subfolder: "de/de_DE/thorsten/medium"
   triton:
     mode: gpu
+  # Speech-to-text server (charts/stt): "" off, "gpu" or "cpu". "gpu" needs a
+  # second GPU next to Triton, or a time-sliced share. services.stt.values is
+  # passed to the stt chart as-is (node selector, tolerations, resources).
+  stt:
+    mode: ""

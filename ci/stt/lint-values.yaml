@@ -1,0 +1,26 @@
+# Lint values for the stt chart: GPU variant with the NetworkPolicy on.
+
+image:
+  variant: cuda
+
+gpu:
+  runtimeClassName: nvidia
+
+server:
+  vad:
+    enabled: true
+
+networkPolicy:
+  enabled: true
+  from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: synaplan
+
+nodeSelector:
+  nvidia.com/gpu.present: "true"
+
+tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule

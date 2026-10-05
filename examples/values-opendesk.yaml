@@ -47,6 +47,9 @@ speech:
   webSpeech: false
   whisper: true
   whisperModel: "base"
+  # Clusters with GPU nodes: install the stt chart and decode there instead
+  # (Synaplan with Whisper server mode).
+  # whisperServerUrl: "http://stt.synaplan.svc.cluster.local:8080"
 
 tts:
   enabled: true

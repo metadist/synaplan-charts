@@ -1,0 +1,21 @@
+apiVersion: v2
+name: stt
+description: Speech-to-text server for Synaplan (whisper.cpp whisper-server with the German Whisper large-v3-turbo model)
+type: application
+version: 0.1.0
+# Version of ghcr.io/metadist/synaplan-stt; the image tag is <appVersion>-<variant>.
+appVersion: "0.1.0"
+keywords:
+  - synaplan
+  - speech-to-text
+  - whisper
+  - whisper.cpp
+  - gpu
+maintainers:
+  - name: metadist
+    email: info@metadist.de
+    url: https://github.com/metadist
+sources:
+  - https://github.com/metadist/synaplan-charts
+  - https://github.com/ggml-org/whisper.cpp
+  - https://huggingface.co/primeline/whisper-large-v3-turbo-german
