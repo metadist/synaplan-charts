@@ -112,7 +112,11 @@ Any other flag the application pins from the environment goes into
 `MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
 `FEATURE_*` variable the same way the application does.
 
-Identity needs no clicks either: `oidc.adminRoles` / `oidc.roleClaims` /
+Identity needs no clicks either: `oidc.accessPolicy` decides who may use the
+instance at all (organization, roles, permissions, and whether a first SSO
+sign-in creates an account — synaplan >= 5.4.0; the render fails on an older
+image, which would admit every authenticated identity),
+`oidc.adminRoles` / `oidc.roleClaims` /
 `oidc.roleMapping` decide who becomes administrator on login,
 `features.setupWizard: false` skips the first-run page on SSO-only installs, and
 `bootstrapAdmin.secretRef` creates a first local administrator where local
