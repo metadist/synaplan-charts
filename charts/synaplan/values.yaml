@@ -281,8 +281,25 @@ oidc:
   roleMapping: ""
   # -- Text on the sign-in button (OIDC_PROVIDER_LABEL). Empty = "Enterprise SSO".
   providerLabel: ""
-  # -- Expected JWT audience for bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId.
+  # -- Expected JWT audience for login, refresh and bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId.
+  # synaplan >= 5.4.0 also requests it at sign-in; Kinde and Auth0 need that (Kinde: the API audience).
   bearerAudience: ""
+  # Who may use this instance after a successful sign-in at the provider
+  # (synaplan >= 5.4.0). All empty = every authenticated identity is admitted.
+  # Checked on the validated access token at login, refresh and for bearer tokens.
+  accessPolicy:
+    # -- Organization the token must name (OIDC_ORG_CODE); also sent as org_code at sign-in (Kinde). Empty = no check.
+    orgCode: ""
+    # -- Claim holding the organization (OIDC_ORG_CLAIM), e.g. organization on Keycloak. Empty = application default (org_code).
+    orgClaim: ""
+    # -- Comma-separated roles, at least one required (OIDC_REQUIRED_ROLE). Read from oidc.roleClaims; set roleClaims to roles for Kinde. Empty = no check.
+    requiredRole: ""
+    # -- Comma-separated permissions, all required (OIDC_REQUIRED_PERMISSIONS). Empty = no check.
+    requiredPermissions: ""
+    # -- Claim holding the permissions (OIDC_PERMISSIONS_CLAIM). Empty = application default (permissions).
+    permissionsClaim: ""
+    # -- (bool) Create an account on the first SSO sign-in (OIDC_ALLOW_USER_PROVISIONING). false = only people who signed in through SSO before. null = application default (true).
+    allowUserProvisioning: null
 
 # Seed built-in system prompts on startup (idempotent)
 prompts:

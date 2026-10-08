@@ -56,6 +56,29 @@ For CPU-only deployments, no GPU is required.
 
 You need an identity provider with a configured client for synaplan.
 
+A successful sign-in at the provider admits everyone by default. To restrict
+the instance to one organization, a role or a set of permissions — and to stop
+the first sign-in from creating an account — set `oidc.accessPolicy` in the
+environment values (synaplan >= 5.4.0). Example for Kinde:
+
+```yaml
+services:
+  synaplan:
+    oidc:
+      issuerURI: https://acme.kinde.com
+      clientId: <client id>
+      bearerAudience: <audience of the API registered in Kinde>
+      roleClaims: roles
+      accessPolicy:
+        orgCode: org_yyyzzzzxxxxx
+        requiredRole: admin
+        allowUserProvisioning: false
+```
+
+`scopes`, `adminRoles`, `roleClaims`, `roleMapping`, `providerLabel` and
+`bearerAudience` are passed through to the chart as well. See the `oidc.*`
+rows in [`charts/synaplan/README.md`](../../charts/synaplan/README.md).
+
 ## Deployment
 
 ### Environment Configuration

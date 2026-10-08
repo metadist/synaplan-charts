@@ -78,6 +78,15 @@ oidc:
   clientSecret: {{ . | quote }}
   {{- end }}
   {{- end }}
+  {{- range $key := list "scopes" "adminRoles" "roleClaims" "roleMapping" "providerLabel" "bearerAudience" }}
+  {{- with index $oidc $key }}
+  {{ $key }}: {{ . | quote }}
+  {{- end }}
+  {{- end }}
+  {{- with index $oidc "accessPolicy" }}
+  accessPolicy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- end }}
 
 {{- with .Values.services | getOrNil "tts" }}
