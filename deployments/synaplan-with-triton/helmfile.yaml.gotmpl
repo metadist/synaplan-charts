@@ -15,6 +15,40 @@ environments:
 */}}
 {{ $tritonMode := .Values.services.triton.mode | default "gpu" }}
 {{ $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
+{{/*
+  services.stt.mode (speech-to-text server, charts/stt):
+    ""    — no release (default); Synaplan uses the whisper.cpp binary in its pod
+    "gpu" — CUDA image, one nvidia.com/gpu
+    "cpu" — CPU image
+  The release name below is the Service name unless nameOverride or
+  fullnameOverride says otherwise. speech.whisperServerUrl uses the same
+  rules as the chart helper stt.fullname, and the same service.port.
+  values-stt-<mode>.yaml and services.stt.values both count; user values win.
+*/}}
+{{ $sttMode := .Values | get "services.stt.mode" "" }}
+{{ $sttLocal := or (eq $sttMode "gpu") (eq $sttMode "cpu") }}
+{{ $sttRelease := "stt" }}
+{{ $sttUrl := "" }}
+{{ if $sttLocal }}
+{{ $sttChartVals := readFile "../../charts/stt/values.yaml" | fromYaml }}
+{{ $sttChartMeta := readFile "../../charts/stt/Chart.yaml" | fromYaml }}
+{{ $sttModeVals := readFile (printf "values-stt-%s.yaml" $sttMode) | fromYaml }}
+{{ $sttUserVals := .Values | get "services.stt.values" dict }}
+{{ $sttPort := $sttUserVals | get "service.port" ($sttModeVals | get "service.port" ($sttChartVals | get "service.port" 8080)) }}
+{{ $sttNameOverride := $sttUserVals | get "nameOverride" ($sttModeVals | get "nameOverride" ($sttChartVals | get "nameOverride" "")) }}
+{{ $sttFullOverride := $sttUserVals | get "fullnameOverride" ($sttModeVals | get "fullnameOverride" ($sttChartVals | get "fullnameOverride" "")) }}
+{{ $sttName := $sttNameOverride | default $sttChartMeta.name }}
+{{ $sttService := $sttRelease }}
+{{ if $sttFullOverride }}
+{{ $sttService = $sttFullOverride }}
+{{ else if contains $sttName $sttRelease }}
+{{ $sttService = $sttRelease }}
+{{ else }}
+{{ $sttService = printf "%s-%s" $sttRelease $sttName }}
+{{ end }}
+{{ $sttService = $sttService | trunc 63 | trimSuffix "-" }}
+{{ $sttUrl = printf "http://%s.%s.svc.cluster.local:%v" $sttService $ns $sttPort }}
+{{ end }}
 
 repositories:
   - name: mariadb-operator
@@ -62,8 +96,16 @@ releases:
       {{- if $tritonLocal }}
       - {{ $ns }}/triton
       {{- end }}
+      {{- if $sttLocal }}
+      - {{ $ns }}/{{ $sttRelease }}
+      {{- end }}
     values:
       - values-synaplan.yaml.gotmpl
+      {{- if $sttLocal }}
+      - speech:
+          whisper: true
+          whisperServerUrl: {{ $sttUrl | quote }}
+      {{- end }}
 
   {{- if $tritonLocal }}
   - name: triton
@@ -74,5 +116,22 @@ releases:
       - values-triton-gpu.yaml
       {{- else }}
       - values-triton-cpu.yaml
+      {{- end }}
+  {{- end }}
+
+  {{- if $sttLocal }}
+  - name: {{ $sttRelease }}
+    namespace: {{ $ns }}
+    chart: ../../charts/stt
+    values:
+      - values-stt-{{ $sttMode }}.yaml
+      - networkPolicy:
+          enabled: true
+          from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: synaplan
+      {{- with .Values | get "services.stt.values" dict }}
+      - {{- toYaml . | nindent 8 }}
       {{- end }}
   {{- end }}

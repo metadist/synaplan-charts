@@ -9,7 +9,6 @@
 {{- $tritonMode := .Values.services.triton.mode | default "gpu" }}
 {{- $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
 {{- $ollamaBaseUrl := index (index .Values.services.synaplan "ollama" | default dict) "baseUrl" | default "" }}
-
 {{- with .Values | getOrNil "image" }}
 image:
   {{- range $k, $v := . }}

@@ -1,0 +1,14 @@
+# CPU mode — about 2x real time on 8 threads: one or two speakers at a time
+image:
+  variant: cpu
+
+server:
+  threads: 8
+
+resources:
+  requests:
+    cpu: "4"
+    memory: 2Gi
+  limits:
+    cpu: "8"
+    memory: 4Gi

@@ -1,0 +1,87 @@
+name: STT Image
+
+# ghcr.io/metadist/synaplan-stt, built from images/stt in two variants.
+#   pull request  -> build only
+#   main          -> 0.0.0-dev.<commit>-<variant>
+#   tag stt-image-v<version> -> <version>-<variant>
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'images/stt/**'
+      - '.github/workflows/stt-image.yaml'
+    tags:
+      - 'stt-image-v*.*.*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'images/stt/**'
+      - '.github/workflows/stt-image.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/metadist/synaplan-stt
+
+jobs:
+  build:
+    name: Build synaplan-stt (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [cuda, cpu]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The CUDA base image is 3.7 GB and the conversion stage holds torch plus
+      # the 1.6 GB checkpoint; the default runner disk is too small for both.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker image prune -af
+          df -h /
+
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/stt-image-v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/stt-image-v}"
+          else
+            VERSION="0.0.0-dev.$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$VERSION-${{ matrix.variant }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: images/stt
+          build-args: |
+            VARIANT=${{ matrix.variant }}
+            VERSION=${{ steps.version.outputs.version }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+
+      - name: Model checksum
+        if: github.event_name != 'pull_request'
+        run: |
+          docker run --rm --entrypoint sha256sum "${IMAGE}:${{ steps.version.outputs.tag }}" \
+            /models/ggml-large-v3-turbo-german-q8_0.bin /models/ggml-silero-v5.1.2.bin
