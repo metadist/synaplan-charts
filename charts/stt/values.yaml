@@ -145,7 +145,8 @@ networkPolicy:
   # -- Only let the listed peers reach the server. Audio is personal data.
   enabled: false
   # -- NetworkPolicy peers allowed to connect. Empty means every pod in the
-  # release namespace.
+  # release namespace. The Helm test pod is always allowed as well, so
+  # `helm test` still reaches the server when this list is restrictive.
   from: []
   # - podSelector:
   #     matchLabels:

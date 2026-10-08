@@ -94,7 +94,8 @@ speech:
 ```
 
 In the example helmfile deployment, `services.stt.mode: gpu` (or `cpu`) adds
-the release and sets this URL.
+the release and sets this URL from the chart's Service name and port, including
+`service.port`, `nameOverride`, and `fullnameOverride` in `services.stt.values`.
 
 Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
 `null` leaves the database row:

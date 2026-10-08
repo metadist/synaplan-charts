@@ -34,6 +34,8 @@ services:
     mode: gpu
   # Speech-to-text server (charts/stt): "" off, "gpu" or "cpu". "gpu" needs a
   # second GPU next to Triton, or a time-sliced share. services.stt.values is
-  # passed to the stt chart as-is (node selector, tolerations, resources).
+  # passed to the stt chart as-is (node selector, tolerations, resources,
+  # service.port, nameOverride, fullnameOverride). The Synaplan URL follows
+  # the chart's Service name and port.
   stt:
     mode: ""

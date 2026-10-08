@@ -100,6 +100,20 @@ helmfile -e default apply
 - Slower inference (5-30s response times)
 - Model: `mistral-cpu`
 
+### Speech-to-text
+
+`services.stt.mode` is `""` (off, the default), `gpu`, or `cpu`.
+
+- **Off**: Synaplan uses the whisper.cpp binary in its own pod.
+- **GPU**: the `stt` release runs the CUDA image and requests one NVIDIA GPU.
+  That is a second GPU beside Triton, unless the node time-slices or uses MIG.
+- **CPU**: no GPU request. About two times real time on 8 threads.
+
+Synaplan's `speech.whisperServerUrl` points at that Service. `services.stt.values`
+is passed through to the chart; `service.port`, `nameOverride`, and
+`fullnameOverride` are included in the URL. The NetworkPolicy admits the
+Synaplan pods and the chart's `helm test` pod.
+
 ### Custom Root CA
 
 For clusters with custom certificate authorities, set `customRootCA: true`:

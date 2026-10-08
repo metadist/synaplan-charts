@@ -71,7 +71,8 @@ one `nvidia.com/gpu` (one slice).
 The pod runs as UID 65532 with a read-only root filesystem, no service
 account token and no capabilities. Audio is written only to the `/tmp`
 emptyDir while ffmpeg converts it. Keep the Service `ClusterIP` and turn on
-`networkPolicy` so that only Synaplan reaches it:
+`networkPolicy` so that only Synaplan reaches it. The chart's Helm test pod
+is admitted as well, so `helm test` still reaches `/health`:
 
 ```yaml
 networkPolicy:

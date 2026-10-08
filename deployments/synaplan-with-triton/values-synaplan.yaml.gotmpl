@@ -9,9 +9,6 @@
 {{- $tritonMode := .Values.services.triton.mode | default "gpu" }}
 {{- $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
 {{- $ollamaBaseUrl := index (index .Values.services.synaplan "ollama" | default dict) "baseUrl" | default "" }}
-{{- $sttMode := .Values | get "services.stt.mode" "" }}
-{{- $sttLocal := or (eq $sttMode "gpu") (eq $sttMode "cpu") }}
-
 {{- with .Values | getOrNil "image" }}
 image:
   {{- range $k, $v := . }}
@@ -44,13 +41,6 @@ triton:
 {{- if $ollamaBaseUrl }}
 ollama:
   baseUrl: {{ $ollamaBaseUrl | quote }}
-{{- end }}
-
-{{- if $sttLocal }}
-# Speech-to-text on the stt release (Synaplan with Whisper server mode).
-speech:
-  whisper: true
-  whisperServerUrl: "http://stt.{{ $ns }}.svc.cluster.local:8080"
 {{- end }}
 
 tika:

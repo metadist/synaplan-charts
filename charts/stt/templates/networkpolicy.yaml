@@ -18,6 +18,10 @@ spec:
         {{- else }}
         - podSelector: {}
         {{- end }}
+        # helm test runs in this namespace and is not one of the caller's peers.
+        - podSelector:
+            matchLabels:
+              {{- include "stt.testPodLabel" . | nindent 14 }}
       ports:
         - port: http
           protocol: TCP

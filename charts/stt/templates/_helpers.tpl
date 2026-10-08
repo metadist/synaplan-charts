@@ -52,6 +52,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Label for the Helm test pod. Not a Service selector, so the Service never
+routes to that pod. The NetworkPolicy always admits it.
+*/}}
+{{- define "stt.testPodLabel" -}}
+synaplan.com/stt-test: {{ include "stt.fullname" . | quote }}
+{{- end }}
+
+{{/*
 Validated image variant: cuda or cpu.
 */}}
 {{- define "stt.variant" -}}

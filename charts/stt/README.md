@@ -73,7 +73,8 @@ one `nvidia.com/gpu` (one slice).
 The pod runs as UID 65532 with a read-only root filesystem, no service
 account token and no capabilities. Audio is written only to the `/tmp`
 emptyDir while ffmpeg converts it. Keep the Service `ClusterIP` and turn on
-`networkPolicy` so that only Synaplan reaches it:
+`networkPolicy` so that only Synaplan reaches it. The chart's Helm test pod
+is admitted as well, so `helm test` still reaches `/health`:
 
 ```yaml
 networkPolicy:
@@ -108,7 +109,7 @@ networkPolicy:
 | livenessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/health","port":"http"},"periodSeconds":10,"timeoutSeconds":5}` | Liveness probe. Generous: one long request holds the decoder. |
 | nameOverride | string | `""` | Override the chart name |
 | networkPolicy.enabled | bool | `false` | Only let the listed peers reach the server. Audio is personal data. |
-| networkPolicy.from | list | `[]` | NetworkPolicy peers allowed to connect. Empty means every pod in the release namespace. |
+| networkPolicy.from | list | `[]` | NetworkPolicy peers allowed to connect. Empty means every pod in the release namespace. The Helm test pod is always allowed as well, so `helm test` still reaches the server when this list is restrictive. |
 | nodeSelector | object | `{}` | Node selector, e.g. `nvidia.com/gpu.present: "true"` |
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Pod labels |
