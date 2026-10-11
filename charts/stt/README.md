@@ -124,7 +124,7 @@ networkPolicy:
 | server.language | string | `"de"` | Default spoken language. A request's `language` field wins; `auto` detects. |
 | server.model | string | `"/models/ggml-large-v3-turbo-german-q8_0.bin"` | ggml model path in the container. The image ships `/models/ggml-large-v3-turbo-german-q8_0.bin`; mount another model with `extraVolumes` and point here. |
 | server.threads | int | `4` | CPU threads. For `image.variant: cpu` set this to the CPU limit. |
-| server.vad.enabled | bool | `false` | Silero voice activity detection in the server: drops silence before decoding. |
+| server.vad.enabled | bool | `true` | Silero voice activity detection in the server: drops silence before decoding. Without it Whisper turns silence and room noise into stock phrases ("Vielen Dank."). |
 | server.vad.model | string | `"/models/ggml-silero-v5.1.2.bin"` | VAD model path (shipped in the image) |
 | service.port | int | `8080` | Service port |
 | service.type | string | `"ClusterIP"` | Service type. Keep ClusterIP: audio must not leave the cluster. |

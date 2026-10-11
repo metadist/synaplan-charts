@@ -55,7 +55,8 @@ server:
   inferencePath: /v1/audio/transcriptions
   vad:
     # -- Silero voice activity detection in the server: drops silence before decoding.
-    enabled: false
+    # Without it Whisper turns silence and room noise into stock phrases ("Vielen Dank.").
+    enabled: true
     # -- VAD model path (shipped in the image)
     model: /models/ggml-silero-v5.1.2.bin
   # -- Extra whisper-server arguments, e.g. `["--no-flash-attn"]`
