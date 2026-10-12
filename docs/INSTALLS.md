@@ -9,7 +9,7 @@ secrets stay in that cluster's repository.
 | Synaplan on its own | The published chart | Your values file. [examples/](../examples/) are overlays, applied with `-f` |
 | Synaplan plus MariaDB and Triton | [deployments/synaplan-with-triton](../deployments/synaplan-with-triton/) | One values file for that cluster. `services.triton.mode`: `gpu`, `cpu`, or `remote` |
 | Synaplan next to an openDesk, in your namespace | The chart, plus [examples/values-opendesk.yaml](../examples/values-opendesk.yaml) | Keycloak issuer and the Collabora URL. A standard openDesk and a custom one use the same overlay |
-| Synaplan inside an openDesk namespace | The same chart, installed beside openDesk's Keycloak, ingress, and certificates | One values file: namespace, domain, ingress class, Collabora. See below |
+| Synaplan inside an openDesk namespace | The same chart. The installer is not on this branch yet | [Pull request #53](https://github.com/metadist/synaplan-charts/pull/53), branch `feat/opendesk-addon` |
 
 Branding, logos, and the openDesk theme are not chart values. They stay in
 the openDesk project.
@@ -72,8 +72,10 @@ older tag.
 
 ## openDesk's own namespace
 
-Installing into the namespace openDesk already uses, and reusing its ingress
-and certificates, is the same chart with a different installer. That Helmfile
-is `deployments/opendesk-addon` on the openDesk add-on branch: one values
-file (namespace, domain, ingress class, Collabora, optional speech server).
-A standard upstream openDesk and a custom one differ only in that file.
+This branch does not contain that installer. It is the Helmfile
+[`deployments/opendesk-addon`](https://github.com/metadist/synaplan-charts/tree/feat/opendesk-addon/deployments/opendesk-addon)
+on branch `feat/opendesk-addon`, in
+[pull request #53](https://github.com/metadist/synaplan-charts/pull/53).
+One values file sets the namespace, domain, ingress class, Collabora URL,
+and an optional speech server. A standard openDesk and a custom one differ
+only in that file.

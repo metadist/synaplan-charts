@@ -85,12 +85,7 @@ Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
 {{- .Values.redis.dsn | default (printf "redis://%s-redis:6379" (include "synaplan.fullname" .)) -}}
 {{- end }}
 
-{{/*
-Environment shared by every synaplan role (web, worker, scheduler). All roles
-run the same image and entrypoint, so they need the same configuration; the
-role deployments add SYNAPLAN_ROLE on top.
-*/}}
-{{- define "synaplan.env" -}}
+{{- define "synaplan.coreEnv" -}}
 # Application URLs
 - name: APP_URL
   value: {{ .Values.publicUrl | quote }}
@@ -204,16 +199,27 @@ role deployments add SYNAPLAN_ROLE on top.
 - name: SYNAPLAN_TTS_URL
   value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
 {{- end }}
+{{- end }}
+
+{{/*
+Environment shared by every synaplan role (web, worker, scheduler). All roles
+run the same image and entrypoint, so they need the same configuration; the
+role deployments add SYNAPLAN_ROLE on top. A name emitted here or by
+synaplan.switchesEnv is rejected if values.env repeats it.
+*/}}
+{{- define "synaplan.env" -}}
+{{- $coreEnv := include "synaplan.coreEnv" . }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
 {{- $managed := list }}
-{{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
+{{- range regexFindAll "(?m)^- name: \\S+" (printf "%s\n%s" $coreEnv $switchEnv) -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which the chart already emits. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
 {{- end }}
 {{- end }}
+{{- $coreEnv }}
 {{- $switchEnv }}
 {{- with .Values.env }}
 # Additional environment variables

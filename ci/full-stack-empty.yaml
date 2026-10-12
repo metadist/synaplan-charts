@@ -1,0 +1,10 @@
+# An explicit empty mode is not the GPU default.
+cluster:
+  ingressClassName: nginx
+  customRootCA: false
+
+services:
+  triton:
+    mode: ""
+  synaplan:
+    url: https://synaplan.example.org

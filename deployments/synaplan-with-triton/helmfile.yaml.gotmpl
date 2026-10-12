@@ -16,11 +16,13 @@ environments:
 {{ $ns := .Values | getOrNil "namespace" | default "synaplan" }}
 {{/*
   services.triton.mode:
-    "gpu"    — deploy local Triton with GPU values (default)
+    omitted  — same as "gpu"
+    "gpu"    — deploy local Triton with GPU values
     "cpu"    — deploy local Triton with CPU-only values
     "remote" — skip the Triton release entirely (remote inference via ollama.baseUrl)
+    ""       — rejected. An empty value is not the GPU default.
 */}}
-{{ $tritonMode := .Values.services.triton.mode | default "gpu" }}
+{{ $tritonMode := .Values | get "services.triton.mode" "gpu" }}
 {{ if not (has $tritonMode (list "gpu" "cpu" "remote")) }}
 {{ fail (printf "services.triton.mode must be \"gpu\", \"cpu\" or \"remote\", not %q" $tritonMode) }}
 {{ end }}

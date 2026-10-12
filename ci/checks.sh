@@ -72,18 +72,27 @@ render settings -f examples/values-opendesk.yaml \
 assert_unique_env "$outdir/settings.yaml"
 
 echo "env must not repeat a name the chart already emits"
-set +e
-dup=$("$HELM" template dup charts/synaplan \
-  -f examples/values-opendesk.yaml \
-  --set 'env[0].name=QDRANT_URL' \
-  --set 'env[0].value=http://qdrant:6333' 2>&1)
-status=$?
-set -e
-if [ "$status" -eq 0 ]; then
-  echo "env QDRANT_URL should fail the render"
-  exit 1
-fi
-printf '%s\n' "$dup" | grep -q 'env sets QDRANT_URL'
+reject_env() {
+  local key=$1
+  local value=$2
+  shift 2
+  set +e
+  local err
+  err=$("$HELM" template dup charts/synaplan "$@" \
+    --set "env[0].name=$key" \
+    --set "env[0].value=$value" 2>&1)
+  local status=$?
+  set -e
+  if [ "$status" -eq 0 ]; then
+    echo "env $key should fail the render"
+    exit 1
+  fi
+  printf '%s\n' "$err" | grep -q "env sets $key"
+}
+# switchesEnv (only present because the overlay sets qdrant.url)
+reject_env QDRANT_URL http://qdrant:6333 -f examples/values-opendesk.yaml
+# coreEnv: always emitted, including when no overlay sets it
+reject_env TRITON_SERVER_URL triton:8001
 
 helmfile_build() {
   local label=$1
@@ -126,5 +135,18 @@ if [ "$status" -eq 0 ]; then
   exit 1
 fi
 printf '%s\n' "$bad" | grep -q 'services.triton.mode must'
+
+echo "empty triton mode is not gpu"
+set +e
+empty=$(SYNAPLAN_VALUES_FILE="$root/ci/full-stack-empty.yaml" \
+  helmfile --helm-binary "$HELM" -f deployments/synaplan-with-triton/helmfile.yaml.gotmpl \
+  -e empty build 2>&1)
+status=$?
+set -e
+if [ "$status" -eq 0 ]; then
+  echo "services.triton.mode=\"\" should fail"
+  exit 1
+fi
+printf '%s\n' "$empty" | grep -q 'services.triton.mode must'
 
 echo "install checks passed"
