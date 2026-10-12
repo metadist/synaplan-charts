@@ -1,0 +1,10 @@
+# Rejected. services.triton.mode is only gpu, cpu, or remote.
+cluster:
+  ingressClassName: nginx
+  customRootCA: false
+
+services:
+  triton:
+    mode: sidecar
+  synaplan:
+    url: https://synaplan.example.org

@@ -5,7 +5,8 @@ pins, identity, the model catalog, and admin settings are Helm values. A pinned
 value is locked in the admin UI.
 
 The value reference for the application chart is
-[charts/synaplan/README.md](charts/synaplan/README.md).
+[charts/synaplan/README.md](charts/synaplan/README.md). Which install to use
+(standalone, a full stack, or openDesk) is [docs/INSTALLS.md](docs/INSTALLS.md).
 
 ## Charts
 
@@ -178,14 +179,8 @@ helm install synaplan ./charts/synaplan \
 | [examples/values-opendesk.yaml](examples/values-opendesk.yaml) | SSO, shared Collabora, sovereign feature pins |
 | [examples/values-managed-settings.yaml](examples/values-managed-settings.yaml) | IAM options and the MCP client, without the admin UI |
 
-A full stack with Triton and MariaDB is
-[deployments/synaplan-with-triton/](deployments/synaplan-with-triton/). One
-environment, named `default`:
-
-```bash
-cd deployments/synaplan-with-triton
-helmfile -e default apply
-```
+The four installs, and where a cluster's own values file lives, are
+[docs/INSTALLS.md](docs/INSTALLS.md).
 
 ## Installation
 
@@ -223,6 +218,7 @@ make install-kubeconform
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
+make check      # install shapes, duplicate env names, Triton mode
 make package
 make all
 ```

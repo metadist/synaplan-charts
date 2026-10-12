@@ -1,8 +1,15 @@
 environments:
   {{ .Environment.Name }}:
-    kubeContext: {{ .Environment.Name }}
+    # KUBE_CONTEXT overrides the kubectl context. Unset, it matches the
+    # environment name (helmfile -e default uses context "default").
+    kubeContext: {{ env "KUBE_CONTEXT" | default .Environment.Name }}
     values:
+      {{- if env "SYNAPLAN_VALUES_FILE" }}
+      # Whole environment from outside this repo (a Vultr or openDesk project).
+      - {{ env "SYNAPLAN_VALUES_FILE" }}
+      {{- else }}
       - environments/{{ .Environment.Name }}/*.yaml
+      {{- end }}
 
 ---
 
@@ -14,6 +21,9 @@ environments:
     "remote" — skip the Triton release entirely (remote inference via ollama.baseUrl)
 */}}
 {{ $tritonMode := .Values.services.triton.mode | default "gpu" }}
+{{ if not (has $tritonMode (list "gpu" "cpu" "remote")) }}
+{{ fail (printf "services.triton.mode must be \"gpu\", \"cpu\" or \"remote\", not %q" $tritonMode) }}
+{{ end }}
 {{ $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
 
 repositories:

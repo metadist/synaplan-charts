@@ -60,29 +60,25 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`.
+One Helmfile, one values file per cluster. `environments/default/values.yaml` is the example committed in this repo (local Triton on GPU). A real cluster does not get a new chart and its values are not committed here (`environments/*` except `default` is gitignored).
 
-**Important**: The helmfile assumes the **kubeContext name matches the environment name**. For example:
-- Environment `default` → kubeContext `default`
-
-Check your available contexts:
-```bash
-kubectl config get-contexts
-```
-
-If your context name differs, either:
-- Rename your context: `kubectl config rename-context old-name new-name`
-- Or override the kubeContext in `helmfile.yaml.gotmpl`
-
-Included environments:
-- **default** - Template environment with GPU mode
-
-### Deploy to an Environment
+Point Helmfile at the values file in the cluster's own repository:
 
 ```bash
-# Deploy to default environment
-helmfile -e default apply
+cd deployments/synaplan-with-triton
+
+# Context name matches the environment name.
+SYNAPLAN_VALUES_FILE=/path/to/cluster-values.yaml helmfile -e vultr apply
+
+# Context name differs from the environment name.
+KUBE_CONTEXT=my-context \
+  SYNAPLAN_VALUES_FILE=/path/to/cluster-values.yaml \
+  helmfile -e vultr apply
 ```
+
+Without `SYNAPLAN_VALUES_FILE`, Helmfile reads `environments/<name>/*.yaml` and uses a kubectl context of the same name. `helmfile -e default apply` is that path, for the example.
+
+The values file has the same shape as [environments/default/values.yaml](environments/default/values.yaml). `services.triton.mode` is `gpu`, `cpu`, or `remote` (no Triton release; set Ollama or another URL in the Synaplan values). Anything else fails the render.
 
 ## Configuration
 
