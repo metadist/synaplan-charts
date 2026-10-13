@@ -316,8 +316,7 @@ prompts:
 # updated whenever one is added (easy to miss cloudflare, higgsfield, …).
 # only cannot be combined with enabled/disabled.
 #
-# Air-gapped example (local inference and speech only):
-#   deployments/synaplan-with-triton/environments/airgap/values.yaml
+# Air-gapped example (local inference and speech only): README.md, "Air-gapped".
 #
 # Provider-level toggles run BEFORE the per-model lists, so per-model entries
 # win — e.g. disable the whole openai provider but re-enable one of its models.

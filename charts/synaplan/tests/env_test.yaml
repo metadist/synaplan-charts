@@ -5,8 +5,9 @@ templates:
 tests:
   - it: refuses a name that a chart value already emits
     template: deployment.yaml
+    values:
+      - ../../../examples/values-opendesk.yaml
     set:
-      qdrant.url: http://qdrant.synaplan.svc.cluster.local:6333
       env:
         - name: QDRANT_URL
           value: http://qdrant:6333

@@ -168,26 +168,61 @@ Do not repeat a key that `features.*` or `featurePins` already pins. Synaplan
 render when either map is set. `5.0.6-alpine` fails. `5.1.0-rc.1` is accepted.
 A tag that is not a complete semver skips that check.
 
-## Examples
+## Air-gapped
 
-[deployments/synaplan-with-triton](deployments/synaplan-with-triton/) is a
-Helmfile that installs the chart with MariaDB and Tika. Each example is an
-environment of it:
+Local inference and speech only. `only` is an allow-list, so a cloud provider
+that a later release adds stays off:
 
-| Environment | What it installs |
-| ----------- | ---------------- |
-| [default](deployments/synaplan-with-triton/environments/default/values.yaml) | Triton on a GPU for chat and embeddings |
-| [airgap](deployments/synaplan-with-triton/environments/airgap/values.yaml) | No Triton. Ollama, Piper, and Whisper only. Browser Web Speech off |
-| [opendesk](deployments/synaplan-with-triton/environments/opendesk/values.yaml) | No Triton. openDesk's Keycloak and Collabora, local models, internet-facing features pinned off |
+```yaml
+triton:
+  url: ""
+ollama:
+  baseUrl: "http://ollama.synaplan.svc.cluster.local:11434"
+models:
+  providers:
+    only:
+      - ollama
+      - piper
+      - whisper
+speech:
+  # Chrome's Web Speech API sends audio to Google. Record for on-server Whisper instead.
+  webSpeech: false
+  whisper: true
+  whisperModel: "base"
+```
+
+Requires synaplan >= 4.3.6. Pull the Ollama models before users sign in: a
+catalog row appears only after that model is pulled.
+
+## Example values
+
+Overlays, applied with `-f` next to your own values file:
+
+```bash
+# openDesk: Keycloak, shared Collabora, internet-facing features pinned off.
+# synaplan >= 5.0.0
+helm install synaplan ./charts/synaplan -f examples/values-opendesk.yaml
+
+# Database settings (IAM, MCP client). synaplan >= 5.1.0
+helm install synaplan ./charts/synaplan \
+  -f examples/values-opendesk.yaml \
+  -f examples/values-managed-settings.yaml \
+  --set image.tag=5.1.0
+```
+
+| File | Use |
+| ---- | --- |
+| [examples/values-opendesk.yaml](examples/values-opendesk.yaml) | SSO, shared Collabora, sovereign feature pins |
+| [examples/values-managed-settings.yaml](examples/values-managed-settings.yaml) | IAM options and the MCP client, without the admin UI |
+
+A full stack with Triton and MariaDB is
+[deployments/synaplan-with-triton/](deployments/synaplan-with-triton/). One
+environment, named `default`:
 
 ```bash
 cd deployments/synaplan-with-triton
-helmfile -e opendesk apply
+helmfile -e default apply
 ```
-
-For your own cluster, copy an environment directory under a new name and
-edit it. See the
-[deployment README](deployments/synaplan-with-triton/README.md).
 
 ## Installation
 

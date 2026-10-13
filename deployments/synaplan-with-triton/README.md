@@ -60,20 +60,7 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. Three examples are committed:
-
-| Environment | What it installs |
-| --- | --- |
-| [default](environments/default/values.yaml) | Triton on a GPU for chat and embeddings |
-| [airgap](environments/airgap/values.yaml) | No Triton. Ollama, Piper and Whisper only |
-| [opendesk](environments/opendesk/values.yaml) | No Triton. openDesk's Keycloak and Collabora, local models, internet-facing features pinned off |
-
-For your own cluster, copy one of them under a new name and edit it. Other environment directories are gitignored.
-
-```bash
-cp -r environments/opendesk environments/my-cluster
-helmfile -e my-cluster apply
-```
+This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. `default` is the example committed in this repo (local Triton on GPU); other environment directories are gitignored.
 
 ### Deploy to an Environment
 

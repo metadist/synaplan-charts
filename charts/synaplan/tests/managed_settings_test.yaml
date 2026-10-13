@@ -2,10 +2,9 @@ suite: managed settings
 templates:
   - deployment.yaml
   - init-scripts-configmap.yaml
-set:
-  settings:
-    IAM.EVERYONE_SHARES: admins_only
-    MCP.CLIENT_ENABLED: false
+values:
+  - ../../../examples/values-opendesk.yaml
+  - ../../../examples/values-managed-settings.yaml
 tests:
   - it: refuses a Synaplan older than 5.1.0
     template: deployment.yaml

@@ -26,8 +26,6 @@ dist/
 # Build outputs
 charts/*/ci/templated.yaml
 
-# Deployments - ignore all environment directories except the examples
+# Deployments - ignore all environment directories except default
 deployments/*/environments/*
 !deployments/*/environments/default/
-!deployments/*/environments/airgap/
-!deployments/*/environments/opendesk/

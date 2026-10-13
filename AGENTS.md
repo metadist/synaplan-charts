@@ -45,7 +45,7 @@ make all
 - **Documentation is auto-generated**: Never manually edit `charts/*/README.md` files. Always edit `charts/*/README.md.gotmpl` templates instead.
 - **helm-docs version**: This project uses helm-docs v1.14.2 with `--skip-version-footer` flag. The version footer is disabled in templates.
 - **Model names are immutable**: DO NOT change the names of deployed models (mistral-7b-instruct-v0.3, mistral-streaming, mistral-cpu).
-- **Example environments**: `deployments/synaplan-with-triton/environments/` holds `default`, `airgap` and `opendesk`. They are examples; any other environment directory is gitignored. Do not reference non-existent `prod` or `dev` environments.
+- **Single environment**: Only the `default` environment exists in `deployments/synaplan-with-triton/`. Do not reference non-existent `prod` or `dev` environments.
 
 ## CI Pipeline
 

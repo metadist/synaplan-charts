@@ -7,7 +7,7 @@ SHELL := bash
 .SHELLFLAGS := -o pipefail -c
 
 HELM ?= helm
-HELMFILE := helmfile --helm-binary $(HELM) -f deployments/synaplan-with-triton/helmfile.yaml.gotmpl
+HELMFILE := helmfile --helm-binary $(HELM) -f deployments/synaplan-with-triton/helmfile.yaml.gotmpl -e default
 
 .PHONY: all docs lint package clean
 
@@ -63,17 +63,18 @@ validate: template ## Validate charts with kubeconform
 	done
 
 .PHONY: check
-check: ## Unit-test the synaplan chart; render every Helmfile environment
+check: ## Unit-test the synaplan chart; render the examples and the full-stack Helmfile
 	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
 	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
 	$(HELM) unittest charts/synaplan
 	$(HELM) template charts/synaplan | kubeconform -strict -summary -
-	$(HELMFILE) -e default --state-values-set services.triton.mode=gpu template >/dev/null
-	$(HELMFILE) -e default --state-values-set services.triton.mode=cpu template >/dev/null
-	$(HELMFILE) -e default --state-values-set services.triton.mode=remote template >/dev/null
-	$(HELMFILE) -e airgap -l name=synaplan template | kubeconform -strict -summary -
-	$(HELMFILE) -e opendesk -l name=synaplan template | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml -f examples/values-managed-settings.yaml --set image.tag=5.1.0 | kubeconform -strict -summary -
+	$(HELMFILE) --state-values-set services.triton.mode=gpu template >/dev/null
+	$(HELMFILE) --state-values-set services.triton.mode=cpu template >/dev/null
+	$(HELMFILE) --state-values-set services.triton.mode=remote template >/dev/null
+	$(HELMFILE) --state-values-set services.synaplan.values.features.registration=false -l name=synaplan template | kubeconform -strict -summary -
 
 .PHONY: clean
 clean: ## Remove build artifacts
