@@ -1,7 +1,7 @@
 name: STT Image
 
 # ghcr.io/metadist/synaplan-stt, built from images/stt in two variants.
-#   pull request  -> build only
+#   pull request, manual run off main -> build only
 #   main          -> 0.0.0-dev.<commit>-<variant>
 #   tag stt-image-v<version> -> <version>-<variant>
 on:
@@ -59,11 +59,21 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$VERSION-${{ matrix.variant }}" >> "$GITHUB_OUTPUT"
 
+      - name: Publish?
+        id: publish
+        # Manual runs from other branches build only, like pull requests.
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" != pull_request && ( "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" == refs/tags/stt-image-v* ) ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: steps.publish.outputs.enabled == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
@@ -77,11 +87,11 @@ jobs:
           build-args: |
             VARIANT=${{ matrix.variant }}
             VERSION=${{ steps.version.outputs.version }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ steps.publish.outputs.enabled == 'true' }}
           tags: ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
 
       - name: Model checksum
-        if: github.event_name != 'pull_request'
+        if: steps.publish.outputs.enabled == 'true'
         run: |
           docker run --rm --entrypoint sha256sum "${IMAGE}:${{ steps.version.outputs.tag }}" \
             /models/ggml-large-v3-turbo-german-q8_0.bin /models/ggml-silero-v5.1.2.bin
