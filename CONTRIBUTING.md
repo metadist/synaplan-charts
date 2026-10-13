@@ -40,7 +40,7 @@ Thank you for your interest in contributing to Synaplan Charts!
    ```
 
 6. **Create Pull Request**
-   - Open a pull request. It may target `main` or another branch; both run the same checks
+   - Create a PR against the `main` branch
    - Describe your changes
    - Link any related issues
 
