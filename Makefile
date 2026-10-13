@@ -63,7 +63,7 @@ validate: template ## Validate charts with kubeconform
 	done
 
 .PHONY: check
-check: ## Unit-test the synaplan chart; render the examples and the standalone Helmfile
+check: ## Unit-test the synaplan chart; render the examples and the full-stack Helmfile
 	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
 	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
