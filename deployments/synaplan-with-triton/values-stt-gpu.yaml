@@ -1,17 +1,5 @@
-# GPU mode — CUDA image, one GPU (about 1.6 GB of its memory)
-image:
-  variant: cuda
-
-server:
-  threads: 4
-
-resources:
-  requests:
-    cpu: "1"
-    memory: 2Gi
-  limits:
-    memory: 4Gi
-
+# GPU mode: the chart defaults (CUDA image, one GPU, about 1.6 GB of its
+# memory) plus the toleration for tainted GPU nodes
 tolerations:
   - key: nvidia.com/gpu
     operator: Exists

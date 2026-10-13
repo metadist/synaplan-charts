@@ -110,9 +110,11 @@ helmfile -e default apply
 - **CPU**: no GPU request. About two times real time on 8 threads.
 
 Synaplan's `speech.whisperServerUrl` points at that Service. `services.stt.values`
-is passed through to the chart; `service.port`, `nameOverride`, and
-`fullnameOverride` are included in the URL. The NetworkPolicy admits the
-Synaplan pods and the chart's `helm test` pod.
+is passed through to the chart. The helmfile sets `fullnameOverride` (default
+`stt`), so the Service name is fixed and `nameOverride` does not change it;
+set `fullnameOverride` or `service.port` there and the URL follows. The
+NetworkPolicy admits Synaplan's web, worker and scheduler pods (not the
+bundled redis or tts) and the chart's `helm test` pod.
 
 ### Custom Root CA
 

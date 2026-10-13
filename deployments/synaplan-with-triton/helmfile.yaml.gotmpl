@@ -20,34 +20,24 @@ environments:
     ""    — no release (default); Synaplan uses the whisper.cpp binary in its pod
     "gpu" — CUDA image, one nvidia.com/gpu
     "cpu" — CPU image
-  The release name below is the Service name unless nameOverride or
-  fullnameOverride says otherwise. speech.whisperServerUrl uses the same
-  rules as the chart helper stt.fullname, and the same service.port.
-  values-stt-<mode>.yaml and services.stt.values both count; user values win.
+  The helmfile pins the Service name with fullnameOverride (the release name
+  unless services.stt.values sets its own), so speech.whisperServerUrl cannot
+  drift from the chart's naming rules. service.port is read from the same
+  values the release gets: chart defaults, values-stt-<mode>.yaml, then
+  services.stt.values; user values win.
 */}}
 {{ $sttMode := .Values | get "services.stt.mode" "" }}
-{{ $sttLocal := or (eq $sttMode "gpu") (eq $sttMode "cpu") }}
+{{ $sttEnabled := or (eq $sttMode "gpu") (eq $sttMode "cpu") }}
 {{ $sttRelease := "stt" }}
-{{ $sttUrl := "" }}
-{{ if $sttLocal }}
-{{ $sttChartVals := readFile "../../charts/stt/values.yaml" | fromYaml }}
-{{ $sttChartMeta := readFile "../../charts/stt/Chart.yaml" | fromYaml }}
-{{ $sttModeVals := readFile (printf "values-stt-%s.yaml" $sttMode) | fromYaml }}
-{{ $sttUserVals := .Values | get "services.stt.values" dict }}
-{{ $sttPort := $sttUserVals | get "service.port" ($sttModeVals | get "service.port" ($sttChartVals | get "service.port" 8080)) }}
-{{ $sttNameOverride := $sttUserVals | get "nameOverride" ($sttModeVals | get "nameOverride" ($sttChartVals | get "nameOverride" "")) }}
-{{ $sttFullOverride := $sttUserVals | get "fullnameOverride" ($sttModeVals | get "fullnameOverride" ($sttChartVals | get "fullnameOverride" "")) }}
-{{ $sttName := $sttNameOverride | default $sttChartMeta.name }}
 {{ $sttService := $sttRelease }}
-{{ if $sttFullOverride }}
-{{ $sttService = $sttFullOverride }}
-{{ else if contains $sttName $sttRelease }}
-{{ $sttService = $sttRelease }}
-{{ else }}
-{{ $sttService = printf "%s-%s" $sttRelease $sttName }}
-{{ end }}
-{{ $sttService = $sttService | trunc 63 | trimSuffix "-" }}
-{{ $sttUrl = printf "http://%s.%s.svc.cluster.local:%v" $sttService $ns $sttPort }}
+{{ $sttUrl := "" }}
+{{ if $sttEnabled }}
+{{ $sttValues := mergeOverwrite
+    (readFile "../../charts/stt/values.yaml" | fromYaml)
+    (readFile (printf "values-stt-%s.yaml" $sttMode) | fromYaml)
+    (.Values | get "services.stt.values" dict | deepCopy) }}
+{{ $sttService = $sttValues.fullnameOverride | default $sttRelease }}
+{{ $sttUrl = printf "http://%s.%s.svc.cluster.local:%v" $sttService $ns $sttValues.service.port }}
 {{ end }}
 
 repositories:
@@ -96,12 +86,12 @@ releases:
       {{- if $tritonLocal }}
       - {{ $ns }}/triton
       {{- end }}
-      {{- if $sttLocal }}
+      {{- if $sttEnabled }}
       - {{ $ns }}/{{ $sttRelease }}
       {{- end }}
     values:
       - values-synaplan.yaml.gotmpl
-      {{- if $sttLocal }}
+      {{- if $sttEnabled }}
       - speech:
           whisper: true
           whisperServerUrl: {{ $sttUrl | quote }}
@@ -119,18 +109,34 @@ releases:
       {{- end }}
   {{- end }}
 
-  {{- if $sttLocal }}
+  {{- if $sttEnabled }}
   - name: {{ $sttRelease }}
     namespace: {{ $ns }}
     chart: ../../charts/stt
     values:
       - values-stt-{{ $sttMode }}.yaml
-      - networkPolicy:
+      - fullnameOverride: {{ $sttService }}
+        networkPolicy:
           enabled: true
+          # Only the pods that read WHISPER_SERVER_URL: web (no component
+          # label), worker and scheduler. Not the bundled redis (component
+          # redis) or tts (name synaplan-tts).
           from:
             - podSelector:
                 matchLabels:
+                  app.kubernetes.io/name: synaplan
                   app.kubernetes.io/instance: synaplan
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: DoesNotExist
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: synaplan
+                  app.kubernetes.io/instance: synaplan
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values: [worker, scheduler]
       {{- with .Values | get "services.stt.values" dict }}
       - {{- toYaml . | nindent 8 }}
       {{- end }}
