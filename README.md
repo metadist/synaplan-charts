@@ -234,11 +234,12 @@ helm-docs, kubeconform, and helmfile (for the example deployment).
 ```bash
 make install-helm-docs
 make install-kubeconform
+make install-helm-unittest
 
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
-make check      # install shapes, duplicate env names, Triton only for gpu/cpu
+make check      # helm-unittest suites, and the full-stack Helmfile renders
 make package
 make all        # all of the above
 ```

@@ -69,6 +69,12 @@ jobs:
           if [ ! -s "$out" ]; then
             helm template charts/${{ matrix.chart }} > "$out"
           fi
+          # The example overlays are documented entry points of the synaplan chart.
+          if [ "${{ matrix.chart }}" = "synaplan" ]; then
+            for values in examples/values-airgap.yaml examples/values-opendesk.yaml; do
+              helm template charts/synaplan -f "$values" >> "$out"
+            done
+          fi
 
       - name: Install kubeconform
         run: |
@@ -282,18 +288,16 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
+      - name: Install helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1
+
       - name: Install helmfile
         run: |
           curl -fsSL -o /tmp/helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v1.6.0/helmfile_1.6.0_linux_amd64.tar.gz
           tar -xzf /tmp/helmfile.tar.gz -C /tmp helmfile
           sudo mv /tmp/helmfile /usr/local/bin/helmfile
 
-      - name: Install kubeconform
-        run: |
-          curl -fsSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
-          sudo mv kubeconform /usr/local/bin/
-
-      - name: Render install shapes
+      - name: Unit-test the chart and render the full stack
         run: make check
 
   all-checks-passed:

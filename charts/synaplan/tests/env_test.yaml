@@ -1,0 +1,29 @@
+suite: env
+templates:
+  - deployment.yaml
+  - init-scripts-configmap.yaml
+tests:
+  - it: refuses a name that a chart value already emits
+    template: deployment.yaml
+    values:
+      - ../../../examples/values-opendesk.yaml
+    set:
+      env:
+        - name: QDRANT_URL
+          value: http://qdrant:6333
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets QDRANT_URL"
+
+  - it: passes any other name through
+    template: deployment.yaml
+    set:
+      env:
+        - name: MY_SETTING
+          value: "1"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MY_SETTING
+            value: "1"

@@ -3,6 +3,11 @@
 # Dynamically discover all charts in charts/ directory
 CHARTS := $(patsubst charts/%,%,$(wildcard charts/*))
 
+HELM ?= helm
+HELMFILE := deployments/synaplan-with-triton/helmfile.yaml.gotmpl
+# Overlays for the synaplan chart that validate renders next to its lint values
+EXAMPLES := examples/values-airgap.yaml examples/values-opendesk.yaml
+
 .PHONY: all docs lint package clean
 
 all: docs lint validate check package ## Generate docs, lint, validate, check and package charts (default)
@@ -36,6 +41,10 @@ template: ## Template charts for validation
 			helm template charts/$$chart > /tmp/$$chart-templated.yaml || exit 1; \
 		fi; \
 	done
+	@for values in $(EXAMPLES); do \
+		echo "Templating charts/synaplan with $$values..."; \
+		helm template charts/synaplan -f "$$values" >> /tmp/synaplan-templated.yaml || exit 1; \
+	done
 
 .PHONY: package
 package: ## Package all charts to dist/
@@ -57,10 +66,14 @@ validate: template ## Validate charts with kubeconform
 	done
 
 .PHONY: check
-check: ## Render the install shapes and the full stack; reject duplicate env names
+check: ## Unit-test the synaplan chart and render the full-stack Helmfile
+	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
 	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed"; exit 1; }
-	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
-	@bash ci/checks.sh
+	$(HELM) unittest charts/synaplan
+	@for values in "" ci/full-stack-cpu.yaml ci/full-stack-remote.yaml; do \
+		echo "helmfile template $${values:-(default environment)}"; \
+		helmfile --helm-binary $(HELM) -f $(HELMFILE) -e default $${values:+--state-values-file $(CURDIR)/$$values} template >/dev/null || exit 1; \
+	done
 
 .PHONY: clean
 clean: ## Remove build artifacts
@@ -76,6 +89,10 @@ install-helm-docs: ## Install helm-docs tool
 	tar -xzf helm-docs_1.14.2_Linux_x86_64.tar.gz && \
 	sudo mv helm-docs /usr/local/bin/ && \
 	rm helm-docs_1.14.2_Linux_x86_64.tar.gz
+
+.PHONY: install-helm-unittest
+install-helm-unittest: ## Install the helm-unittest plugin
+	$(HELM) plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1
 
 .PHONY: install-kubeconform
 install-kubeconform: ## Install kubeconform tool
