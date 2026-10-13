@@ -19,7 +19,7 @@ Speech-to-text server for Synaplan (whisper.cpp whisper-server with the German W
 ## What it runs
 
 One Deployment and one ClusterIP Service with the
-[`synaplan-stt` image](../../images/stt/): whisper.cpp `whisper-server` 1.9.4
+[`synaplan-stt` image](https://github.com/metadist/synaplan-stt): whisper.cpp `whisper-server` 1.9.4
 with the German Whisper large-v3-turbo fine-tune (q8_0) and the Silero VAD
 model baked in. Nothing is downloaded at start, so the chart works air-gapped
 once the image is mirrored.

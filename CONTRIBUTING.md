@@ -72,12 +72,12 @@ git push origin stt-v0.1.0
 ```
 
 The `stt` chart's default image tag is `<appVersion>-<variant>` of
-`ghcr.io/metadist/synaplan-stt`, built from `images/stt` by the `STT Image`
-workflow. Publish the image first, then the chart:
+`ghcr.io/metadist/synaplan-stt`. That image is built and released in
+[metadist/synaplan-stt](https://github.com/metadist/synaplan-stt): a `v0.1.0`
+tag there publishes `0.1.0-cuda` and `0.1.0-cpu`. Release the image first,
+then the chart:
 
 ```bash
-git tag stt-image-v0.1.0      # -> synaplan-stt:0.1.0-cuda and 0.1.0-cpu
-git push origin stt-image-v0.1.0
 git tag stt-v0.1.0            # chart version; CI writes this into Chart.yaml version
 git push origin stt-v0.1.0
 ```
@@ -86,11 +86,10 @@ Chart `version` and `appVersion` are different fields:
 
 - `version` is the chart release. CI sets it from the `stt-v*` tag. Do not
   edit it by hand for a release.
-- `appVersion` is the image version (`0.1.0` in the tags above). CI does
-  **not** change it. When the image version changes, set `appVersion` in
-  `charts/stt/Chart.yaml` in the same pull request, so the default tag is
-  `<appVersion>-cuda` / `<appVersion>-cpu`. Tag `stt-image-v<appVersion>`
-  before the chart tag.
+- `appVersion` is the image version (`0.1.0` above). CI does **not** change
+  it. When a new image version is released, set `appVersion` in
+  `charts/stt/Chart.yaml`, so the default tag is `<appVersion>-cuda` /
+  `<appVersion>-cpu`.
 
 A chart-only fix can ship as `stt-v0.1.1` while `appVersion` stays `0.1.0`.
 
