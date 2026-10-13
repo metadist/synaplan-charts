@@ -69,6 +69,7 @@ check: ## Unit-test the synaplan chart; render the examples and the full-stack H
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
 	$(HELM) unittest charts/synaplan
 	$(HELM) template charts/synaplan | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-airgap.yaml | kubeconform -strict -summary -
 	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
 	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml -f examples/values-managed-settings.yaml --set image.tag=5.1.0 | kubeconform -strict -summary -
 	$(HELMFILE) --state-values-set services.triton.mode=gpu template >/dev/null

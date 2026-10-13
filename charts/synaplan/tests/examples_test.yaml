@@ -9,6 +9,14 @@ tests:
       - isKind:
           of: Deployment
 
+  - it: renders the air-gapped example
+    template: deployment.yaml
+    values:
+      - ../../../examples/values-airgap.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+
   - it: renders the openDesk example with its neighbour URLs
     template: deployment.yaml
     values:
