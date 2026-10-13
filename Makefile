@@ -26,10 +26,14 @@ template: ## Template charts for validation
 	@echo "Templating and validating charts..."
 	@for chart in $(CHARTS); do \
 		echo "Templating charts/$$chart..."; \
-		if [ -f "ci/$$chart/lint-values.yaml" ]; then \
-			helm template charts/$$chart -f ci/$$chart/lint-values.yaml > /tmp/$$chart-templated.yaml; \
-		else \
-			helm template charts/$$chart > /tmp/$$chart-templated.yaml; \
+		: > /tmp/$$chart-templated.yaml; \
+		for values in ci/$$chart/lint-values*.yaml; do \
+			if [ -f "$$values" ]; then \
+				helm template charts/$$chart -f "$$values" >> /tmp/$$chart-templated.yaml || exit 1; \
+			fi; \
+		done; \
+		if [ ! -s /tmp/$$chart-templated.yaml ]; then \
+			helm template charts/$$chart > /tmp/$$chart-templated.yaml || exit 1; \
 		fi; \
 	done
 

@@ -1,0 +1,19 @@
+# Lint values for the stt chart: CPU variant. gpu.runtimeClassName is set on
+# purpose: it must not reach a pod that requests no GPU.
+
+image:
+  variant: cpu
+
+gpu:
+  runtimeClassName: nvidia
+
+server:
+  threads: 8
+
+resources:
+  requests:
+    cpu: "4"
+    memory: 2Gi
+  limits:
+    cpu: "8"
+    memory: 4Gi

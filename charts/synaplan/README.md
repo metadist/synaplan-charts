@@ -314,6 +314,7 @@ reaches the internet pinned off.
 | speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
 | speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
+| speech.whisperServerUrl | string | `""` | Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan with the Whisper server mode; older images ignore it. Empty = off. |
 | tika.enabled | bool | `false` |  |
 | tika.url | string | `"http://tika.synaplan.svc.cluster.local:9998"` |  |
 | tolerations | list | `[]` |  |

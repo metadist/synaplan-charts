@@ -331,6 +331,10 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 - name: WHISPER_DEFAULT_MODEL
   value: {{ . | quote }}
 {{- end }}
+{{- with .Values.speech.whisperServerUrl }}
+- name: WHISPER_SERVER_URL
+  value: {{ . | quote }}
+{{- end }}
 {{- range $key := keys $features | sortAlpha }}
 {{- $value := index $features $key }}
 {{- if kindIs "bool" $value }}

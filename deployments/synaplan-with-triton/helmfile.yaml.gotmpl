@@ -15,6 +15,30 @@ environments:
 */}}
 {{ $tritonMode := .Values.services.triton.mode | default "gpu" }}
 {{ $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
+{{/*
+  services.stt.mode (speech-to-text server, charts/stt):
+    ""    — no release (default); Synaplan uses the whisper.cpp binary in its pod
+    "gpu" — CUDA image, one nvidia.com/gpu
+    "cpu" — CPU image
+  The helmfile pins the Service name with fullnameOverride (the release name
+  unless services.stt.values sets its own), so speech.whisperServerUrl cannot
+  drift from the chart's naming rules. service.port is read from the same
+  values the release gets: chart defaults, values-stt-<mode>.yaml, then
+  services.stt.values; user values win.
+*/}}
+{{ $sttMode := .Values | get "services.stt.mode" "" }}
+{{ $sttEnabled := or (eq $sttMode "gpu") (eq $sttMode "cpu") }}
+{{ $sttRelease := "stt" }}
+{{ $sttService := $sttRelease }}
+{{ $sttUrl := "" }}
+{{ if $sttEnabled }}
+{{ $sttValues := mergeOverwrite
+    (readFile "../../charts/stt/values.yaml" | fromYaml)
+    (readFile (printf "values-stt-%s.yaml" $sttMode) | fromYaml)
+    (.Values | get "services.stt.values" dict | deepCopy) }}
+{{ $sttService = $sttValues.fullnameOverride | default $sttRelease }}
+{{ $sttUrl = printf "http://%s.%s.svc.cluster.local:%v" $sttService $ns $sttValues.service.port }}
+{{ end }}
 
 repositories:
   - name: mariadb-operator
@@ -62,8 +86,16 @@ releases:
       {{- if $tritonLocal }}
       - {{ $ns }}/triton
       {{- end }}
+      {{- if $sttEnabled }}
+      - {{ $ns }}/{{ $sttRelease }}
+      {{- end }}
     values:
       - values-synaplan.yaml.gotmpl
+      {{- if $sttEnabled }}
+      - speech:
+          whisper: true
+          whisperServerUrl: {{ $sttUrl | quote }}
+      {{- end }}
 
   {{- if $tritonLocal }}
   - name: triton
@@ -74,5 +106,38 @@ releases:
       - values-triton-gpu.yaml
       {{- else }}
       - values-triton-cpu.yaml
+      {{- end }}
+  {{- end }}
+
+  {{- if $sttEnabled }}
+  - name: {{ $sttRelease }}
+    namespace: {{ $ns }}
+    chart: ../../charts/stt
+    values:
+      - values-stt-{{ $sttMode }}.yaml
+      - fullnameOverride: {{ $sttService }}
+        networkPolicy:
+          enabled: true
+          # Only the pods that read WHISPER_SERVER_URL: web (no component
+          # label), worker and scheduler. Not the bundled redis (component
+          # redis) or tts (name synaplan-tts).
+          from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: synaplan
+                  app.kubernetes.io/instance: synaplan
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: DoesNotExist
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: synaplan
+                  app.kubernetes.io/instance: synaplan
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values: [worker, scheduler]
+      {{- with .Values | get "services.stt.values" dict }}
+      - {{- toYaml . | nindent 8 }}
       {{- end }}
   {{- end }}

@@ -53,7 +53,7 @@ Releases are automated via GitHub Actions and triggered by git tags.
 
 ### Create Release Tag
 
-**Tags are the source of truth for versions.** The CI will automatically update `Chart.yaml` during release.
+**Tags are the source of truth for chart `version`.** CI writes that field during release. It does not change `appVersion`.
 
 Tags must follow the format: `{chart-name}-v{version}`
 
@@ -65,9 +65,24 @@ git push origin synaplan-v0.2.0
 # For triton v0.2.0
 git tag triton-v0.2.0
 git push origin triton-v0.2.0
+
+# For stt v0.1.0
+git tag stt-v0.1.0
+git push origin stt-v0.1.0
 ```
 
-**That's it!** No need to manually update Chart.yaml or worry about version mismatches.
+For the `stt` chart, `version`, `appVersion` and the image pins are separate:
+
+- `version` is the chart release. CI sets it from the `stt-v*` tag. Do not
+  edit it by hand for a release.
+- `appVersion` is the image version. CI does **not** change it.
+- `cudaImage` and `cpuImage` in `values.yaml` carry the `tag@digest` the
+  pods pull.
+
+Renovate raises both image pins when a new image version is published. Set
+`appVersion` to that version in the same pull request.
+
+A chart-only fix can ship as `stt-v0.1.1` while `appVersion` stays `0.1.0`.
 
 ### Automated Release
 
@@ -81,7 +96,7 @@ Once the tag is pushed:
 
 2. **Release Job**
    - Extracts version from tag (`synaplan-v1.0.0` → version `1.0.0`)
-   - Updates `Chart.yaml` with the tag version (tag is source of truth)
+   - Updates `Chart.yaml` `version` from the tag (tag is source of truth; `appVersion` stays as committed)
    - Packages the chart with correct version
    - Pushes to GHCR: `ghcr.io/metadist/synaplan-charts/{chart-name}`
 
@@ -91,12 +106,12 @@ Once the tag is pushed:
 
 ### Version Management
 
-**The git tag is the source of truth.** You don't need to update `Chart.yaml` manually - CI does it automatically during release.
+**The git tag is the source of truth for chart `version`.** CI writes that field during release. It does not change `appVersion`. For `stt`, `appVersion` is the image version and is updated in the pull request that ships a new image (see above).
 
 **Workflow:**
-1. Create a tag with the desired version: `git tag synaplan-v1.0.0`
+1. Create a tag with the desired chart version: `git tag synaplan-v1.0.0`
 2. Push the tag: `git push origin synaplan-v1.0.0`
-3. CI automatically updates `Chart.yaml` to version `1.0.0` and releases
+3. CI writes `version: 1.0.0` into `Chart.yaml` and releases
 
 ## Versioning Strategy
 
@@ -138,7 +153,7 @@ helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 
 
 ### Testing
 
-- Add test values to `ci/{chart-name}/lint-values.yaml`
+- Add test values to `ci/{chart-name}/lint-values.yaml`; further `lint-values-*.yaml` files in that directory are templated too
 - Ensure charts pass `helm lint`
 - Validate with kubeconform
 - Test deployment examples locally

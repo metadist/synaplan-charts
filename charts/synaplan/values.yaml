@@ -156,6 +156,11 @@ speech:
   whisper: null
   # -- Whisper model name (e.g. base, small). Only emitted when set.
   whisperModel: ""
+  # -- Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's
+  # `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs
+  # there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan
+  # with the Whisper server mode; older images ignore it. Empty = off.
+  whisperServerUrl: ""
 
 # Installation-wide feature pins (synaplan >= 5.0.0). Each key maps to one
 # environment variable the application already knows:
