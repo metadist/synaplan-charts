@@ -210,9 +210,7 @@ helmfile -e default apply
 
 Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
 `triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
-synaplan **0.6.0**, triton **0.1.0** and stt **0.1.0**. The `synaplan-stt`
-image is built and released in
-[metadist/synaplan-stt](https://github.com/metadist/synaplan-stt).
+synaplan **0.6.0**, triton **0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
