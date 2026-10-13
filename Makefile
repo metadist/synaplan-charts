@@ -92,7 +92,7 @@ install-helm-docs: ## Install helm-docs tool
 
 .PHONY: install-helm-unittest
 install-helm-unittest: ## Install the helm-unittest plugin
-	$(HELM) plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1
+	$(HELM) plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
 
 .PHONY: install-kubeconform
 install-kubeconform: ## Install kubeconform tool
