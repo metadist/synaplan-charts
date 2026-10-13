@@ -60,7 +60,7 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. What all of them share (public URL, sign-in, ingress, text-to-speech, speech-to-text) is in [environments/_bases/common/values.yaml](environments/_bases/common/values.yaml). Each environment's `environments/{environment-name}/values.yaml` is merged over it. Two examples are committed, one per model backend:
+This deployment uses **helmfile environments**. What all of them share (public URL, sign-in, ingress, text-to-speech, speech-to-text) is in [environments/_common/values.yaml](environments/_common/values.yaml). Each environment's `environments/{environment-name}/values.yaml` is merged over it. Two examples are committed, one per model backend:
 
 | Environment | Models run on |
 | --- | --- |

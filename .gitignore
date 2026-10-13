@@ -28,6 +28,6 @@ charts/*/ci/templated.yaml
 
 # Deployments - ignore all environment directories except the examples
 deployments/*/environments/*
-!deployments/*/environments/_bases/
+!deployments/*/environments/_common/
 !deployments/*/environments/triton/
 !deployments/*/environments/ollama/

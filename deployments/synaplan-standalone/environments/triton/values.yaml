@@ -1,5 +1,5 @@
 # Example environment: models run on a Triton that this deployment installs.
-# Merged over environments/_bases/common/values.yaml.
+# Merged over environments/_common/values.yaml.
 
 services:
   # "triton-gpu" needs an NVIDIA GPU; "triton-cpu" runs without one, slowly.

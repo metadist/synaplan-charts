@@ -1,6 +1,6 @@
 # Example environment: models run on an Ollama you already operate. This
 # deployment does not install it.
-# Merged over environments/_bases/common/values.yaml.
+# Merged over environments/_common/values.yaml.
 
 services:
   backend: ollama
