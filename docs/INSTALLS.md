@@ -31,15 +31,14 @@ that calls an Ollama elsewhere.
 
 ```bash
 cd deployments/synaplan-with-triton
-KUBE_CONTEXT=<kubectl context> \
-  SYNAPLAN_VALUES_FILE=/path/to/cluster-values.yaml \
-  helmfile -e <name> apply
+helmfile -e default \
+  --kube-context <kubectl context> \
+  --state-values-file /path/to/cluster-values.yaml \
+  apply
 ```
 
-`<name>` is a label. The values file is the whole environment; it is not
-merged with `environments/default`. Without `SYNAPLAN_VALUES_FILE`, Helmfile
-reads `environments/<name>/*.yaml` (only `default` is committed; other names
-are gitignored) and the kubectl context defaults to `<name>`.
+The values file is layered over `environments/default/values.yaml`.
+`--kubeconfig` works in place of `--kube-context`.
 
 `services.triton.mode`:
 
