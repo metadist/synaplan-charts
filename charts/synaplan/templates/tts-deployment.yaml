@@ -1,4 +1,7 @@
 {{- if .Values.tts.enabled }}
+{{- if .Values.tts.image.digest }}
+{{- fail "tts.image.digest is no longer read: put the digest into tts.image.tag as <tag>@sha256:..." }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -85,7 +88,7 @@ spec:
       {{- end }}
       containers:
         - name: tts
-          image: "{{ .Values.tts.image.repository }}:{{ .Values.tts.image.tag }}{{ with .Values.tts.image.digest }}@{{ . }}{{ end }}"
+          image: "{{ .Values.tts.image.repository }}:{{ .Values.tts.image.tag }}"
           imagePullPolicy: {{ .Values.tts.image.pullPolicy }}
           ports:
             - name: http
