@@ -91,6 +91,28 @@ Without either flag, Helmfile uses the current kubectl context.
 - Slower inference (5-30s response times)
 - Model: `mistral-cpu`
 
+**Remote Mode** (`mode: remote`):
+- Installs no Triton
+- Synaplan uses the Ollama service at `services.synaplan.ollama.baseUrl`
+- The default environment enables Triton models, so name that Ollama's models instead:
+
+```yaml
+services:
+  triton:
+    mode: remote
+  synaplan:
+    ollama:
+      baseUrl: http://ollama.example.svc.cluster.local:11434
+    models:
+      enabled:
+        - "ollama:bge-m3"
+        - "ollama:<your chat model>"
+      defaults:
+        chat: "ollama:<your chat model>"
+        sort: "ollama:<your chat model>"
+        vectorize: "ollama:bge-m3"
+```
+
 ### Speech-to-text
 
 `services.stt.mode` is `""` (off, the default), `gpu`, or `cpu`.
