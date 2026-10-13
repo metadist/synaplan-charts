@@ -238,6 +238,7 @@ make install-kubeconform
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
+make check      # install shapes, duplicate env names, Triton only for gpu/cpu
 make package
 make all
 ```

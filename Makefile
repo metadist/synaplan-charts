@@ -56,6 +56,12 @@ validate: template ## Validate charts with kubeconform
 		kubeconform -strict -summary /tmp/$$chart-templated.yaml || exit 1; \
 	done
 
+.PHONY: check
+check: ## Render the install shapes and the full stack; reject duplicate env names
+	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed"; exit 1; }
+	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
+	@bash ci/checks.sh
+
 .PHONY: clean
 clean: ## Remove build artifacts
 	@echo "Cleaning build artifacts..."

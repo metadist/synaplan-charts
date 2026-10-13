@@ -22,18 +22,15 @@ Thank you for your interest in contributing to Synaplan Charts!
 
 4. **Test Locally**
    ```bash
-   # Lint charts
-   make lint
-   
-   # Validate against Kubernetes API
-   make validate
-   
-   # Generate documentation
-   make docs
-   
-   # Package charts
-   make package
+   make lint       # helm lint
+   make validate   # template + kubeconform
+   make check      # install shapes, duplicate env names, Triton only for gpu/cpu
+   make docs       # helm-docs; commit the result when a chart value changed
    ```
+
+   Every pull request runs these in GitHub Actions, whichever branch it
+   targets. The required status check is **All Checks Passed**. It is green
+   only when lint, docs, kubeconform, and `make check` are green.
 
 5. **Commit and Push**
    ```bash
@@ -43,7 +40,7 @@ Thank you for your interest in contributing to Synaplan Charts!
    ```
 
 6. **Create Pull Request**
-   - Create a PR against the `main` branch
+   - Open a pull request. It may target `main` or another branch; both run the same checks
    - Describe your changes
    - Link any related issues
 
