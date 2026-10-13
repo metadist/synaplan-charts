@@ -192,11 +192,11 @@ helm install synaplan ./charts/synaplan \
 A full stack with MariaDB, Tika and a model backend (Triton, or an Ollama you
 run) is [deployments/synaplan-standalone/](deployments/synaplan-standalone/).
 It offers only models that run in the cluster unless you allow cloud
-providers. One environment, named `default`:
+providers. One example environment per backend, `triton` and `ollama`:
 
 ```bash
 cd deployments/synaplan-standalone
-helmfile -e default apply
+helmfile -e ollama apply
 ```
 
 ## Installation

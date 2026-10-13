@@ -7,7 +7,7 @@ SHELL := bash
 .SHELLFLAGS := -o pipefail -c
 
 HELM ?= helm
-HELMFILE := helmfile --helm-binary $(HELM) -f deployments/synaplan-standalone/helmfile.yaml.gotmpl -e default
+HELMFILE := helmfile --helm-binary $(HELM) -f deployments/synaplan-standalone/helmfile.yaml.gotmpl
 
 .PHONY: all docs lint package clean
 
@@ -71,11 +71,11 @@ check: ## Unit-test the synaplan chart; render the examples and the full-stack H
 	$(HELM) template charts/synaplan | kubeconform -strict -summary -
 	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
 	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml -f examples/values-managed-settings.yaml --set image.tag=5.1.0 | kubeconform -strict -summary -
-	$(HELMFILE) --state-values-set services.backend=triton-gpu template >/dev/null
-	$(HELMFILE) --state-values-set services.backend=triton-cpu template >/dev/null
-	$(HELMFILE) --state-values-file $(CURDIR)/ci/standalone-ollama.yaml template >/dev/null
-	($(HELMFILE) --state-values-set services.backend=sidecar template 2>&1 || true) | grep -q 'services.backend must be'
-	$(HELMFILE) --state-values-set services.synaplan.values.publicUrl=https://passed-through.example -l name=synaplan template | grep -q 'value: "https://passed-through.example"'
+	$(HELMFILE) -e triton template >/dev/null
+	$(HELMFILE) -e triton --state-values-set services.backend=triton-cpu template >/dev/null
+	$(HELMFILE) -e ollama template >/dev/null
+	($(HELMFILE) -e triton --state-values-set services.backend=sidecar template 2>&1 || true) | grep -q 'services.backend must be'
+	$(HELMFILE) -e triton --state-values-set services.synaplan.values.publicUrl=https://passed-through.example -l name=synaplan template | grep -q 'value: "https://passed-through.example"'
 
 .PHONY: clean
 clean: ## Remove build artifacts

@@ -50,7 +50,7 @@ Check GPU availability:
 kubectl get nodes -o json | grep nvidia.com/gpu
 ```
 
-The `triton-cpu` and `ollama` backends need no GPU in this deployment.
+The `triton-cpu` backend needs no GPU.
 
 ### 5. OIDC Identity Provider
 
@@ -60,17 +60,28 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. `default` is the example committed in this repo (local Triton on GPU); other environment directories are gitignored.
+This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. Two examples are committed, one per model backend:
+
+| Environment | Models run on |
+| --- | --- |
+| [triton](environments/triton/values.yaml) | Triton Inference Server, installed by this deployment |
+| [ollama](environments/ollama/values.yaml) | an Ollama you already operate; this deployment does not install it |
+
+For your own cluster, copy one of them under a new name and edit it. Other environment directories are gitignored.
+
+```bash
+cp -r environments/ollama environments/my-cluster
+```
 
 ### Deploy to an Environment
 
 ```bash
 # Name the cluster with --kube-context or --kubeconfig
-helmfile -e default --kube-context my-cluster apply
-helmfile -e default --kubeconfig /path/to/kubeconfig apply
+helmfile -e my-cluster --kube-context my-cluster apply
+helmfile -e my-cluster --kubeconfig /path/to/kubeconfig apply
 
 # Layer a values file kept outside this repo over the environment's values
-helmfile -e default --kube-context my-cluster --state-values-file /path/to/cluster-values.yaml apply
+helmfile -e triton --kube-context my-cluster --state-values-file /path/to/cluster-values.yaml apply
 ```
 
 Without either flag, Helmfile uses the current kubectl context.
@@ -83,27 +94,11 @@ Without either flag, Helmfile uses the current kubectl context.
 
 | Backend | Installs | Notes |
 | --- | --- | --- |
-| `triton-gpu` (default) | Triton with TensorRT-LLM | Needs an NVIDIA GPU. Fast inference (<1s). Models: `mistral-7b-instruct-v0.3`, `mistral-streaming` |
+| `triton-gpu` | Triton with TensorRT-LLM | Needs an NVIDIA GPU. Fast inference (<1s). Models: `mistral-7b-instruct-v0.3`, `mistral-streaming` |
 | `triton-cpu` | Triton with the PyTorch backend | No GPU. Slow inference (5-30s). Model: `mistral-cpu` |
 | `ollama` | nothing | Uses the Ollama at `services.synaplan.ollama.baseUrl` |
 
-The default environment lists Triton models. With `ollama`, list that Ollama's models instead; an empty default is skipped:
-
-```yaml
-services:
-  backend: ollama
-  synaplan:
-    ollama:
-      baseUrl: http://ollama.example.svc.cluster.local:11434
-    models:
-      enabled:
-        - "ollama:bge-m3"
-        - "ollama:<your chat model>"
-      defaults:
-        chat: "ollama:<your chat model>"
-        sort: "ollama:<your chat model>"
-        vectorize: "ollama:bge-m3"
-```
+The models an environment enables have to match its backend. The `triton` and `ollama` environments each list theirs under `services.synaplan.models`; the render fails if `ollama` is selected while Triton models are still listed.
 
 ### Cloud providers
 
