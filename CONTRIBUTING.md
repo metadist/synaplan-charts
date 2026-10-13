@@ -23,8 +23,8 @@ Thank you for your interest in contributing to Synaplan Charts!
 4. **Test Locally**
    ```bash
    make lint       # helm lint
-   make validate   # template (lint values and examples) + kubeconform
-   make check      # helm-unittest suites, and the full-stack Helmfile renders
+   make validate   # template + kubeconform
+   make check      # helm-unittest suites; renders the examples and the full-stack Helmfile
    make docs       # helm-docs; commit the result when a chart value changed
    ```
 
@@ -149,6 +149,7 @@ helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 
 - Add test values to `ci/{chart-name}/lint-values.yaml`; further `lint-values-*.yaml` files in that directory are templated too
 - Ensure charts pass `helm lint`
 - Chart behaviour (a value produces this env entry, this input fails the render) goes into a helm-unittest suite under `charts/{chart-name}/tests/`
+- What an install produces (example values are valid manifests, the full stack picks the right releases) goes into `ci/check-installs.sh`
 - Validate with kubeconform
 - Test deployment examples locally
 

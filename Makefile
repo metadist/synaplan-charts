@@ -4,9 +4,6 @@
 CHARTS := $(patsubst charts/%,%,$(wildcard charts/*))
 
 HELM ?= helm
-HELMFILE := deployments/synaplan-with-triton/helmfile.yaml.gotmpl
-# Overlays for the synaplan chart that validate renders next to its lint values
-EXAMPLES := examples/values-airgap.yaml examples/values-opendesk.yaml
 
 .PHONY: all docs lint package clean
 
@@ -23,7 +20,7 @@ lint: ## Lint all charts
 	@echo "Linting charts..."
 	@for chart in $(CHARTS); do \
 		echo "Linting charts/$$chart..."; \
-		helm lint charts/$$chart || exit 1; \
+		$(HELM) lint charts/$$chart || exit 1; \
 	done
 
 .PHONY: template
@@ -34,16 +31,12 @@ template: ## Template charts for validation
 		: > /tmp/$$chart-templated.yaml; \
 		for values in ci/$$chart/lint-values*.yaml; do \
 			if [ -f "$$values" ]; then \
-				helm template charts/$$chart -f "$$values" >> /tmp/$$chart-templated.yaml || exit 1; \
+				$(HELM) template charts/$$chart -f "$$values" >> /tmp/$$chart-templated.yaml || exit 1; \
 			fi; \
 		done; \
 		if [ ! -s /tmp/$$chart-templated.yaml ]; then \
-			helm template charts/$$chart > /tmp/$$chart-templated.yaml || exit 1; \
+			$(HELM) template charts/$$chart > /tmp/$$chart-templated.yaml || exit 1; \
 		fi; \
-	done
-	@for values in $(EXAMPLES); do \
-		echo "Templating charts/synaplan with $$values..."; \
-		helm template charts/synaplan -f "$$values" >> /tmp/synaplan-templated.yaml || exit 1; \
 	done
 
 .PHONY: package
@@ -52,7 +45,7 @@ package: ## Package all charts to dist/
 	@mkdir -p dist
 	@for chart in $(CHARTS); do \
 		echo "Packaging charts/$$chart..."; \
-		helm package charts/$$chart -d dist || exit 1; \
+		$(HELM) package charts/$$chart -d dist || exit 1; \
 	done
 	@echo "Charts packaged in dist/"
 
@@ -66,14 +59,13 @@ validate: template ## Validate charts with kubeconform
 	done
 
 .PHONY: check
-check: ## Unit-test the synaplan chart and render the full-stack Helmfile
+check: ## Unit-test the synaplan chart; render the examples and the full-stack Helmfile
 	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
-	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed"; exit 1; }
+	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
+	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "jq not installed"; exit 1; }
 	$(HELM) unittest charts/synaplan
-	@for values in "" ci/full-stack-cpu.yaml ci/full-stack-remote.yaml; do \
-		echo "helmfile template $${values:-(default environment)}"; \
-		helmfile --helm-binary $(HELM) -f $(HELMFILE) -e default $${values:+--state-values-file $(CURDIR)/$$values} template >/dev/null || exit 1; \
-	done
+	@HELM=$(HELM) bash ci/check-installs.sh
 
 .PHONY: clean
 clean: ## Remove build artifacts
@@ -92,7 +84,18 @@ install-helm-docs: ## Install helm-docs tool
 
 .PHONY: install-helm-unittest
 install-helm-unittest: ## Install the helm-unittest plugin
-	$(HELM) plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
+	@echo "Installing helm-unittest..."
+	@# v1.0.3 is the last release whose plugin.yaml Helm 3.14 (pinned in CI) can load.
+	@$(HELM) plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
+
+.PHONY: install-helmfile
+install-helmfile: ## Install helmfile
+	@echo "Installing helmfile..."
+	@cd /tmp && \
+	curl -fsSL -o helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v1.6.0/helmfile_1.6.0_linux_amd64.tar.gz && \
+	tar -xzf helmfile.tar.gz helmfile && \
+	sudo mv helmfile /usr/local/bin/ && \
+	rm helmfile.tar.gz
 
 .PHONY: install-kubeconform
 install-kubeconform: ## Install kubeconform tool
