@@ -70,7 +70,6 @@ check: ## Unit-test the synaplan chart; render the examples and the standalone H
 	$(HELM) unittest charts/synaplan
 	$(HELM) template charts/synaplan | kubeconform -strict -summary -
 	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
-	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml -f examples/values-managed-settings.yaml --set image.tag=5.1.0 | kubeconform -strict -summary -
 	$(HELMFILE) -e triton template >/dev/null
 	$(HELMFILE) -e triton --state-values-set services.backend=triton-cpu template >/dev/null
 	$(HELMFILE) -e ollama template >/dev/null

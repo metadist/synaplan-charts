@@ -170,24 +170,13 @@ A tag that is not a complete semver skips that check.
 
 ## Example values
 
-Overlays, applied with `-f` next to your own values file:
+[examples/values-opendesk.yaml](examples/values-opendesk.yaml) is an overlay
+for openDesk, applied with `-f` next to your own values file: SSO, shared
+Collabora, internet-facing features pinned off. It needs synaplan >= 5.0.0.
 
 ```bash
-# openDesk: Keycloak, shared Collabora, internet-facing features pinned off.
-# synaplan >= 5.0.0
-helm install synaplan ./charts/synaplan -f examples/values-opendesk.yaml
-
-# Database settings (IAM, MCP client). synaplan >= 5.1.0
-helm install synaplan ./charts/synaplan \
-  -f examples/values-opendesk.yaml \
-  -f examples/values-managed-settings.yaml \
-  --set image.tag=5.1.0
+helm install synaplan ./charts/synaplan -f my-values.yaml -f examples/values-opendesk.yaml
 ```
-
-| File | Use |
-| ---- | --- |
-| [examples/values-opendesk.yaml](examples/values-opendesk.yaml) | SSO, shared Collabora, sovereign feature pins |
-| [examples/values-managed-settings.yaml](examples/values-managed-settings.yaml) | IAM options and the MCP client, without the admin UI |
 
 A full stack with MariaDB, Tika and a model backend (Triton, or an Ollama you
 run) is [deployments/synaplan-standalone/](deployments/synaplan-standalone/).

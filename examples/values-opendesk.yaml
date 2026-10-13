@@ -75,5 +75,5 @@ featurePins:
   COMPUTE.EGRESS_ENABLED: false
 
 # Database settings (branding, IAM options, the MCP client switch) are not in
-# this file: synaplan 5.0.6 ignores them. Add examples/values-managed-settings.yaml
-# once the image is synaplan >= 5.1.0.
+# this file: synaplan 5.0.6 ignores them. Add a `settings` block once the image
+# is synaplan >= 5.1.0 (README.md, "Admin settings").

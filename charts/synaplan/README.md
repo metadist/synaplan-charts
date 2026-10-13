@@ -158,10 +158,6 @@ Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
 fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
 that is not a complete semver skips that check.
 
-An overlay with the settings an openDesk install usually pins is
-[examples/values-managed-settings.yaml](../../examples/values-managed-settings.yaml).
-It is separate from the 5.0 overlay because it needs synaplan >= 5.1.0.
-
 An openDesk or air-gapped install starts from
 [examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
 login, the shared Collabora, local models and speech, and every feature that
