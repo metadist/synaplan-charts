@@ -22,6 +22,9 @@ services:
         sort: "triton:gpt-oss-20b"
         vectorize: "triton:bge-m3"
         text2sound: "piper:piper-multi"
+    # Any other value of charts/synaplan (features, qdrant, office, ...),
+    # merged last.
+    values: {}
   tts:
     enabled: true
     huggingfaceVoices:

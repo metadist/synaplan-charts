@@ -91,24 +91,6 @@ Without either flag, Helmfile uses the current kubectl context.
 - Slower inference (5-30s response times)
 - Model: `mistral-cpu`
 
-### Chart values
-
-An environment file only has settings for what the Helmfile wires up itself: the public URL, sign-in, models, text-to-speech, uploads and the ingress. Everything else the [synaplan chart](../../charts/synaplan/README.md) offers, such as feature switches or the Qdrant and Collabora addresses, goes under `services.synaplan.values`:
-
-```yaml
-services:
-  synaplan:
-    values:
-      features:
-        registration: false
-      qdrant:
-        url: http://qdrant.synaplan.svc.cluster.local:6333
-      office:
-        convertUrl: http://collabora.office.svc.cluster.local:9980
-```
-
-The files under [examples/](../../examples/) are chart values, so their content fits there unchanged. A value set here wins over the Helmfile's own.
-
 ### Speech-to-text
 
 `services.stt.mode` is `""` (off, the default), `gpu`, or `cpu`.
