@@ -1,15 +1,7 @@
 environments:
   {{ .Environment.Name }}:
-    # KUBE_CONTEXT overrides the kubectl context. Unset, it matches the
-    # environment name (helmfile -e default uses context "default").
-    kubeContext: {{ env "KUBE_CONTEXT" | default .Environment.Name }}
     values:
-      {{- if env "SYNAPLAN_VALUES_FILE" }}
-      # Whole environment from outside this repo (a Vultr or openDesk project).
-      - {{ env "SYNAPLAN_VALUES_FILE" }}
-      {{- else }}
       - environments/{{ .Environment.Name }}/*.yaml
-      {{- end }}
 
 ---
 
