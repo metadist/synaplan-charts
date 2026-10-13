@@ -75,6 +75,7 @@ check: ## Unit-test the synaplan chart; render the examples and the full-stack H
 	$(HELMFILE) --state-values-set services.triton.mode=gpu template >/dev/null
 	$(HELMFILE) --state-values-set services.triton.mode=cpu template >/dev/null
 	$(HELMFILE) --state-values-set services.triton.mode=remote template >/dev/null
+	$(HELMFILE) --state-values-set services.synaplan.values.publicUrl=https://passed-through.example -l name=synaplan template | grep -q 'value: "https://passed-through.example"'
 
 .PHONY: clean
 clean: ## Remove build artifacts

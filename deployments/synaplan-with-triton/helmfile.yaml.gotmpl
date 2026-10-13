@@ -95,6 +95,9 @@ releases:
           whisper: true
           whisperServerUrl: {{ $sttUrl | quote }}
       {{- end }}
+      {{- with .Values | get "services.synaplan.values" dict }}
+      - {{- toYaml . | nindent 8 }}
+      {{- end }}
 
   {{- if $tritonLocal }}
   - name: triton
