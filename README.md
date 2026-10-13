@@ -224,17 +224,20 @@ Charts are public. Authentication is only required to publish.
 
 ## Development
 
-helm-docs, kubeconform, and helmfile (for the example deployment).
+helm-docs, kubeconform, the helm-unittest plugin and helmfile.
 
 ```bash
 make install-helm-docs
 make install-kubeconform
+make install-helm-unittest
+make install-helmfile
 
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
+make check      # helm-unittest suites; renders the examples and the full-stack Helmfile (fetches the stack's chart repos)
 make package
-make all
+make all        # all of the above
 ```
 
 `charts/*/README.md` is generated. Edit the `.gotmpl` file, then `make docs`.
