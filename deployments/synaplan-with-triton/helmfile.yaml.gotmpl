@@ -1,6 +1,5 @@
 environments:
   {{ .Environment.Name }}:
-    kubeContext: {{ .Environment.Name }}
     values:
       - environments/{{ .Environment.Name }}/*.yaml
 

@@ -60,29 +60,20 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`.
-
-**Important**: The helmfile assumes the **kubeContext name matches the environment name**. For example:
-- Environment `default` → kubeContext `default`
-
-Check your available contexts:
-```bash
-kubectl config get-contexts
-```
-
-If your context name differs, either:
-- Rename your context: `kubectl config rename-context old-name new-name`
-- Or override the kubeContext in `helmfile.yaml.gotmpl`
-
-Included environments:
-- **default** - Template environment with GPU mode
+This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. `default` is the example committed in this repo (local Triton on GPU); other environment directories are gitignored.
 
 ### Deploy to an Environment
 
 ```bash
-# Deploy to default environment
-helmfile -e default apply
+# Name the cluster with --kube-context or --kubeconfig
+helmfile -e default --kube-context my-cluster apply
+helmfile -e default --kubeconfig /path/to/kubeconfig apply
+
+# Layer a values file kept outside this repo over the environment's values
+helmfile -e default --kube-context my-cluster --state-values-file /path/to/cluster-values.yaml apply
 ```
+
+Without either flag, Helmfile uses the current kubectl context.
 
 ## Configuration
 
