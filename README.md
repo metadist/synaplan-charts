@@ -240,7 +240,7 @@ make lint
 make validate
 make check      # install shapes, duplicate env names, Triton only for gpu/cpu
 make package
-make all
+make all        # all of the above
 ```
 
 `charts/*/README.md` is generated. Edit the `.gotmpl` file, then `make docs`.

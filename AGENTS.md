@@ -34,7 +34,7 @@ make template
 
 ### 4. Run All Checks
 
-To run all checks at once (docs, lint, package):
+To run all checks at once (docs, lint, validate, check, package):
 
 ```bash
 make all
@@ -55,4 +55,4 @@ Every pull request runs the same workflow, including a pull request from one fea
 - A chart fails `helm lint`, does not render, or fails kubeconform
 - `make check` fails: an example install does not render, a workload repeats an env name, or the full stack installs Triton in a mode other than `gpu` and `cpu`
 
-Run `make all` and `make check` locally before pushing.
+Run `make all` locally before pushing.

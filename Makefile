@@ -5,7 +5,7 @@ CHARTS := $(patsubst charts/%,%,$(wildcard charts/*))
 
 .PHONY: all docs lint package clean
 
-all: docs lint package ## Generate docs, lint, and package charts (default)
+all: docs lint validate check package ## Generate docs, lint, validate, check and package charts (default)
 
 .PHONY: docs
 docs: ## Generate documentation with helm-docs

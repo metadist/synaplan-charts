@@ -28,10 +28,6 @@ Thank you for your interest in contributing to Synaplan Charts!
    make docs       # helm-docs; commit the result when a chart value changed
    ```
 
-   Every pull request runs these in GitHub Actions, whichever branch it
-   targets. The required status check is **All Checks Passed**. It is green
-   only when lint, docs, kubeconform, and `make check` are green.
-
 5. **Commit and Push**
    ```bash
    git add .
