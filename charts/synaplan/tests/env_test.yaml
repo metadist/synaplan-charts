@@ -15,6 +15,16 @@ tests:
       - failedTemplate:
           errorPattern: "env sets QDRANT_URL"
 
+  - it: refuses a name the chart always emits
+    template: deployment.yaml
+    set:
+      env:
+        - name: APP_URL
+          value: https://synaplan.example.org
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets APP_URL"
+
   - it: passes any other name through
     template: deployment.yaml
     set:

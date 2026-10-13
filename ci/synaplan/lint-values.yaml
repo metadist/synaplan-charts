@@ -1,5 +1,6 @@
-# Minimal values for linting synaplan chart
-
+# Minimal values for linting the synaplan chart. These are the chart's own
+# fields. Repeating them under env fails the render: the chart already emits
+# APP_URL and DB_*.
 persistence:
   enabled: true
 
@@ -7,14 +8,10 @@ image:
   repository: ghcr.io/metadist/synaplan
   tag: latest
 
-env:
-  - name: APP_URL
-    value: "http://localhost"
-  - name: DB_HOST
-    value: "mariadb"
-  - name: DB_NAME
-    value: "synaplan"
-  - name: DB_USER
-    value: "synaplan"
-  - name: DB_PASSWORD
-    value: "password"
+publicUrl: http://localhost
+
+database:
+  host: mariadb
+  name: synaplan
+  user: synaplan
+  password: password
