@@ -1,0 +1,36 @@
+suite: example values
+templates:
+  - deployment.yaml
+  - init-scripts-configmap.yaml
+tests:
+  - it: renders with the chart defaults
+    template: deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+
+  - it: renders the air-gapped example
+    template: deployment.yaml
+    values:
+      - ../../../examples/values-airgap.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+
+  - it: renders the openDesk example with its neighbour URLs
+    template: deployment.yaml
+    values:
+      - ../../../examples/values-opendesk.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QDRANT_URL
+          any: true
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OFFICE_CONVERT_URL
+          any: true
+          count: 1

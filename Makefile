@@ -3,9 +3,15 @@
 # Dynamically discover all charts in charts/ directory
 CHARTS := $(patsubst charts/%,%,$(wildcard charts/*))
 
+SHELL := bash
+.SHELLFLAGS := -o pipefail -c
+
+HELM ?= helm
+HELMFILE := helmfile --helm-binary $(HELM) -f deployments/synaplan-with-triton/helmfile.yaml.gotmpl -e default
+
 .PHONY: all docs lint package clean
 
-all: docs lint package ## Generate docs, lint, and package charts (default)
+all: docs lint validate check package ## Generate docs, lint, validate, check and package charts (default)
 
 .PHONY: docs
 docs: ## Generate documentation with helm-docs
@@ -18,7 +24,7 @@ lint: ## Lint all charts
 	@echo "Linting charts..."
 	@for chart in $(CHARTS); do \
 		echo "Linting charts/$$chart..."; \
-		helm lint charts/$$chart || exit 1; \
+		$(HELM) lint charts/$$chart || exit 1; \
 	done
 
 .PHONY: template
@@ -29,11 +35,11 @@ template: ## Template charts for validation
 		: > /tmp/$$chart-templated.yaml; \
 		for values in ci/$$chart/lint-values*.yaml; do \
 			if [ -f "$$values" ]; then \
-				helm template charts/$$chart -f "$$values" >> /tmp/$$chart-templated.yaml || exit 1; \
+				$(HELM) template charts/$$chart -f "$$values" >> /tmp/$$chart-templated.yaml || exit 1; \
 			fi; \
 		done; \
 		if [ ! -s /tmp/$$chart-templated.yaml ]; then \
-			helm template charts/$$chart > /tmp/$$chart-templated.yaml || exit 1; \
+			$(HELM) template charts/$$chart > /tmp/$$chart-templated.yaml || exit 1; \
 		fi; \
 	done
 
@@ -43,7 +49,7 @@ package: ## Package all charts to dist/
 	@mkdir -p dist
 	@for chart in $(CHARTS); do \
 		echo "Packaging charts/$$chart..."; \
-		helm package charts/$$chart -d dist || exit 1; \
+		$(HELM) package charts/$$chart -d dist || exit 1; \
 	done
 	@echo "Charts packaged in dist/"
 
@@ -55,6 +61,20 @@ validate: template ## Validate charts with kubeconform
 		echo "Validating charts/$$chart..."; \
 		kubeconform -strict -summary /tmp/$$chart-templated.yaml || exit 1; \
 	done
+
+.PHONY: check
+check: ## Unit-test the synaplan chart; render the examples and the full-stack Helmfile
+	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
+	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
+	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
+	$(HELM) unittest charts/synaplan
+	$(HELM) template charts/synaplan | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-airgap.yaml | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml -f examples/values-managed-settings.yaml --set image.tag=5.1.0 | kubeconform -strict -summary -
+	$(HELMFILE) --state-values-set services.triton.mode=gpu template >/dev/null
+	$(HELMFILE) --state-values-set services.triton.mode=cpu template >/dev/null
+	$(HELMFILE) --state-values-set services.triton.mode=remote template >/dev/null
 
 .PHONY: clean
 clean: ## Remove build artifacts
@@ -70,6 +90,21 @@ install-helm-docs: ## Install helm-docs tool
 	tar -xzf helm-docs_1.14.2_Linux_x86_64.tar.gz && \
 	sudo mv helm-docs /usr/local/bin/ && \
 	rm helm-docs_1.14.2_Linux_x86_64.tar.gz
+
+.PHONY: install-helm-unittest
+install-helm-unittest: ## Install the helm-unittest plugin
+	@echo "Installing helm-unittest..."
+	@# v1.0.3 is the last release whose plugin.yaml Helm 3.14 (pinned in CI) can load.
+	@$(HELM) plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
+
+.PHONY: install-helmfile
+install-helmfile: ## Install helmfile
+	@echo "Installing helmfile..."
+	@cd /tmp && \
+	curl -fsSL -o helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v1.6.0/helmfile_1.6.0_linux_amd64.tar.gz && \
+	tar -xzf helmfile.tar.gz helmfile && \
+	sudo mv helmfile /usr/local/bin/ && \
+	rm helmfile.tar.gz
 
 .PHONY: install-kubeconform
 install-kubeconform: ## Install kubeconform tool

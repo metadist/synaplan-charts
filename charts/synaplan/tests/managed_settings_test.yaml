@@ -1,0 +1,22 @@
+suite: managed settings
+templates:
+  - deployment.yaml
+  - init-scripts-configmap.yaml
+values:
+  - ../../../examples/values-opendesk.yaml
+  - ../../../examples/values-managed-settings.yaml
+tests:
+  - it: refuses a Synaplan older than 5.1.0
+    template: deployment.yaml
+    set:
+      image.tag: 5.0.6
+    asserts:
+      - failedTemplate:
+          errorPattern: "5\\.1\\.0"
+
+  - it: renders on Synaplan 5.1.0
+    template: deployment.yaml
+    set:
+      image.tag: 5.1.0
+    asserts:
+      - notFailedTemplate: {}

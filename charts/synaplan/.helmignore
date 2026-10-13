@@ -25,3 +25,5 @@
 README.md.gotmpl
 # CI
 ci/
+# helm-unittest
+tests/
