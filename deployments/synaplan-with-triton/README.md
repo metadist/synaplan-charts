@@ -60,25 +60,20 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-One Helmfile, one values file per cluster. `environments/default/values.yaml` is the example committed in this repo (local Triton on GPU). A real cluster does not get a new chart and its values are not committed here (`environments/*` except `default` is gitignored).
+This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. `default` is the example committed in this repo (local Triton on GPU); other environment directories are gitignored.
 
-Point Helmfile at the values file in the cluster's own repository:
+### Deploy to an Environment
 
 ```bash
-cd deployments/synaplan-with-triton
+# Name the cluster with --kube-context or --kubeconfig
+helmfile -e default --kube-context my-cluster apply
+helmfile -e default --kubeconfig /path/to/kubeconfig apply
 
-# Context name matches the environment name.
-SYNAPLAN_VALUES_FILE=/path/to/cluster-values.yaml helmfile -e vultr apply
-
-# Context name differs from the environment name.
-KUBE_CONTEXT=my-context \
-  SYNAPLAN_VALUES_FILE=/path/to/cluster-values.yaml \
-  helmfile -e vultr apply
+# Layer a values file kept outside this repo over the environment's values
+helmfile -e default --kube-context my-cluster --state-values-file /path/to/cluster-values.yaml apply
 ```
 
-Without `SYNAPLAN_VALUES_FILE`, Helmfile reads `environments/<name>/*.yaml` and uses a kubectl context of the same name. `helmfile -e default apply` is that path, for the example.
-
-The values file has the same shape as [environments/default/values.yaml](environments/default/values.yaml).
+Without either flag, Helmfile uses the current kubectl context.
 
 ## Configuration
 
