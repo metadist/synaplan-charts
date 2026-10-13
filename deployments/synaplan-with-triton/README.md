@@ -60,7 +60,20 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. `default` is the example committed in this repo (local Triton on GPU); other environment directories are gitignored.
+This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. Three examples are committed:
+
+| Environment | What it installs |
+| --- | --- |
+| [default](environments/default/values.yaml) | Triton on a GPU for chat and embeddings |
+| [airgap](environments/airgap/values.yaml) | No Triton. Ollama, Piper and Whisper only |
+| [opendesk](environments/opendesk/values.yaml) | No Triton. openDesk's Keycloak and Collabora, local models, internet-facing features pinned off |
+
+For your own cluster, copy one of them under a new name and edit it. Other environment directories are gitignored.
+
+```bash
+cp -r environments/opendesk environments/my-cluster
+helmfile -e my-cluster apply
+```
 
 ### Deploy to an Environment
 
@@ -90,6 +103,20 @@ Without either flag, Helmfile uses the current kubectl context.
 - No GPU required
 - Slower inference (5-30s response times)
 - Model: `mistral-cpu`
+
+### Chart values
+
+`services.synaplan.values` takes any value of the [synaplan chart](../../charts/synaplan/README.md). It is merged last, so it wins over what the Helmfile sets:
+
+```yaml
+services:
+  synaplan:
+    values:
+      features:
+        registration: false
+      qdrant:
+        url: http://qdrant.synaplan.svc.cluster.local:6333
+```
 
 ### Speech-to-text
 

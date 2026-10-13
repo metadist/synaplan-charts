@@ -1,4 +1,4 @@
-suite: example values
+suite: neighbour URLs
 templates:
   - deployment.yaml
   - init-scripts-configmap.yaml
@@ -9,18 +9,11 @@ tests:
       - isKind:
           of: Deployment
 
-  - it: renders the air-gapped example
+  - it: emits each neighbour URL once
     template: deployment.yaml
-    values:
-      - ../../../examples/values-airgap.yaml
-    asserts:
-      - isKind:
-          of: Deployment
-
-  - it: renders the openDesk example with its neighbour URLs
-    template: deployment.yaml
-    values:
-      - ../../../examples/values-opendesk.yaml
+    set:
+      qdrant.url: http://qdrant.synaplan.svc.cluster.local:6333
+      office.convertUrl: http://collabora-online.opendesk.svc.cluster.local:9980
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env

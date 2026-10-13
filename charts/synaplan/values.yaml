@@ -317,8 +317,7 @@ prompts:
 # only cannot be combined with enabled/disabled.
 #
 # Air-gapped example (local inference and speech only):
-#   examples/values-airgap.yaml
-#   helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
+#   deployments/synaplan-with-triton/environments/airgap/values.yaml
 #
 # Provider-level toggles run BEFORE the per-model lists, so per-model entries
 # win — e.g. disable the whole openai provider but re-enable one of its models.
