@@ -100,6 +100,11 @@ helmfile -e default apply
 - Slower inference (5-30s response times)
 - Model: `mistral-cpu`
 
+**Remote** (`mode: remote`):
+- No Triton release; set Ollama or another URL in the Synaplan values
+
+`services.triton.mode` is `gpu`, `cpu`, or `remote`. Anything else, including an empty value, fails the render.
+
 ### Speech-to-text
 
 `services.stt.mode` is `""` (off, the default), `gpu`, or `cpu`.

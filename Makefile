@@ -75,6 +75,8 @@ check: ## Unit-test the synaplan chart; render the examples and the full-stack H
 	$(HELMFILE) --state-values-set services.triton.mode=gpu template >/dev/null
 	$(HELMFILE) --state-values-set services.triton.mode=cpu template >/dev/null
 	$(HELMFILE) --state-values-set services.triton.mode=remote template >/dev/null
+	($(HELMFILE) --state-values-set services.triton.mode=sidecar template 2>&1 || true) | grep -q 'services.triton.mode must'
+	($(HELMFILE) --state-values-set services.triton.mode= template 2>&1 || true) | grep -q 'services.triton.mode must'
 
 .PHONY: clean
 clean: ## Remove build artifacts
