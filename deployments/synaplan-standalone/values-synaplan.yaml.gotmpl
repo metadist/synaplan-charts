@@ -6,9 +6,21 @@
 {{- if hasKey $oidc "enabled" }}
 {{- $oidcEnabled = index $oidc "enabled" }}
 {{- end }}
-{{- $tritonMode := .Values.services.triton.mode | default "gpu" }}
-{{- $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
+{{- $backend := .Values | get "services.backend" "triton-gpu" }}
+{{- $tritonLocal := ne $backend "ollama" }}
 {{- $ollamaBaseUrl := index (index .Values.services.synaplan "ollama" | default dict) "baseUrl" | default "" }}
+{{- if and (not $tritonLocal) (not $ollamaBaseUrl) }}
+{{- fail "services.backend ollama needs services.synaplan.ollama.baseUrl" }}
+{{- end }}
+{{- $models := index .Values.services.synaplan "models" | default dict }}
+{{- if not $tritonLocal }}
+{{- range concat (index $models "enabled" | default list) (values (index $models "defaults" | default dict)) }}
+{{- if hasPrefix "triton:" . }}
+{{- fail (printf "services.backend is ollama, but services.synaplan.models names %s. List models of your Ollama instead." .) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $cloudProviders := .Values | get "services.cloudProviders" false }}
 {{- with .Values | getOrNil "image" }}
 image:
   {{- range $k, $v := . }}
@@ -24,7 +36,9 @@ customRootCA:
 
 publicUrl: {{ $synaplanUrl | quote }}
 
-tritonMode: {{ $tritonMode | quote }}
+{{- if $tritonLocal }}
+tritonMode: {{ trimPrefix "triton-" $backend | quote }}
+{{- end }}
 
 database:
   host: "mariadb-cluster.{{ $ns }}.svc.cluster.local"
@@ -47,18 +61,39 @@ tika:
   enabled: true
   url: {{ index (index .Values.services "tika" | default dict) "url" | default (printf "http://tika.%s.svc.cluster.local:9998" $ns) | quote }}
 
-{{- with index (index .Values.services.synaplan "models" | default dict) "enabled" }}
 models:
+  {{- if not $cloudProviders }}
+  # Allow-list: only what runs in the cluster. A cloud provider that a later
+  # release adds stays off.
+  providers:
+    only:
+      {{- if $tritonLocal }}
+      - triton
+      {{- end }}
+      {{- if $ollamaBaseUrl }}
+      - ollama
+      {{- end }}
+      - piper
+      - whisper
+  {{- end }}
+  {{- with index $models "enabled" }}
   enabled:
     {{- range . }}
     - {{ . | quote }}
     {{- end }}
-  {{- with index (index $.Values.services.synaplan "models") "defaults" }}
+  {{- end }}
+  {{- with index $models "defaults" }}
   defaults:
     {{- range $cap, $model := . }}
     {{ $cap }}: {{ $model | quote }}
     {{- end }}
   {{- end }}
+
+{{- if not $cloudProviders }}
+speech:
+  # Chrome's Web Speech API sends audio to Google. Record for on-server Whisper instead.
+  webSpeech: false
+  whisper: true
 {{- end }}
 
 oidc:

@@ -30,8 +30,13 @@ services:
           subfolder: "en/en_US/lessac/medium"
         - name: "de_DE-thorsten-medium"
           subfolder: "de/de_DE/thorsten/medium"
-  triton:
-    mode: gpu
+  # Where chat and embedding models run: "triton-gpu", "triton-cpu", or
+  # "ollama" for an Ollama you run (set services.synaplan.ollama.baseUrl and
+  # list its models under services.synaplan.models).
+  backend: triton-gpu
+  # false: only models that run in the cluster are offered, and the browser's
+  # Web Speech API (audio goes to the browser vendor) is off. true lifts both.
+  cloudProviders: false
   # Speech-to-text server (charts/stt): "" off, "gpu" or "cpu". "gpu" needs a
   # second GPU next to Triton, or a time-sliced share. services.stt.values is
   # passed to the stt chart as-is (node selector, tolerations, resources,

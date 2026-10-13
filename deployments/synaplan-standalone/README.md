@@ -1,6 +1,6 @@
-# Synaplan with Triton Deployment
+# Synaplan standalone deployment
 
-Complete deployment of Synaplan with Triton Inference Server and MariaDB using Helmfile.
+Synaplan in its own namespace with MariaDB, Tika and a model backend, using Helmfile. The backend is Triton Inference Server, installed here, or an Ollama you already run.
 
 ## Prerequisites
 
@@ -36,11 +36,11 @@ kubectl create secret generic synaplan-oidc-credentials \
 The deployment requires persistent storage:
 - **Synaplan uploads**: 10Gi (ReadWriteMany)
 - **MariaDB data**: Managed by operator
-- **Triton cache**: hostPath
+- **Triton cache**: hostPath (Triton backends only)
 
-### 4. GPU Requirements (for GPU mode)
+### 4. GPU Requirements (for the `triton-gpu` backend)
 
-Triton GPU mode requires:
+Triton on GPU requires:
 - **GPU**: 1x NVIDIA GPU per replica
 - **CPU**: 2 cores minimum
 - **Memory**: 24Gi minimum
@@ -50,7 +50,7 @@ Check GPU availability:
 kubectl get nodes -o json | grep nvidia.com/gpu
 ```
 
-For CPU-only deployments, no GPU is required.
+The `triton-cpu` and `ollama` backends need no GPU in this deployment.
 
 ### 5. OIDC Identity Provider
 
@@ -77,19 +77,39 @@ Without either flag, Helmfile uses the current kubectl context.
 
 ## Configuration
 
-### Triton Modes
+### Model backend
 
-**GPU Mode** (`mode: gpu`):
-- Uses TensorRT-LLM for optimized inference
-- Requires NVIDIA GPU
-- Fast inference (<1s response times)
-- Models: `mistral-7b-instruct-v0.3`, `mistral-streaming`
+`services.backend` selects where chat and embedding models run:
 
-**CPU Mode** (`mode: cpu`):
-- Uses PyTorch backend with vLLM
-- No GPU required
-- Slower inference (5-30s response times)
-- Model: `mistral-cpu`
+| Backend | Installs | Notes |
+| --- | --- | --- |
+| `triton-gpu` (default) | Triton with TensorRT-LLM | Needs an NVIDIA GPU. Fast inference (<1s). Models: `mistral-7b-instruct-v0.3`, `mistral-streaming` |
+| `triton-cpu` | Triton with the PyTorch backend | No GPU. Slow inference (5-30s). Model: `mistral-cpu` |
+| `ollama` | nothing | Uses the Ollama at `services.synaplan.ollama.baseUrl` |
+
+The default environment lists Triton models. With `ollama`, list that Ollama's models instead; an empty default is skipped:
+
+```yaml
+services:
+  backend: ollama
+  synaplan:
+    ollama:
+      baseUrl: http://ollama.example.svc.cluster.local:11434
+    models:
+      enabled:
+        - "ollama:bge-m3"
+        - "ollama:<your chat model>"
+      defaults:
+        chat: "ollama:<your chat model>"
+        sort: "ollama:<your chat model>"
+        vectorize: "ollama:bge-m3"
+```
+
+### Cloud providers
+
+By default only models that run in the cluster are offered (the backend, Piper and Whisper), and the browser's Web Speech API is off because it sends audio to the browser vendor. A cloud provider that a later Synaplan release adds stays off too.
+
+`services.cloudProviders: true` lifts both. API keys come from `services.synaplan.apiKeysSecretRef`.
 
 ### Speech-to-text
 
@@ -192,10 +212,9 @@ If deploying in GPU mode without GPUs:
 # Check GPU availability
 kubectl get nodes -o json | grep nvidia.com/gpu
 
-# If no GPUs, switch to CPU mode in environment values:
+# If no GPUs, switch the backend in your environment values:
 services:
-  triton:
-    mode: cpu
+  backend: triton-cpu
 ```
 
 ### OIDC Authentication Fails
@@ -210,22 +229,13 @@ services:
 
 ## Advanced Configuration
 
-### Switch Between GPU and CPU Modes
+### Switch the model backend
 
-Simply change the mode in your environment values:
+Change `services.backend` in your environment values and apply:
 
-```yaml
-services:
-  triton:
-    mode: cpu  # Change to "gpu" or "cpu"
-```
-
-Then apply:
 ```bash
 helmfile -e my-env apply
 ```
-
-The helmfile will automatically use the correct Triton configuration file.
 
 ## Production Recommendations
 
@@ -234,7 +244,7 @@ The helmfile will automatically use the correct Triton configuration file.
 3. **Configure backups** - Set up MariaDB backup schedules
 4. **Monitor resources** - Set up Prometheus metrics and alerts
 5. **Scale appropriately** - Adjust replica counts and resource limits
-6. **Use GPU mode** - For production workloads requiring fast inference
+6. **Use the `triton-gpu` backend** - For production workloads requiring fast inference
 7. **Separate environments** - Use different environments for dev/staging/prod
 
 ## Support
