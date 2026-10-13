@@ -3,7 +3,11 @@
 # Dynamically discover all charts in charts/ directory
 CHARTS := $(patsubst charts/%,%,$(wildcard charts/*))
 
+SHELL := bash
+.SHELLFLAGS := -o pipefail -c
+
 HELM ?= helm
+HELMFILE := helmfile --helm-binary $(HELM) -f deployments/synaplan-with-triton/helmfile.yaml.gotmpl -e default
 
 .PHONY: all docs lint package clean
 
@@ -63,9 +67,14 @@ check: ## Unit-test the synaplan chart; render the examples and the full-stack H
 	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
 	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
-	@command -v jq >/dev/null 2>&1 || { echo "jq not installed"; exit 1; }
 	$(HELM) unittest charts/synaplan
-	@HELM=$(HELM) bash ci/check-installs.sh
+	$(HELM) template charts/synaplan | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-airgap.yaml | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml -f examples/values-managed-settings.yaml --set image.tag=5.1.0 | kubeconform -strict -summary -
+	$(HELMFILE) --state-values-set services.triton.mode=gpu template >/dev/null
+	$(HELMFILE) --state-values-set services.triton.mode=cpu template >/dev/null
+	$(HELMFILE) --state-values-set services.triton.mode=remote template >/dev/null
 
 .PHONY: clean
 clean: ## Remove build artifacts

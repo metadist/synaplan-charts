@@ -229,7 +229,7 @@ Charts are public. Authentication is only required to publish.
 
 ## Development
 
-helm-docs, kubeconform, the helm-unittest plugin, helmfile and jq.
+helm-docs, kubeconform, the helm-unittest plugin and helmfile.
 
 ```bash
 make install-helm-docs
