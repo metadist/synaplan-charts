@@ -163,7 +163,7 @@ helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 
 
 ### Testing
 
-- Add test values to `ci/{chart-name}/lint-values.yaml`
+- Add test values to `ci/{chart-name}/lint-values.yaml`; further `lint-values-*.yaml` files in that directory are templated too
 - Ensure charts pass `helm lint`
 - Validate with kubeconform
 - Test deployment examples locally

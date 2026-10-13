@@ -58,10 +58,15 @@ jobs:
 
       - name: Helm template
         run: |
-          if [ -f "ci/${{ matrix.chart }}/lint-values.yaml" ]; then
-            helm template charts/${{ matrix.chart }} -f ci/${{ matrix.chart }}/lint-values.yaml > /tmp/${{ matrix.chart }}-templated.yaml
-          else
-            helm template charts/${{ matrix.chart }} > /tmp/${{ matrix.chart }}-templated.yaml
+          out="/tmp/${{ matrix.chart }}-templated.yaml"
+          : > "$out"
+          for values in ci/${{ matrix.chart }}/lint-values*.yaml; do
+            if [ -f "$values" ]; then
+              helm template charts/${{ matrix.chart }} -f "$values" >> "$out"
+            fi
+          done
+          if [ ! -s "$out" ]; then
+            helm template charts/${{ matrix.chart }} > "$out"
           fi
 
       - name: Install kubeconform
