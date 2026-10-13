@@ -1,17 +1,10 @@
 # Example environment: models run on an Ollama you already operate. This
 # deployment does not install it.
-# Minimal settings - most config is in values templates
-
-cluster:
-  ingressClassName: nginx
-  customRootCA: false
+# Merged over environments/_bases/common/values.yaml.
 
 services:
+  backend: ollama
   synaplan:
-    url: https://synaplan.local
-    oidc:
-      issuerURI: https://keycloak.local/realms/default
-      clientId: synaplan
     ollama:
       baseUrl: http://ollama.example.svc.cluster.local:11434
     # Models of that Ollama. Pull them there before users sign in.
@@ -24,22 +17,3 @@ services:
         chat: "ollama:gpt-oss:20b"
         sort: "ollama:gpt-oss:20b"
         vectorize: "ollama:bge-m3"
-        text2sound: "piper:piper-multi"
-  tts:
-    enabled: true
-    huggingfaceVoices:
-      voices:
-        - name: "en_US-lessac-medium"
-          subfolder: "en/en_US/lessac/medium"
-        - name: "de_DE-thorsten-medium"
-          subfolder: "de/de_DE/thorsten/medium"
-  backend: ollama
-  # false: only models that run in the cluster are offered, and the browser's
-  # Web Speech API (audio goes to the browser vendor) is off. true lifts both.
-  cloudProviders: false
-  # Speech-to-text server (charts/stt): "" off, "gpu" or "cpu". "gpu" needs a GPU. services.stt.values is
-  # passed to the stt chart as-is (node selector, tolerations, resources,
-  # service.port, nameOverride, fullnameOverride). The Synaplan URL follows
-  # the chart's Service name and port.
-  stt:
-    mode: ""

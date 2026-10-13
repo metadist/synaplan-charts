@@ -60,14 +60,14 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. Two examples are committed, one per model backend:
+This deployment uses **helmfile environments**. What all of them share (public URL, sign-in, ingress, text-to-speech, speech-to-text) is in [environments/_bases/common/values.yaml](environments/_bases/common/values.yaml). Each environment's `environments/{environment-name}/values.yaml` is merged over it. Two examples are committed, one per model backend:
 
 | Environment | Models run on |
 | --- | --- |
 | [triton](environments/triton/values.yaml) | Triton Inference Server, installed by this deployment |
 | [ollama](environments/ollama/values.yaml) | an Ollama you already operate; this deployment does not install it |
 
-For your own cluster, copy one of them under a new name and edit it. Other environment directories are gitignored.
+For your own cluster, copy one of them under a new name and set there what differs from the common file, starting with `services.synaplan.url` and `services.synaplan.oidc`. Other environment directories are gitignored.
 
 ```bash
 cp -r environments/ollama environments/my-cluster

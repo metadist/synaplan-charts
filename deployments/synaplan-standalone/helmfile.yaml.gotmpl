@@ -1,6 +1,7 @@
 environments:
   {{ .Environment.Name }}:
     values:
+      - environments/_bases/common/*.yaml
       - environments/{{ .Environment.Name }}/*.yaml
 
 ---
