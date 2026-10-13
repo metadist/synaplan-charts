@@ -1,4 +1,5 @@
 {{- $variant := include "stt.variant" . }}
+{{- $containerPort := 8080 }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -57,7 +58,7 @@ spec:
           {{- end }}
           env:
             - name: STT_PORT
-              value: "8080"
+              value: {{ $containerPort | quote }}
             - name: STT_MODEL
               value: {{ .Values.server.model | quote }}
             - name: STT_LANGUAGE
@@ -75,7 +76,7 @@ spec:
             {{- end }}
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: {{ $containerPort }}
               protocol: TCP
           {{- with .Values.startupProbe }}
           startupProbe:
