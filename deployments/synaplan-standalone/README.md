@@ -169,7 +169,7 @@ kubectl get pods -n synaplan
 # mariadb-cluster-0                   1/1     Running   0          5m
 # mariadb-operator-xxx                1/1     Running   0          5m
 # synaplan-xxx                        1/1     Running   0          3m
-# triton-xxx                          1/1     Running   0          3m
+# triton-xxx                          1/1     Running   0          3m   (triton backends only)
 
 # Check services
 kubectl get svc -n synaplan
@@ -202,7 +202,7 @@ Expected secrets:
 
 ### Triton Pod Pending (Insufficient GPU)
 
-If deploying in GPU mode without GPUs:
+If the `triton-gpu` backend is selected and the cluster has no GPU:
 ```bash
 # Check GPU availability
 kubectl get nodes -o json | grep nvidia.com/gpu

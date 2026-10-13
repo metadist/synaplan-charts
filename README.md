@@ -237,7 +237,7 @@ make install-helmfile
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
-make check      # helm-unittest suites; renders the examples and the full-stack Helmfile (fetches the stack's chart repos)
+make check      # helm-unittest suites; renders the examples and the standalone Helmfile (fetches its chart repos)
 make package
 make all        # all of the above
 ```
