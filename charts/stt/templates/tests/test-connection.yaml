@@ -20,7 +20,7 @@ spec:
       type: RuntimeDefault
   containers:
     - name: health
-      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}{{ with .Values.tests.image.digest }}@{{ . }}{{ end }}"
       args:
         - "-fsS"
         - "--retry"
