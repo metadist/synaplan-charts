@@ -71,11 +71,11 @@ Validated image variant: cuda or cpu.
 {{- end }}
 
 {{/*
-Image reference: repository:tag[@digest]. The default tag is <appVersion>-<variant>.
+Image reference of the selected variant. The tag carries its digest.
 */}}
 {{- define "stt.image" -}}
-{{- $tag := .Values.image.tag | default (printf "%s-%s" .Chart.AppVersion (include "stt.variant" .)) }}
-{{- printf "%s:%s" .Values.image.repository $tag }}{{ with .Values.image.digest }}@{{ . }}{{ end }}
+{{- $image := index .Values (printf "%sImage" (include "stt.variant" .)) }}
+{{- printf "%s:%s" $image.repository $image.tag }}
 {{- end }}
 
 {{/*

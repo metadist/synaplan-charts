@@ -71,25 +71,28 @@ git tag stt-v0.1.0
 git push origin stt-v0.1.0
 ```
 
-The `stt` chart's default image tag is `<appVersion>-<variant>` of
-`ghcr.io/metadist/synaplan-stt`. That image is built and released in
-[metadist/synaplan-stt](https://github.com/metadist/synaplan-stt): a `v0.1.0`
-tag there publishes `0.1.0-cuda` and `0.1.0-cpu`. Release the image first,
-then the chart:
+The `stt` chart runs `ghcr.io/metadist/synaplan-stt`, which is built and
+released in [metadist/synaplan-stt](https://github.com/metadist/synaplan-stt):
+a `v0.1.0` tag there publishes `0.1.0-cuda` and `0.1.0-cpu`. `values.yaml`
+pins both images as `tag@digest` (`cudaImage`, `cpuImage`). Release the
+image first, then the chart:
 
 ```bash
 git tag stt-v0.1.0            # chart version; CI writes this into Chart.yaml version
 git push origin stt-v0.1.0
 ```
 
-Chart `version` and `appVersion` are different fields:
+Chart `version`, `appVersion` and the image pins are separate:
 
 - `version` is the chart release. CI sets it from the `stt-v*` tag. Do not
   edit it by hand for a release.
 - `appVersion` is the image version (`0.1.0` above). CI does **not** change
-  it. When a new image version is released, set `appVersion` in
-  `charts/stt/Chart.yaml`, so the default tag is `<appVersion>-cuda` /
-  `<appVersion>-cpu`.
+  it.
+- `cudaImage` and `cpuImage` in `values.yaml` carry the `tag@digest` the
+  pods pull.
+
+Renovate raises both image pins when synaplan-stt publishes a new version.
+Set `appVersion` to that version in the same pull request.
 
 A chart-only fix can ship as `stt-v0.1.1` while `appVersion` stays `0.1.0`.
 

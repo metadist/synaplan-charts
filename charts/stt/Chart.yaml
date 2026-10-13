@@ -3,7 +3,8 @@ name: stt
 description: Speech-to-text server for Synaplan (whisper.cpp whisper-server with the German Whisper large-v3-turbo model)
 type: application
 version: 0.1.0
-# Version of ghcr.io/metadist/synaplan-stt; the image tag is <appVersion>-<variant>.
+# Version of the synaplan-stt images. The tags and digests the pods pull are
+# cudaImage and cpuImage in values.yaml; keep this in step with them.
 appVersion: "0.1.0"
 keywords:
   - synaplan

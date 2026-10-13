@@ -14,16 +14,26 @@ strategy:
     maxUnavailable: 1
 
 image:
-  # -- Image repository
-  repository: ghcr.io/metadist/synaplan-stt
-  # -- `cuda` (NVIDIA GPU) or `cpu`. Selects the image tag and whether a GPU is requested.
+  # -- `cuda` (NVIDIA GPU) or `cpu`. Selects `cudaImage` or `cpuImage` below
+  # and whether a GPU is requested.
   variant: cuda
-  # -- Image tag. Empty means `<appVersion>-<variant>`.
-  tag: ""
-  # -- Image digest (`sha256:...`), rendered as `tag@digest`. Must belong to the tag.
-  digest: ""
   # -- Image pull policy
   pullPolicy: IfNotPresent
+
+# The two variants are separate images, each pinned as `tag@digest`. The key
+# names end in "Image" and the digest is part of the tag because that is the
+# form Renovate's helm-values manager reads and keeps up to date.
+cudaImage:
+  # -- Repository of the cuda image
+  repository: ghcr.io/metadist/synaplan-stt
+  # -- Tag of the cuda image, with its digest (`tag@sha256:...`)
+  tag: "0.1.0-cuda@sha256:207bc6bcc79d2f9ae6b167641e0f4a8b1bdc738b4442f18c73f39269b5eded7a"
+
+cpuImage:
+  # -- Repository of the cpu image
+  repository: ghcr.io/metadist/synaplan-stt
+  # -- Tag of the cpu image, with its digest (`tag@sha256:...`)
+  tag: "0.1.0-cpu@sha256:41fe156118ce9411639ae1ccdb6d6cb89ff7cf15f32e126d37dc81993550b107"
 
 # -- Image pull secrets
 imagePullSecrets: []
@@ -172,7 +182,5 @@ tests:
   image:
     # -- Image for `helm test`
     repository: curlimages/curl
-    # -- Tag for `helm test`
-    tag: "8.11.1"
-    # -- Digest of that tag; the pod pulls `tag@digest`
-    digest: "sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69"
+    # -- Tag for `helm test`, with its digest (`tag@sha256:...`)
+    tag: "8.11.1@sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69"

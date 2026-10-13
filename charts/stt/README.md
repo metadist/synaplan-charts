@@ -92,6 +92,10 @@ networkPolicy:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity |
+| cpuImage.repository | string | `"ghcr.io/metadist/synaplan-stt"` | Repository of the cpu image |
+| cpuImage.tag | string | `"0.1.0-cpu@sha256:41fe156118ce9411639ae1ccdb6d6cb89ff7cf15f32e126d37dc81993550b107"` | Tag of the cpu image, with its digest (`tag@sha256:...`) |
+| cudaImage.repository | string | `"ghcr.io/metadist/synaplan-stt"` | Repository of the cuda image |
+| cudaImage.tag | string | `"0.1.0-cuda@sha256:207bc6bcc79d2f9ae6b167641e0f4a8b1bdc738b4442f18c73f39269b5eded7a"` | Tag of the cuda image, with its digest (`tag@sha256:...`) |
 | extraEnv | list | `[]` | Extra environment variables |
 | extraVolumeMounts | list | `[]` | Extra volume mounts for the server container |
 | extraVolumes | list | `[]` | Extra volumes |
@@ -99,11 +103,8 @@ networkPolicy:
 | gpu.count | int | `1` | GPUs per pod |
 | gpu.resourceName | string | `"nvidia.com/gpu"` | Extended resource of the GPU (NVIDIA device plugin or GPU operator). Requested only with `image.variant: cuda`. |
 | gpu.runtimeClassName | string | `""` | RuntimeClass for GPU pods (e.g. `nvidia`). Empty uses the node default. |
-| image.digest | string | `""` | Image digest (`sha256:...`), rendered as `tag@digest`. Must belong to the tag. |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| image.repository | string | `"ghcr.io/metadist/synaplan-stt"` | Image repository |
-| image.tag | string | `""` | Image tag. Empty means `<appVersion>-<variant>`. |
-| image.variant | string | `"cuda"` | `cuda` (NVIDIA GPU) or `cpu`. Selects the image tag and whether a GPU is requested. |
+| image.variant | string | `"cuda"` | `cuda` (NVIDIA GPU) or `cpu`. Selects `cudaImage` or `cpuImage` below and whether a GPU is requested. |
 | imagePullSecrets | list | `[]` | Image pull secrets |
 | initContainers | list | `[]` | Init containers, e.g. an `oras pull` of another model into a shared volume |
 | livenessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/health","port":"http"},"periodSeconds":10,"timeoutSeconds":5}` | Liveness probe. Generous: one long request holds the decoder. |
@@ -130,8 +131,7 @@ networkPolicy:
 | service.type | string | `"ClusterIP"` | Service type. Keep ClusterIP: audio must not leave the cluster. |
 | startupProbe | object | `{"failureThreshold":60,"httpGet":{"path":"/health","port":"http"},"periodSeconds":5}` | Startup probe: the model loads in a few seconds; first image pull is not counted |
 | strategy | object | `{"rollingUpdate":{"maxSurge":0,"maxUnavailable":1},"type":"RollingUpdate"}` | Rollout strategy. No surge: an update must not wait for a second free GPU. |
-| tests.image.digest | string | `"sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69"` | Digest of that tag; the pod pulls `tag@digest` |
 | tests.image.repository | string | `"curlimages/curl"` | Image for `helm test` |
-| tests.image.tag | string | `"8.11.1"` | Tag for `helm test` |
+| tests.image.tag | string | `"8.11.1@sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69"` | Tag for `helm test`, with its digest (`tag@sha256:...`) |
 | tmpSizeLimit | string | `"2Gi"` | Scratch space for ffmpeg conversion (mounted at /tmp; the root filesystem is read-only). |
 | tolerations | list | `[]` | Tolerations, e.g. for tainted GPU nodes |
