@@ -7,9 +7,9 @@ releases:
   - name: "synaplan"
     chart: "../../../charts/synaplan"
     installed: {{ .Values.apps.synaplan.enabled }}
-    {{- if .Values.apps.stt.enabled }}
+    {{- if .Values.apps.synaplanStt.enabled }}
     needs:
-      - "stt"
+      - "synaplan-stt"
     {{- end }}
     values:
       - "values-synaplan.yaml.gotmpl"
@@ -17,12 +17,12 @@ releases:
       - {{ . }}
       {{- end }}
 
-  - name: "stt"
+  - name: "synaplan-stt"
     chart: "../../../charts/stt"
-    installed: {{ .Values.apps.stt.enabled }}
+    installed: {{ .Values.apps.synaplanStt.enabled }}
     values:
       - "values-stt.yaml.gotmpl"
-      - "values-stt-{{ .Values.technical.stt.mode }}.yaml"
-      {{- range .Values.customization.release.stt }}
+      - "values-stt-{{ .Values.technical.synaplanStt.mode }}.yaml"
+      {{- range .Values.customization.release.synaplanStt }}
       - {{ . }}
       {{- end }}

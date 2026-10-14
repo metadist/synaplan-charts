@@ -93,7 +93,7 @@ speech:
   whisperServerUrl: "http://stt.synaplan.svc.cluster.local:8080"
 ```
 
-The [Helmfile](helmfile/) adds the release with `apps.stt.enabled: true` and
+The [Helmfile](helmfile/) adds the release with `apps.synaplanStt.enabled: true` and
 sets this URL.
 
 Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.

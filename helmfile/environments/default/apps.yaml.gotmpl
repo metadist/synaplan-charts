@@ -2,7 +2,7 @@ apps:
   synaplan:
     enabled: true
   # Speech-to-text server (charts/stt); off: Synaplan runs whisper.cpp in its pod
-  stt:
+  synaplanStt:
     enabled: false
   # MariaDB 11.8 for Synaplan, with the chart of openDesk's MariaDB
   synaplanMariadb:
@@ -12,7 +12,4 @@ apps:
   triton:
     enabled: false
   ollama:
-    enabled: false
-  # Collabora of an openDesk in the same namespace (openDesk's own flag)
-  collabora:
     enabled: false

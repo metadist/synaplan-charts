@@ -103,7 +103,7 @@ tika:
   enabled: {{ ne $tikaUrl "" }}
   url: {{ $tikaUrl | quote }}
 
-{{- with $t.office.convertUrl | default (ternary "http://collabora:9980" "" .Values.apps.collabora.enabled) }}
+{{- with $t.office.convertUrl | default (ternary "http://collabora:9980" "" (dig "apps" "collabora" "enabled" false .Values)) }}
 office:
   convertUrl: {{ . | quote }}
 {{- end }}
@@ -147,8 +147,8 @@ speech:
   webSpeech: false
   {{- end }}
   whisper: true
-  {{- if .Values.apps.stt.enabled }}
-  whisperServerUrl: "http://stt:8080"
+  {{- if .Values.apps.synaplanStt.enabled }}
+  whisperServerUrl: "http://synaplan-stt:8080"
   {{- end }}
 
 oidc:

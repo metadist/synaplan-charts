@@ -28,7 +28,7 @@ helmfile/
 | `triton` | `apps.triton.enabled` | [charts/triton](../charts/triton/) |
 | `ollama` | `apps.ollama.enabled` | otwld/ollama-helm |
 | `synaplan` | `apps.synaplan.enabled` (default) | [charts/synaplan](../charts/synaplan/) |
-| `stt` | `apps.stt.enabled` | [charts/stt](../charts/stt/) |
+| `synaplan-stt` | `apps.synaplanStt.enabled` | [charts/stt](../charts/stt/) |
 
 ## Install
 
@@ -56,7 +56,7 @@ The issuer is `https://<global.hosts.keycloak>.<global.domain>/realms/<platform.
 unless `technical.synaplan.oidc.issuerURI` sets another.
 
 GPU backends (`technical.triton.mode`, `technical.ollama.mode` or
-`technical.stt.mode` set to `gpu`) need a node with `nvidia.com/gpu`:
+`technical.synaplanStt.mode` set to `gpu`) need a node with `nvidia.com/gpu`:
 
 ```bash
 kubectl get nodes -o json | grep nvidia.com/gpu
@@ -103,8 +103,8 @@ Web Speech API is off because it sends audio to the browser vendor.
 
 ## Speech-to-text
 
-`apps.stt.enabled: true` installs the speech-to-text server, on the CPU or the
-GPU (`technical.stt.mode`). Without it, Synaplan runs whisper.cpp in its own
+`apps.synaplanStt.enabled: true` installs the speech-to-text server, on the CPU or the
+GPU (`technical.synaplanStt.mode`). Without it, Synaplan runs whisper.cpp in its own
 pod.
 
 ## Certificates
