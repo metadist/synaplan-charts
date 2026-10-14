@@ -194,24 +194,23 @@ role deployments add SYNAPLAN_ROLE on top.
   value: {{ .Values.oidc.scopes | quote }}
 {{- end }}
 {{- end }}
-{{- if .Values.tika.enabled }}
-# Tika Document Processing
+# Tika Document Processing. Synaplan >= 5.3 reads the variable without a
+# default; empty switches Tika off.
 - name: TIKA_BASE_URL
-  value: {{ .Values.tika.url | quote }}
-{{- end }}
+  value: {{ ternary .Values.tika.url "" .Values.tika.enabled | quote }}
 {{- if .Values.tts.enabled }}
 # TTS (text-to-speech)
 - name: SYNAPLAN_TTS_URL
   value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
 {{- end }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list }}
+{{- $managed := list "TIKA_BASE_URL" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which the chart already emits from tika.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply)." .name) }}
 {{- end }}
 {{- end }}
 {{- $switchEnv }}
