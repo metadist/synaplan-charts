@@ -1,5 +1,5 @@
 helmfiles:
-  - path: ./helmfile-child.yaml.gotmpl
+  - path: "./helmfile-child.yaml.gotmpl"
     values:
-      - ../../environments/default/*.yaml.gotmpl
+      - "../../environments/default/*.yaml.gotmpl"
       - {{ toYaml .Values | nindent 8 }}

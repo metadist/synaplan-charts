@@ -58,6 +58,10 @@ database:
   name: {{ .Values.databases.synaplan.name | quote }}
   user: {{ .Values.databases.synaplan.username | quote }}
   password: {{ .Values.databases.synaplan.password.value | quote }}
+  {{- if .Values.apps.synaplanMariadb.enabled }}
+  serverVersion: "{{ regexFind "^[0-9]+\\.[0-9]+" .Values.images.synaplanMariadb.tag }}.0-MariaDB"
+  rootPassword: {{ .Values.secrets.synaplanMariadb.rootPassword.value | quote }}
+  {{- end }}
 
 persistence:
   uploads:

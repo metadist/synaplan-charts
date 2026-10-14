@@ -4,38 +4,22 @@ environments:
 ---
 
 repositories:
-  - name: "mariadb-operator-repo"
-    url: {{ .Values.charts.mariadbOperator.repository | quote }}
+  - name: "mariadb-repo"
+    url: {{ .Values.charts.mariadb.repository | quote }}
+    oci: true
   - name: "tika-repo"
     url: {{ .Values.charts.tika.repository | quote }}
   - name: "ollama-repo"
     url: {{ .Values.charts.ollama.repository | quote }}
 
 releases:
-  - name: "mariadb-operator-crds"
-    chart: "mariadb-operator-repo/{{ .Values.charts.mariadbOperatorCrds.name }}"
-    version: {{ .Values.charts.mariadbOperatorCrds.version | quote }}
+  - name: "synaplan-mariadb"
+    chart: "mariadb-repo/{{ .Values.charts.mariadb.name }}"
+    version: {{ .Values.charts.mariadb.version | quote }}
     installed: {{ .Values.apps.synaplanMariadb.enabled }}
-
-  - name: "mariadb-operator"
-    chart: "mariadb-operator-repo/{{ .Values.charts.mariadbOperator.name }}"
-    version: {{ .Values.charts.mariadbOperator.version | quote }}
-    installed: {{ .Values.apps.synaplanMariadb.enabled }}
-    needs:
-      - "mariadb-operator-crds"
     values:
-      - "values-mariadb-operator.yaml"
-
-  - name: "mariadb-cluster"
-    chart: "mariadb-operator-repo/{{ .Values.charts.mariadbCluster.name }}"
-    version: {{ .Values.charts.mariadbCluster.version | quote }}
-    installed: {{ .Values.apps.synaplanMariadb.enabled }}
-    needs:
-      - "mariadb-operator-crds"
-      - "mariadb-operator"
-    values:
-      - "values-mariadb-cluster.yaml.gotmpl"
-      {{- range .Values.customization.release.mariadbCluster }}
+      - "values-synaplan-mariadb.yaml.gotmpl"
+      {{- range .Values.customization.release.synaplanMariadb }}
       - {{ . }}
       {{- end }}
 
@@ -44,6 +28,7 @@ releases:
     version: {{ .Values.charts.tika.version | quote }}
     installed: {{ .Values.apps.tika.enabled }}
     values:
+      - "values-tika.yaml.gotmpl"
       {{- range .Values.customization.release.tika }}
       - {{ . }}
       {{- end }}

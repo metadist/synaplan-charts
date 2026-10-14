@@ -16,3 +16,15 @@ persistentVolume:
   enabled: true
   size: {{ .Values.persistence.storages.ollama.size | quote }}
   storageClass: {{ coalesce .Values.persistence.storages.ollama.storageClassName .Values.persistence.storageClassNames.RWO | default "" | quote }}
+
+{{- with .Values.images.ollama }}
+{{- if or .repository .tag }}
+image:
+  {{- with .repository }}
+  repository: {{ printf "%s/%s" (coalesce $.Values.global.imageRegistry $.Values.images.ollama.registry) . | trimPrefix "/" | quote }}
+  {{- end }}
+  {{- with .tag }}
+  tag: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

@@ -1,13 +1,9 @@
-environments:
-  {{ .Environment.Name }}:
-    values:
-      - helmfile/environments/{{ .Environment.Name }}/*.yaml.gotmpl
+bases:
+  - "{{ requiredEnv "PWD" }}/helmfile/bases/environments.yaml.gotmpl"
 
 ---
 
 helmfiles:
-  - path: helmfile/apps/services-external/helmfile-defaults.yaml.gotmpl
-    values: &values
+  - path: "./helmfile-defaults.yaml.gotmpl"
+    values:
       - {{ toYaml .Values | nindent 8 }}
-  - path: helmfile/apps/synaplan/helmfile-defaults.yaml.gotmpl
-    values: *values

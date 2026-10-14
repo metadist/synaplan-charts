@@ -21,31 +21,8 @@ releases:
     chart: "../../../charts/stt"
     installed: {{ .Values.apps.stt.enabled }}
     values:
+      - "values-stt.yaml.gotmpl"
       - "values-stt-{{ .Values.technical.stt.mode }}.yaml"
-      - networkPolicy:
-          enabled: true
-          # Only the pods that read WHISPER_SERVER_URL: web (no component
-          # label), worker and scheduler. Not the bundled redis or tts.
-          from:
-            - podSelector:
-                matchLabels:
-                  app.kubernetes.io/name: synaplan
-                  app.kubernetes.io/instance: synaplan
-                matchExpressions:
-                  - key: app.kubernetes.io/component
-                    operator: DoesNotExist
-            - podSelector:
-                matchLabels:
-                  app.kubernetes.io/name: synaplan
-                  app.kubernetes.io/instance: synaplan
-                matchExpressions:
-                  - key: app.kubernetes.io/component
-                    operator: In
-                    values: [worker, scheduler]
       {{- range .Values.customization.release.stt }}
       - {{ . }}
       {{- end }}
-      # Synaplan's WHISPER_SERVER_URL relies on these two.
-      - fullnameOverride: "stt"
-        service:
-          port: 8080

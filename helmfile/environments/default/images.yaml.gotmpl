@@ -1,6 +1,19 @@
-# Empty values keep the image of the chart.
+# Empty repository and tag keep the image of the chart.
 images:
   synaplan:
+    registry: ""
+    repository: ""
+    tag: ""
+  # Synaplan needs MariaDB 11.7 or newer (VECTOR type)
+  synaplanMariadb:
+    registry: "docker.io"
+    repository: "library/mariadb"
+    tag: "11.8"
+  tika:
+    registry: ""
+    repository: ""
+    tag: ""
+  ollama:
     registry: ""
     repository: ""
     tag: ""

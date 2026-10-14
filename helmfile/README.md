@@ -7,21 +7,23 @@ same value keys (`global`, `platform`, `ingress`, `certificate`, `apps`,
 or as an app inside an openDesk.
 
 ```text
-helmfile.yaml.gotmpl                # loads both apps for an environment
+helmfile.yaml.gotmpl                # environment, then helmfile-defaults
+helmfile-defaults.yaml.gotmpl       # the apps, in order
 helmfile/
+├── bases/environments.yaml.gotmpl
 ├── environments/
 │   ├── default/                    # every value with its default
 │   ├── triton/                     # example: Triton installed here
 │   ├── ollama/                     # example: Ollama installed here
 │   └── opendesk/                   # example: next to a running openDesk
 └── apps/
-    ├── services-external/          # mariadb-operator + MariaDB, Tika, Triton, Ollama
-    └── synaplan/                   # Synaplan, speech-to-text server
+    ├── synaplan/                   # Synaplan, speech-to-text server
+    └── services-external/          # MariaDB, Tika, Triton, Ollama
 ```
 
 | Release | Installed when | Chart |
 | --- | --- | --- |
-| `mariadb-operator-crds`, `mariadb-operator`, `mariadb-cluster` | `apps.synaplanMariadb.enabled` (default) | mariadb-operator |
+| `synaplan-mariadb` | `apps.synaplanMariadb.enabled` (default) | openDesk's MariaDB chart, with MariaDB 11.8 (Synaplan needs `VECTOR`) |
 | `tika` | `apps.tika.enabled` (default) | Apache Tika |
 | `triton` | `apps.triton.enabled` | [charts/triton](../charts/triton/) |
 | `ollama` | `apps.ollama.enabled` | otwld/ollama-helm |
@@ -42,7 +44,8 @@ export MASTER_PASSWORD='...'
 helmfile -e my-cluster -n synaplan --kube-context my-cluster apply
 ```
 
-Run Helmfile from the repository root. Every release goes into the namespace
+Run Helmfile from the repository root; each app also runs on its own with
+`-f helmfile/apps/<app>/helmfile.yaml.gotmpl`. Every release goes into the namespace
 given with `-n`. An environment's files are merged over
 [environments/default](environments/default/); set there what differs,
 starting with `global.domain`, `global.hosts`, `platform.realm` and
@@ -68,6 +71,10 @@ in the Secret `synaplan-credentials`:
   apply.
 - Without it, the values already in that Secret stay.
 - Without it and without that Secret, the render fails.
+
+The MariaDB root password is there too (`database-root-password`). It is
+written once: MariaDB takes it only on its first start, so a new
+`MASTER_PASSWORD` does not change it.
 
 The OIDC client secret is
 `secrets.keycloak.clientSecret.synaplan.value`; your identity provider needs
@@ -198,13 +205,13 @@ on their first sign-in.
 ## Inside openDesk
 
 Synaplan becomes an app of an openDesk by adding the two apps to the
-`helmfiles` of openDesk's `helmfile-defaults.yaml.gotmpl`, after
-`services-external`:
+`helmfiles` of openDesk's `helmfile-defaults.yaml.gotmpl`, `synaplan` first
+(it creates the Secret that `synaplan-mariadb` reads):
 
 ```yaml
-  - path: "git::https://github.com/metadist/synaplan-charts.git@helmfile/apps/services-external/helmfile-defaults.yaml.gotmpl?ref=<tag>"
-    values: *values
   - path: "git::https://github.com/metadist/synaplan-charts.git@helmfile/apps/synaplan/helmfile-defaults.yaml.gotmpl?ref=<tag>"
+    values: *values
+  - path: "git::https://github.com/metadist/synaplan-charts.git@helmfile/apps/services-external/helmfile-defaults.yaml.gotmpl?ref=<tag>"
     values: *values
 ```
 
@@ -223,5 +230,5 @@ kubectl -n <namespace> logs deployment/synaplan
 | Symptom | Look at |
 | --- | --- |
 | `triton`, `ollama` or `stt` Pending | a node with `nvidia.com/gpu`, or `mode: cpu` |
-| `synaplan` cannot reach the database | `kubectl -n <namespace> get mariadbs.k8s.mariadb.com,users.k8s.mariadb.com`: the operator reconciles the user from `synaplan-credentials` |
+| `synaplan` cannot reach the database | the `synaplan-mariadb-bootstrap` job: it sets the user's password from `synaplan-credentials` on every apply |
 | Sign-in fails | the issuer is reachable from the cluster, client ID and secret match the identity provider |
