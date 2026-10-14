@@ -75,6 +75,37 @@ Name of the Secret holding the custom root CA (key ca.crt)
 {{- .Values.customRootCA.secretRef | default (printf "%s-ca" (include "synaplan.fullname" .)) -}}
 {{- end }}
 
+{{- define "synaplan.credentials.secretName" -}}
+{{- printf "%s-credentials" (include "synaplan.fullname" .) -}}
+{{- end }}
+
+{{/*
+Keys of the credentials Secret, one per secret without a *SecretRef: the
+value given in values, else the value already in the Secret. Neither fails
+the render rather than replace a secret the release may already use.
+*/}}
+{{- define "synaplan.credentials" -}}
+{{- $existing := (lookup "v1" "Secret" .Release.Namespace (include "synaplan.credentials.secretName" .)).data | default dict }}
+{{- $given := dict }}
+{{- if not .Values.database.passwordSecretRef }}
+{{- $_ := set $given "password" .Values.database.password }}
+{{- end }}
+{{- if not .Values.appSecretRef }}
+{{- $_ := set $given "app-secret" .Values.appSecret }}
+{{- end }}
+{{- if and .Values.oidc.enabled (not .Values.oidc.clientSecretRef) }}
+{{- $_ := set $given "client-secret" .Values.oidc.clientSecret }}
+{{- end }}
+{{- range $key, $value := $given }}
+{{- $value = $value | default (index $existing $key | default "" | b64dec) }}
+{{- if not $value }}
+{{- $from := dict "password" "database.password" "app-secret" "appSecret" "client-secret" "oidc.clientSecret" }}
+{{- fail (printf "%s is empty and the Secret %s has no key %s yet" (index $from $key) (include "synaplan.credentials.secretName" $) $key) }}
+{{- end }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+
 {{/*
 Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
 */}}
@@ -116,9 +147,11 @@ role deployments add SYNAPLAN_ROLE on top.
       name: {{ .Values.database.passwordSecretRef | quote }}
       key: password
   {{- else }}
-  value: {{ .Values.database.password | quote }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . | quote }}
+      key: password
   {{- end }}
-{{- if or .Values.appSecret .Values.appSecretRef }}
 # Symfony kernel secret (CSRF tokens, signed URLs, at-rest credential encryption)
 - name: APP_SECRET
   {{- if .Values.appSecretRef }}
@@ -127,9 +160,11 @@ role deployments add SYNAPLAN_ROLE on top.
       name: {{ .Values.appSecretRef | quote }}
       key: app-secret
   {{- else }}
-  value: {{ .Values.appSecret | quote }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . | quote }}
+      key: app-secret
   {{- end }}
-{{- end }}
 # Redis (mandatory since synaplan 4.0: Symfony cache, Messenger queues,
 # rate limiter). LOCK_DSN points at the same redis so locks are visible
 # across the web/worker/scheduler pods (flock would be per-pod).
@@ -185,7 +220,10 @@ role deployments add SYNAPLAN_ROLE on top.
       name: {{ .Values.oidc.clientSecretRef | quote }}
       key: "client-secret"
   {{- else }}
-  value: {{ .Values.oidc.clientSecret | quote }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . | quote }}
+      key: "client-secret"
   {{- end }}
 - name: OIDC_AUTO_REDIRECT
   value: {{ .Values.oidc.autoRedirect | quote }}

@@ -41,7 +41,8 @@ apiKeysSecretRef: ""
 # Symfony kernel secret: CSRF tokens, signed URLs, and the at-rest encryption
 # of stored provider credentials. REQUIRED for production use; keep it stable,
 # rotating it invalidates already-encrypted credentials.
-# -- Option 1: plain text (not recommended for production)
+# -- Option 1: the value, kept in the Secret <fullname>-credentials. Empty:
+# the value already in that Secret; the render fails without one.
 appSecret: ""
 # -- Option 2: name of an existing Secret holding the value under key
 # app-secret. Takes precedence over appSecret.
@@ -98,8 +99,9 @@ database:
   name: "synaplan"
   user: "synaplan"
   serverVersion: "11.7.2-MariaDB"
-  # -- Database password (plain text, not recommended for production).
-  # Used unless passwordSecretRef is set.
+  # -- Database password, kept in the Secret <fullname>-credentials. Empty:
+  # the value already in that Secret; the render fails without one. Used
+  # unless passwordSecretRef is set.
   password: ""
   # -- Name of an existing Secret holding the database password (key: password)
   passwordSecretRef: ""
@@ -265,7 +267,8 @@ oidc:
   issuerURI: ""
   clientId: ""
   # OIDC client secret
-  # Option 1: Plain text (not recommended for production)
+  # Option 1: the value, kept in the Secret <fullname>-credentials. Empty:
+  # the value already in that Secret; the render fails without one.
   clientSecret: ""
   # Option 2: Reference to existing secret (recommended)
   # Create secret: kubectl create secret generic synaplan-oidc-credentials --from-literal=client-secret=YOUR_SECRET

@@ -2,6 +2,10 @@ suite: example values
 templates:
   - deployment.yaml
   - init-scripts-configmap.yaml
+set:
+  appSecret: test
+  database:
+    password: test
 tests:
   - it: renders with the chart defaults
     template: deployment.yaml

@@ -176,7 +176,7 @@ reaches the internet pinned off.
 | apiKeys.huggingface | string | `""` |  |
 | apiKeys.openai | string | `""` |  |
 | apiKeysSecretRef | string | `""` |  |
-| appSecret | string | `""` | Option 1: plain text (not recommended for production) |
+| appSecret | string | `""` | Option 1: the value, kept in the Secret <fullname>-credentials. Empty: the value already in that Secret; the render fails without one. |
 | appSecretRef | string | `""` | Option 2: name of an existing Secret holding the value under key app-secret. Takes precedence over appSecret. |
 | autoscaling.enabled | bool | `false` |  |
 | autoscaling.maxReplicas | int | `100` |  |
@@ -190,7 +190,7 @@ reaches the internet pinned off.
 | customRootCA.secretRef | string | `""` | Option 2: name of an existing Secret holding the CA under key ca.crt. Takes precedence over crt. |
 | database.host | string | `"mariadb-cluster"` |  |
 | database.name | string | `"synaplan"` |  |
-| database.password | string | `""` | Database password (plain text, not recommended for production). Used unless passwordSecretRef is set. |
+| database.password | string | `""` | Database password, kept in the Secret <fullname>-credentials. Empty: the value already in that Secret; the render fails without one. Used unless passwordSecretRef is set. |
 | database.passwordSecretRef | string | `""` | Name of an existing Secret holding the database password (key: password) |
 | database.port | string | `"3306"` |  |
 | database.serverVersion | string | `"11.7.2-MariaDB"` |  |

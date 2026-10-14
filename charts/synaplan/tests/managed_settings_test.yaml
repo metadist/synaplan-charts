@@ -3,6 +3,9 @@ templates:
   - deployment.yaml
   - init-scripts-configmap.yaml
 set:
+  appSecret: test
+  database:
+    password: test
   settings:
     IAM.EVERYONE_SHARES: admins_only
     MCP.CLIENT_ENABLED: false

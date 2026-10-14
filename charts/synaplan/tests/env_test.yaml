@@ -2,6 +2,10 @@ suite: env
 templates:
   - deployment.yaml
   - init-scripts-configmap.yaml
+set:
+  appSecret: test
+  database:
+    password: test
 tests:
   - it: refuses a name that a chart value already emits
     template: deployment.yaml

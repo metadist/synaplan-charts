@@ -68,7 +68,7 @@ check: ## Unit-test the synaplan chart; render the examples and the full-stack H
 	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
 	$(HELM) unittest charts/synaplan
-	$(HELM) template charts/synaplan | kubeconform -strict -summary -
+	$(HELM) template charts/synaplan --set appSecret=check,database.password=check | kubeconform -strict -summary -
 	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
 	$(HELMFILE) -e triton template >/dev/null
 	$(HELMFILE) -e triton --state-values-set services.backend=triton-cpu template >/dev/null
