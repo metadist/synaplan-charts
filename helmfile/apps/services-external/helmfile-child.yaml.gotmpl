@@ -4,25 +4,12 @@ environments:
 ---
 
 repositories:
-  - name: "mariadb-repo"
-    url: {{ .Values.charts.mariadb.repository | quote }}
-    oci: true
   - name: "tika-repo"
     url: {{ .Values.charts.tika.repository | quote }}
   - name: "ollama-repo"
     url: {{ .Values.charts.ollama.repository | quote }}
 
 releases:
-  - name: "synaplan-mariadb"
-    chart: "mariadb-repo/{{ .Values.charts.mariadb.name }}"
-    version: {{ .Values.charts.mariadb.version | quote }}
-    installed: {{ .Values.apps.synaplanMariadb.enabled }}
-    values:
-      - "values-synaplan-mariadb.yaml.gotmpl"
-      {{- range .Values.customization.release.synaplanMariadb }}
-      - {{ . }}
-      {{- end }}
-
   - name: "tika"
     chart: "tika-repo/{{ .Values.charts.tika.name }}"
     version: {{ .Values.charts.tika.version | quote }}

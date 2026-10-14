@@ -1,7 +1,6 @@
 helmfiles:
-  # Synaplan first: it creates synaplan-credentials, which its MariaDB reads.
-  - path: "helmfile/apps/synaplan/helmfile-defaults.yaml.gotmpl"
+  - path: "helmfile/apps/services-external/helmfile-defaults.yaml.gotmpl"
     values: &values
       - {{ toYaml .Values | nindent 8 }}
-  - path: "helmfile/apps/services-external/helmfile-defaults.yaml.gotmpl"
+  - path: "helmfile/apps/synaplan/helmfile-defaults.yaml.gotmpl"
     values: *values

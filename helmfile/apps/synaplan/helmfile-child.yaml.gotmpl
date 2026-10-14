@@ -3,6 +3,11 @@ environments:
 
 ---
 
+repositories:
+  - name: "mariadb-repo"
+    url: {{ .Values.charts.mariadb.repository | quote }}
+    oci: true
+
 releases:
   - name: "synaplan"
     chart: "../../../charts/synaplan"
@@ -24,5 +29,19 @@ releases:
       - "values-stt.yaml.gotmpl"
       - "values-stt-{{ .Values.technical.synaplanStt.mode }}.yaml"
       {{- range .Values.customization.release.synaplanStt }}
+      - {{ . }}
+      {{- end }}
+
+  # Reads its root and user password from synaplan-credentials, which the
+  # synaplan release creates.
+  - name: "synaplan-mariadb"
+    chart: "mariadb-repo/{{ .Values.charts.mariadb.name }}"
+    version: {{ .Values.charts.mariadb.version | quote }}
+    installed: {{ .Values.apps.synaplanMariadb.enabled }}
+    needs:
+      - "synaplan"
+    values:
+      - "values-synaplan-mariadb.yaml.gotmpl"
+      {{- range .Values.customization.release.synaplanMariadb }}
       - {{ . }}
       {{- end }}
