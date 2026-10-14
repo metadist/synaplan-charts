@@ -232,8 +232,7 @@ role deployments add SYNAPLAN_ROLE on top.
   value: {{ .Values.oidc.scopes | quote }}
 {{- end }}
 {{- end }}
-# Tika Document Processing. Synaplan >= 5.3 reads the variable without a
-# default; empty switches Tika off.
+# Tika Document Processing
 - name: TIKA_BASE_URL
   value: {{ ternary .Values.tika.url "" .Values.tika.enabled | quote }}
 {{- if .Values.tts.enabled }}
