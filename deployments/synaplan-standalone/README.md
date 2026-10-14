@@ -1,6 +1,6 @@
-# Synaplan with Triton Deployment
+# Synaplan standalone deployment
 
-Complete deployment of Synaplan with Triton Inference Server and MariaDB using Helmfile.
+Synaplan in its own namespace with MariaDB, Tika and a model backend, using Helmfile. The backend is Triton Inference Server, installed here, or an Ollama you already run.
 
 ## Prerequisites
 
@@ -36,11 +36,11 @@ kubectl create secret generic synaplan-oidc-credentials \
 The deployment requires persistent storage:
 - **Synaplan uploads**: 10Gi (ReadWriteMany)
 - **MariaDB data**: Managed by operator
-- **Triton cache**: hostPath
+- **Triton cache**: hostPath (Triton backends only)
 
-### 4. GPU Requirements (for GPU mode)
+### 4. GPU Requirements (for the `triton-gpu` backend)
 
-Triton GPU mode requires:
+Triton on GPU requires:
 - **GPU**: 1x NVIDIA GPU per replica
 - **CPU**: 2 cores minimum
 - **Memory**: 24Gi minimum
@@ -50,7 +50,7 @@ Check GPU availability:
 kubectl get nodes -o json | grep nvidia.com/gpu
 ```
 
-For CPU-only deployments, no GPU is required.
+The `triton-cpu` backend needs no GPU.
 
 ### 5. OIDC Identity Provider
 
@@ -60,36 +60,51 @@ You need an identity provider with a configured client for synaplan.
 
 ### Environment Configuration
 
-This deployment uses **helmfile environments**. Each environment is configured in `environments/{environment-name}/values.yaml`. `default` is the example committed in this repo (local Triton on GPU); other environment directories are gitignored.
+This deployment uses **helmfile environments**. What all of them share (public URL, sign-in, ingress, text-to-speech, speech-to-text) is in [environments/_common/values.yaml](environments/_common/values.yaml). Each environment's `environments/{environment-name}/values.yaml` is merged over it. Two examples are committed, one per model backend:
+
+| Environment | Models run on |
+| --- | --- |
+| [triton](environments/triton/values.yaml) | Triton Inference Server, installed by this deployment |
+| [ollama](environments/ollama/values.yaml) | an Ollama you already operate; this deployment does not install it |
+
+For your own cluster, copy one of them under a new name and set there what differs from the common file, starting with `services.synaplan.url` and `services.synaplan.oidc`. Other environment directories are gitignored.
+
+```bash
+cp -r environments/ollama environments/my-cluster
+```
 
 ### Deploy to an Environment
 
 ```bash
 # Name the cluster with --kube-context or --kubeconfig
-helmfile -e default --kube-context my-cluster apply
-helmfile -e default --kubeconfig /path/to/kubeconfig apply
+helmfile -e my-cluster --kube-context my-cluster apply
+helmfile -e my-cluster --kubeconfig /path/to/kubeconfig apply
 
 # Layer a values file kept outside this repo over the environment's values
-helmfile -e default --kube-context my-cluster --state-values-file /path/to/cluster-values.yaml apply
+helmfile -e triton --kube-context my-cluster --state-values-file /path/to/cluster-values.yaml apply
 ```
 
 Without either flag, Helmfile uses the current kubectl context.
 
 ## Configuration
 
-### Triton Modes
+### Model backend
 
-**GPU Mode** (`mode: gpu`):
-- Uses TensorRT-LLM for optimized inference
-- Requires NVIDIA GPU
-- Fast inference (<1s response times)
-- Models: `mistral-7b-instruct-v0.3`, `mistral-streaming`
+`services.backend` selects where chat and embedding models run:
 
-**CPU Mode** (`mode: cpu`):
-- Uses PyTorch backend with vLLM
-- No GPU required
-- Slower inference (5-30s response times)
-- Model: `mistral-cpu`
+| Backend | Installs | Notes |
+| --- | --- | --- |
+| `triton-gpu` | Triton with TensorRT-LLM | Needs an NVIDIA GPU. Fast inference (<1s). Models: `mistral-7b-instruct-v0.3`, `mistral-streaming` |
+| `triton-cpu` | Triton with the PyTorch backend | No GPU. Slow inference (5-30s). Model: `mistral-cpu` |
+| `ollama` | nothing | Uses the Ollama at `services.synaplan.ollama.baseUrl` |
+
+The models an environment enables have to match its backend. The `triton` and `ollama` environments each list theirs under `services.synaplan.models`; the render fails if `ollama` is selected while Triton models are still listed.
+
+### Cloud providers
+
+By default only models that run in the cluster are offered (the backend, Piper and Whisper), and the browser's Web Speech API is off because it sends audio to the browser vendor. A cloud provider that a later Synaplan release adds stays off too.
+
+`services.cloudProviders: true` lifts both. API keys come from `services.synaplan.apiKeysSecretRef`.
 
 ### Speech-to-text
 
@@ -154,7 +169,7 @@ kubectl get pods -n synaplan
 # mariadb-cluster-0                   1/1     Running   0          5m
 # mariadb-operator-xxx                1/1     Running   0          5m
 # synaplan-xxx                        1/1     Running   0          3m
-# triton-xxx                          1/1     Running   0          3m
+# triton-xxx                          1/1     Running   0          3m   (triton backends only)
 
 # Check services
 kubectl get svc -n synaplan
@@ -187,15 +202,14 @@ Expected secrets:
 
 ### Triton Pod Pending (Insufficient GPU)
 
-If deploying in GPU mode without GPUs:
+If the `triton-gpu` backend is selected and the cluster has no GPU:
 ```bash
 # Check GPU availability
 kubectl get nodes -o json | grep nvidia.com/gpu
 
-# If no GPUs, switch to CPU mode in environment values:
+# If no GPUs, switch the backend in your environment values:
 services:
-  triton:
-    mode: cpu
+  backend: triton-cpu
 ```
 
 ### OIDC Authentication Fails
@@ -210,22 +224,13 @@ services:
 
 ## Advanced Configuration
 
-### Switch Between GPU and CPU Modes
+### Switch the model backend
 
-Simply change the mode in your environment values:
+Change `services.backend` in your environment values and apply:
 
-```yaml
-services:
-  triton:
-    mode: cpu  # Change to "gpu" or "cpu"
-```
-
-Then apply:
 ```bash
 helmfile -e my-env apply
 ```
-
-The helmfile will automatically use the correct Triton configuration file.
 
 ## Production Recommendations
 
@@ -234,7 +239,7 @@ The helmfile will automatically use the correct Triton configuration file.
 3. **Configure backups** - Set up MariaDB backup schedules
 4. **Monitor resources** - Set up Prometheus metrics and alerts
 5. **Scale appropriately** - Adjust replica counts and resource limits
-6. **Use GPU mode** - For production workloads requiring fast inference
+6. **Use the `triton-gpu` backend** - For production workloads requiring fast inference
 7. **Separate environments** - Use different environments for dev/staging/prod
 
 ## Support

@@ -1,19 +1,26 @@
 environments:
   {{ .Environment.Name }}:
     values:
+      - environments/_common/*.yaml
       - environments/{{ .Environment.Name }}/*.yaml
 
 ---
 
 {{ $ns := .Values | getOrNil "namespace" | default "synaplan" }}
 {{/*
-  services.triton.mode:
-    "gpu"    — deploy local Triton with GPU values (default)
-    "cpu"    — deploy local Triton with CPU-only values
-    "remote" — skip the Triton release entirely (remote inference via ollama.baseUrl)
+  services.backend (where chat and embedding models run):
+    "triton-gpu": Triton release with GPU values (default)
+    "triton-cpu": Triton release with CPU-only values
+    "ollama":     no Triton release; an Ollama you run, at services.synaplan.ollama.baseUrl
 */}}
-{{ $tritonMode := .Values.services.triton.mode | default "gpu" }}
-{{ $tritonLocal := or (eq $tritonMode "gpu") (eq $tritonMode "cpu") }}
+{{ if .Values | get "services.triton.mode" "" }}
+{{ fail "services.triton.mode was replaced by services.backend: gpu is now triton-gpu, cpu is triton-cpu, remote is ollama" }}
+{{ end }}
+{{ $backend := .Values | get "services.backend" "triton-gpu" }}
+{{ if not (has $backend (list "triton-gpu" "triton-cpu" "ollama")) }}
+{{ fail (printf "services.backend must be triton-gpu, triton-cpu or ollama, not %q" $backend) }}
+{{ end }}
+{{ $tritonLocal := ne $backend "ollama" }}
 {{/*
   services.stt.mode (speech-to-text server, charts/stt):
     ""    — no release (default); Synaplan uses the whisper.cpp binary in its pod
@@ -104,7 +111,7 @@ releases:
     namespace: {{ $ns }}
     chart: ../../charts/triton
     values:
-      {{- if eq $tritonMode "gpu" }}
+      {{- if eq $backend "triton-gpu" }}
       - values-triton-gpu.yaml
       {{- else }}
       - values-triton-cpu.yaml

@@ -1,0 +1,34 @@
+# Settings every environment of this deployment starts from. An environment's
+# own values.yaml is merged over this file; a list there replaces a list here.
+
+cluster:
+  ingressClassName: nginx
+  customRootCA: false
+
+services:
+  synaplan:
+    url: https://synaplan.local
+    oidc:
+      issuerURI: https://keycloak.local/realms/default
+      clientId: synaplan
+    models:
+      defaults:
+        text2sound: "piper:piper-multi"
+  tts:
+    enabled: true
+    huggingfaceVoices:
+      voices:
+        - name: "en_US-lessac-medium"
+          subfolder: "en/en_US/lessac/medium"
+        - name: "de_DE-thorsten-medium"
+          subfolder: "de/de_DE/thorsten/medium"
+  # false: only models that run in the cluster are offered, and the browser's
+  # Web Speech API (audio goes to the browser vendor) is off. true lifts both.
+  cloudProviders: false
+  # Speech-to-text server (charts/stt): "" off, "gpu" or "cpu". "gpu" needs a
+  # GPU of its own (next to Triton: a second one, or a time-sliced share).
+  # services.stt.values is passed to the stt chart as-is (node selector,
+  # tolerations, resources, service.port, nameOverride, fullnameOverride). The
+  # Synaplan URL follows the chart's Service name and port.
+  stt:
+    mode: ""

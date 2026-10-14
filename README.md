@@ -170,36 +170,22 @@ A tag that is not a complete semver skips that check.
 
 ## Example values
 
-Overlays, applied with `-f` next to your own values file:
+[examples/values-opendesk.yaml](examples/values-opendesk.yaml) is an overlay
+for openDesk, applied with `-f` next to your own values file: SSO, shared
+Collabora, internet-facing features pinned off. It needs synaplan >= 5.0.0.
 
 ```bash
-# Local models and speech. Cloud providers added later stay off.
-helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
-
-# openDesk: Keycloak, shared Collabora, internet-facing features pinned off.
-# synaplan >= 5.0.0
-helm install synaplan ./charts/synaplan -f examples/values-opendesk.yaml
-
-# Database settings (IAM, MCP client). synaplan >= 5.1.0
-helm install synaplan ./charts/synaplan \
-  -f examples/values-opendesk.yaml \
-  -f examples/values-managed-settings.yaml \
-  --set image.tag=5.1.0
+helm install synaplan ./charts/synaplan -f my-values.yaml -f examples/values-opendesk.yaml
 ```
 
-| File | Use |
-| ---- | --- |
-| [examples/values-airgap.yaml](examples/values-airgap.yaml) | Ollama, Piper, and Whisper only. Browser Web Speech off |
-| [examples/values-opendesk.yaml](examples/values-opendesk.yaml) | SSO, shared Collabora, sovereign feature pins |
-| [examples/values-managed-settings.yaml](examples/values-managed-settings.yaml) | IAM options and the MCP client, without the admin UI |
-
-A full stack with Triton and MariaDB is
-[deployments/synaplan-with-triton/](deployments/synaplan-with-triton/). One
-environment, named `default`:
+A full stack with MariaDB, Tika and a model backend (Triton, or an Ollama you
+run) is [deployments/synaplan-standalone/](deployments/synaplan-standalone/).
+It offers only models that run in the cluster unless you allow cloud
+providers. One example environment per backend, `triton` and `ollama`:
 
 ```bash
-cd deployments/synaplan-with-triton
-helmfile -e default apply
+cd deployments/synaplan-standalone
+helmfile -e ollama apply
 ```
 
 ## Installation
