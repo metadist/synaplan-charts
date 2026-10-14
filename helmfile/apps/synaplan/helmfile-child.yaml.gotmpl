@@ -4,8 +4,8 @@ environments:
 ---
 
 repositories:
-  - name: "mariadb-repo"
-    url: {{ .Values.charts.mariadb.repository | quote }}
+  - name: "synaplan-mariadb-repo"
+    url: {{ .Values.charts.synaplanMariadb.repository | quote }}
     oci: true
 
 releases:
@@ -35,8 +35,8 @@ releases:
   # Reads its root and user password from synaplan-credentials, which the
   # synaplan release creates.
   - name: "synaplan-mariadb"
-    chart: "mariadb-repo/{{ .Values.charts.mariadb.name }}"
-    version: {{ .Values.charts.mariadb.version | quote }}
+    chart: "synaplan-mariadb-repo/{{ .Values.charts.synaplanMariadb.name }}"
+    version: {{ .Values.charts.synaplanMariadb.version | quote }}
     installed: {{ .Values.apps.synaplanMariadb.enabled }}
     needs:
       - "synaplan"
