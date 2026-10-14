@@ -1,0 +1,68 @@
+environments:
+  {{ .Environment.Name }}: {}
+
+---
+
+repositories:
+  - name: "mariadb-operator-repo"
+    url: {{ .Values.charts.mariadbOperator.repository | quote }}
+  - name: "tika-repo"
+    url: {{ .Values.charts.tika.repository | quote }}
+  - name: "ollama-repo"
+    url: {{ .Values.charts.ollama.repository | quote }}
+
+releases:
+  - name: "mariadb-operator-crds"
+    chart: "mariadb-operator-repo/{{ .Values.charts.mariadbOperatorCrds.name }}"
+    version: {{ .Values.charts.mariadbOperatorCrds.version | quote }}
+    installed: {{ .Values.apps.synaplanMariadb.enabled }}
+
+  - name: "mariadb-operator"
+    chart: "mariadb-operator-repo/{{ .Values.charts.mariadbOperator.name }}"
+    version: {{ .Values.charts.mariadbOperator.version | quote }}
+    installed: {{ .Values.apps.synaplanMariadb.enabled }}
+    needs:
+      - "mariadb-operator-crds"
+    values:
+      - "values-mariadb-operator.yaml"
+
+  - name: "mariadb-cluster"
+    chart: "mariadb-operator-repo/{{ .Values.charts.mariadbCluster.name }}"
+    version: {{ .Values.charts.mariadbCluster.version | quote }}
+    installed: {{ .Values.apps.synaplanMariadb.enabled }}
+    needs:
+      - "mariadb-operator-crds"
+      - "mariadb-operator"
+    values:
+      - "values-mariadb-cluster.yaml.gotmpl"
+      {{- range .Values.customization.release.mariadbCluster }}
+      - {{ . }}
+      {{- end }}
+
+  - name: "tika"
+    chart: "tika-repo/{{ .Values.charts.tika.name }}"
+    version: {{ .Values.charts.tika.version | quote }}
+    installed: {{ .Values.apps.tika.enabled }}
+    values:
+      {{- range .Values.customization.release.tika }}
+      - {{ . }}
+      {{- end }}
+
+  - name: "triton"
+    chart: "../../../charts/triton"
+    installed: {{ .Values.apps.triton.enabled }}
+    values:
+      - "values-triton-{{ .Values.technical.triton.mode }}.yaml"
+      {{- range .Values.customization.release.triton }}
+      - {{ . }}
+      {{- end }}
+
+  - name: "ollama"
+    chart: "ollama-repo/{{ .Values.charts.ollama.name }}"
+    version: {{ .Values.charts.ollama.version | quote }}
+    installed: {{ .Values.apps.ollama.enabled }}
+    values:
+      - "values-ollama.yaml.gotmpl"
+      {{- range .Values.customization.release.ollama }}
+      - {{ . }}
+      {{- end }}

@@ -1,0 +1,11 @@
+global:
+  domain: {{ env "DOMAIN" | default "synaplan.internal" | quote }}
+  hosts:
+    synaplan: "synaplan"
+    keycloak: "id"
+  imageRegistry: ""
+  imagePullSecrets: []
+  imagePullPolicy: "IfNotPresent"
+
+platform:
+  realm: "synaplan"

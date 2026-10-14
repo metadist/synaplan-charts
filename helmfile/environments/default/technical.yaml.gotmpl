@@ -1,0 +1,48 @@
+technical:
+  synaplan:
+    # false: only models that run in the cluster are offered, and the
+    # browser's Web Speech API (audio goes to the browser vendor) is off.
+    # true lifts both.
+    cloudProviders: false
+    # An Ollama this deployment does not install. apps.ollama installs one.
+    ollama:
+      baseUrl: ""
+    # A Tika this deployment does not install. Empty: the tika release
+    # (apps.tika).
+    tika:
+      url: ""
+    # Collabora for Office previews. Empty: openDesk's Collabora in the same
+    # namespace (apps.collabora), else none.
+    office:
+      convertUrl: ""
+    models:
+      enabled: []
+      defaults: {}
+    oidc:
+      enabled: true
+      # Empty: https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>
+      issuerURI: ""
+      clientId: "synaplan"
+      # An existing Secret with key client-secret, instead of
+      # secrets.keycloak.clientSecret.synaplan
+      clientSecretRef: ""
+      autoRedirect: true
+      adminRoles: ""
+    # Passed to the chart's tts values
+    tts:
+      enabled: true
+      huggingfaceVoices:
+        voices:
+          - name: "en_US-lessac-medium"
+            subfolder: "en/en_US/lessac/medium"
+          - name: "de_DE-thorsten-medium"
+            subfolder: "de/de_DE/thorsten/medium"
+    features: {}
+    featurePins: {}
+  # "gpu" or "cpu"
+  triton:
+    mode: "gpu"
+  ollama:
+    mode: "gpu"
+  stt:
+    mode: "cpu"

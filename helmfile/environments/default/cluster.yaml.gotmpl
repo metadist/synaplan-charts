@@ -1,0 +1,6 @@
+cluster:
+  persistence:
+    # Uploads on ReadWriteMany storage. false: ReadWriteOnce, with the worker
+    # and the scheduler on the node of the web pod.
+    readWriteMany:
+      enabled: false

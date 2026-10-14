@@ -1,0 +1,11 @@
+certificate:
+  # cert-manager issues synaplan-tls for the Synaplan host. false: you create
+  # synaplan-tls yourself.
+  create: true
+  issuerRef:
+    name: "letsencrypt-prod"
+    kind: "ClusterIssuer"
+  # Use the existing wildcard certificate in ingress.tls.secretName instead
+  wildcard: false
+  # Synaplan trusts the CA in the certificate Secret (key ca.crt)
+  selfSigned: false

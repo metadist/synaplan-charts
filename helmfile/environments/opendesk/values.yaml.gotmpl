@@ -1,0 +1,57 @@
+# Example environment: Synaplan next to an openDesk that already runs, in
+# its namespace (-n), without changing openDesk. Values from openDesk's
+# environment keep their openDesk names.
+
+global:
+  domain: "example.org"
+  hosts:
+    keycloak: "id"
+
+platform:
+  realm: "opendesk"
+
+ingress:
+  ingressClassName: "haproxy"
+  tls:
+    secretName: "opendesk-certificates-tls"
+
+certificate:
+  # openDesk's certificate covers *.<domain> (certificate.wildcard there)
+  wildcard: true
+
+apps:
+  # openDesk runs Collabora; Synaplan uses it for Office previews
+  collabora:
+    enabled: true
+  ollama:
+    enabled: true
+
+technical:
+  ollama:
+    mode: "gpu"
+  synaplan:
+    oidc:
+      autoRedirect: true
+      # openDesk's installation administrators are the group "Domain Admins"
+      adminRoles: "admin,realm-admin,synaplan-admin,administrator,domain admins"
+    # Sign-in only through openDesk's Keycloak; internet-facing features off
+    features:
+      registration: false
+      guestChat: false
+      setupWizard: false
+      customHttpTools: false
+      urlFetch: false
+      desktopAgent: false
+      compute: false
+    featurePins:
+      MULTITASK.MCP_FETCH_ENABLED: false
+      MULTITASK.MCP_ACTION_ENABLED: false
+      COMPUTE.EGRESS_ENABLED: false
+    models:
+      enabled:
+        - "ollama:gpt-oss:20b"
+        - "ollama:bge-m3"
+      defaults:
+        chat: "ollama:gpt-oss:20b"
+        sort: "ollama:gpt-oss:20b"
+        vectorize: "ollama:bge-m3"

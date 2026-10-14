@@ -1,0 +1,21 @@
+# Example environment: models run on an Ollama that this deployment installs.
+# For an Ollama you already run, leave apps.ollama off and set
+# technical.synaplan.ollama.baseUrl.
+
+apps:
+  ollama:
+    enabled: true
+
+technical:
+  ollama:
+    mode: "gpu"
+  synaplan:
+    # Pulled by the Ollama release
+    models:
+      enabled:
+        - "ollama:gpt-oss:20b"
+        - "ollama:bge-m3"
+      defaults:
+        chat: "ollama:gpt-oss:20b"
+        sort: "ollama:gpt-oss:20b"
+        vectorize: "ollama:bge-m3"

@@ -1,0 +1,10 @@
+{{- $masterPassword := env "MASTER_PASSWORD" }}
+databases:
+  synaplan:
+    type: "mariadb"
+    name: "synaplan"
+    host: "mariadb-cluster"
+    port: 3306
+    username: "synaplan"
+    password:
+      value: {{ if $masterPassword }}{{ derivePassword 1 "long" $masterPassword "mariadb" "synaplan_user" | sha1sum | quote }}{{ else }}""{{ end }}

@@ -93,9 +93,8 @@ speech:
   whisperServerUrl: "http://stt.synaplan.svc.cluster.local:8080"
 ```
 
-In the example helmfile deployment, `services.stt.mode: gpu` (or `cpu`) adds
-the release and sets this URL from the chart's Service name and port, including
-`service.port`, `nameOverride`, and `fullnameOverride` in `services.stt.values`.
+The [Helmfile](helmfile/) adds the release with `apps.stt.enabled: true` and
+sets this URL.
 
 Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
 `null` leaves the database row:
@@ -168,24 +167,17 @@ Do not repeat a key that `features.*` or `featurePins` already pins. Synaplan
 render when either map is set. `5.0.6-alpine` fails. `5.1.0-rc.1` is accepted.
 A tag that is not a complete semver skips that check.
 
-## Example values
+## Helmfile
 
-[examples/values-opendesk.yaml](examples/values-opendesk.yaml) is an overlay
-for openDesk, applied with `-f` next to your own values file: SSO, shared
-Collabora, internet-facing features pinned off. It needs synaplan >= 5.0.0.
-
-```bash
-helm install synaplan ./charts/synaplan -f my-values.yaml -f examples/values-opendesk.yaml
-```
-
-A full stack with MariaDB, Tika and a model backend (Triton, or an Ollama you
-run) is [deployments/synaplan-standalone/](deployments/synaplan-standalone/).
-It offers only models that run in the cluster unless you allow cloud
-providers. One example environment per backend, `triton` and `ollama`:
+Synaplan with MariaDB, Tika and a model backend (Triton or Ollama) is the
+[Helmfile](helmfile/), laid out like openDesk. It runs on its own or as an app
+inside an openDesk, and offers only models that run in the cluster unless you
+allow cloud providers. One example environment per backend, `triton` and
+`ollama`:
 
 ```bash
-cd deployments/synaplan-standalone
-helmfile -e ollama apply
+export MASTER_PASSWORD='...'
+helmfile -e ollama -n synaplan apply
 ```
 
 ## Installation
@@ -226,7 +218,7 @@ make install-helmfile
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
-make check      # helm-unittest suites; renders the examples and the full-stack Helmfile (fetches the stack's chart repos)
+make check      # helm-unittest suites; renders the Helmfile (fetches its chart repos)
 make package
 make all        # all of the above
 ```

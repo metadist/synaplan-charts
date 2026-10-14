@@ -24,7 +24,7 @@ Thank you for your interest in contributing to Synaplan Charts!
    ```bash
    make lint       # helm lint
    make validate   # template + kubeconform
-   make check      # helm-unittest suites; renders the examples and the full-stack Helmfile
+   make check      # helm-unittest suites; renders the Helmfile
    make docs       # helm-docs; commit the result when a chart value changed
    ```
 

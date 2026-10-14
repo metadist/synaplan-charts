@@ -7,11 +7,32 @@ set:
   database:
     password: test
 tests:
+  - it: emits each URL of a neighbour service once
+    template: deployment.yaml
+    set:
+      qdrant:
+        url: http://qdrant:6333
+      office:
+        convertUrl: http://collabora:9980
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QDRANT_URL
+          any: true
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OFFICE_CONVERT_URL
+          any: true
+          count: 1
+
   - it: refuses a name that a chart value already emits
     template: deployment.yaml
-    values:
-      - ../../../examples/values-opendesk.yaml
     set:
+      qdrant:
+        url: http://qdrant:6333
       env:
         - name: QDRANT_URL
           value: http://qdrant:6333
