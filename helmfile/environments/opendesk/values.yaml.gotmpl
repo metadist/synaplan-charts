@@ -42,23 +42,10 @@ technical:
   triton:
     mode: "gpu"
   synaplan:
+    sovereign: true
     oidc:
-      autoRedirect: true
       # openDesk's installation administrators are the group "Domain Admins"
       adminRoles: "admin,realm-admin,synaplan-admin,administrator,domain admins"
-    # Sign-in only through openDesk's Keycloak; internet-facing features off
-    features:
-      registration: false
-      guestChat: false
-      setupWizard: false
-      customHttpTools: false
-      urlFetch: false
-      desktopAgent: false
-      compute: false
-    featurePins:
-      MULTITASK.MCP_FETCH_ENABLED: false
-      MULTITASK.MCP_ACTION_ENABLED: false
-      COMPUTE.EGRESS_ENABLED: false
     models:
       enabled:
         - "ollama:gpt-oss:20b"

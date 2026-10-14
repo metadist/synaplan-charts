@@ -168,11 +168,20 @@ oidc:
   {{- end }}
   {{- end }}
 
-{{- with $t.features }}
+{{- $features := $t.features | deepCopy }}
+{{- $featurePins := $t.featurePins | deepCopy }}
+{{- if $t.sovereign }}
+{{- $features = merge $features (dict
+      "registration" false "guestChat" false "setupWizard" false
+      "customHttpTools" false "urlFetch" false "desktopAgent" false "compute" false) }}
+{{- $featurePins = merge $featurePins (dict
+      "MULTITASK.MCP_FETCH_ENABLED" false "MULTITASK.MCP_ACTION_ENABLED" false "COMPUTE.EGRESS_ENABLED" false) }}
+{{- end }}
+{{- with $features }}
 features:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- with $t.featurePins }}
+{{- with $featurePins }}
 featurePins:
   {{- toYaml . | nindent 2 }}
 {{- end }}

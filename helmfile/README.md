@@ -101,6 +101,11 @@ By default only models that run in the cluster are offered, and the browser's
 Web Speech API is off because it sends audio to the browser vendor.
 `technical.synaplan.cloudProviders: true` lifts both.
 
+`technical.synaplan.sovereign: true` allows sign-in only through the identity
+provider (no registration, guest chat or setup wizard) and switches off the
+features that reach the internet. `technical.synaplan.features` and
+`featurePins` still override single ones.
+
 ## Speech-to-text
 
 `apps.synaplanStt.enabled: true` installs the speech-to-text server, on the CPU or the
