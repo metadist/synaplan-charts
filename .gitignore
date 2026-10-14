@@ -29,6 +29,5 @@ charts/*/ci/templated.yaml
 # Deployments - ignore all environment directories except the examples
 helmfile/environments/*
 !helmfile/environments/default/
-!helmfile/environments/triton/
-!helmfile/environments/ollama/
+!helmfile/environments/standalone/
 !helmfile/environments/opendesk/

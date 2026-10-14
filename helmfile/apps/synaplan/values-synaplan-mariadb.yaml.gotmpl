@@ -1,17 +1,17 @@
 {{- $db := .Values.databases.synaplan }}
 {{- $img := .Values.images.synaplanMariadb }}
 image:
-  registry: {{ coalesce .Values.global.imageRegistry $img.registry | quote }}
+  registry: {{ coalesce (dig "global" "imageRegistry" "" .Values) $img.registry | quote }}
   repository: {{ $img.repository | quote }}
   tag: {{ $img.tag | quote }}
-  imagePullPolicy: {{ .Values.global.imagePullPolicy | quote }}
+  imagePullPolicy: {{ (dig "global" "imagePullPolicy" "IfNotPresent" .Values) | quote }}
 
 job:
   image:
-    registry: {{ coalesce .Values.global.imageRegistry $img.registry | quote }}
+    registry: {{ coalesce (dig "global" "imageRegistry" "" .Values) $img.registry | quote }}
     repository: {{ $img.repository | quote }}
     tag: {{ $img.tag | quote }}
-    imagePullPolicy: {{ .Values.global.imagePullPolicy | quote }}
+    imagePullPolicy: {{ (dig "global" "imagePullPolicy" "IfNotPresent" .Values) | quote }}
   users:
     - username: {{ $db.username | quote }}
       # Without a derived value: the password in Synaplan's credentials
@@ -30,9 +30,9 @@ mariadb:
 
 persistence:
   size: {{ .Values.persistence.storages.synaplanMariadb.size | quote }}
-  storageClass: {{ coalesce .Values.persistence.storages.synaplanMariadb.storageClassName .Values.persistence.storageClassNames.RWO | default "" | quote }}
+  storageClass: {{ coalesce .Values.persistence.storages.synaplanMariadb.storageClassName (dig "persistence" "storageClassNames" "RWO" "" .Values) | default "" | quote }}
 
-{{- with .Values.global.imagePullSecrets }}
+{{- with (dig "global" "imagePullSecrets" list .Values) }}
 imagePullSecrets:
   {{- range . }}
   - name: {{ . | quote }}

@@ -69,14 +69,13 @@ check: ## Unit-test the synaplan chart; render the Helmfile
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
 	$(HELM) unittest charts/synaplan
 	$(HELM) template charts/synaplan --set appSecret=check,database.password=check | kubeconform -strict -summary -
-	MASTER_PASSWORD=check $(HELMFILE) -e triton template | kubeconform -strict -summary -
-	MASTER_PASSWORD=check $(HELMFILE) -e triton --state-values-set technical.triton.mode=cpu template >/dev/null
-	MASTER_PASSWORD=check $(HELMFILE) -e ollama template | kubeconform -strict -summary -
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone template | kubeconform -strict -summary -
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set apps.triton.enabled=true,technical.triton.mode=cpu template | kubeconform -strict -summary -
 	MASTER_PASSWORD=check $(HELMFILE) -e opendesk template | kubeconform -strict -summary -
-	(MASTER_PASSWORD=check $(HELMFILE) -e default template 2>&1 || true) | grep -q 'no model backend'
-	($(HELMFILE) -e triton -l name=synaplan template 2>&1 || true) | grep -q 'appSecret is empty'
-	MASTER_PASSWORD=check $(HELMFILE) -e triton --state-values-set certificate.wildcard=true,ingress.tls.secretName=wildcard-tls -l name=synaplan template | (! grep -q 'cert-manager.io/')
-	MASTER_PASSWORD=check $(HELMFILE) -e triton --state-values-set customization.release.synaplan.lint=../../../ci/synaplan/lint-values.yaml -l name=synaplan template | grep -q 'image: "ghcr.io/metadist/synaplan:latest"'
+	(MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set apps.ollama.enabled=false template 2>&1 || true) | grep -q 'no model backend'
+	($(HELMFILE) -e standalone -l name=synaplan template 2>&1 || true) | grep -q 'appSecret is empty'
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set certificate.wildcard=true,ingress.tls.secretName=wildcard-tls -l name=synaplan template | (! grep -q 'cert-manager.io/')
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set customization.release.synaplan.lint=../../../ci/synaplan/lint-values.yaml -l name=synaplan template | grep -q 'image: "ghcr.io/metadist/synaplan:latest"'
 
 .PHONY: clean
 clean: ## Remove build artifacts

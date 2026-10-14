@@ -1,7 +1,8 @@
 {{- if .Values | getOrNil "services" }}
 {{- fail "services.* was replaced by global, platform, cluster, ingress, certificate, apps and technical.synaplan (see helmfile/README.md)" }}
 {{- end }}
-{{- $host := printf "%s.%s" .Values.global.hosts.synaplan .Values.global.domain }}
+{{- $domain := dig "global" "domain" "" .Values | required "global.domain is required" }}
+{{- $host := printf "%s.%s" .Values.global.hosts.synaplan $domain }}
 {{- $t := .Values.technical.synaplan }}
 {{- $triton := .Values.apps.triton.enabled }}
 {{- $ollamaUrl := $t.ollama.baseUrl }}
@@ -19,16 +20,16 @@
 {{- fail (printf "technical.synaplan.models names %s, but there is no Ollama" .) }}
 {{- end }}
 {{- end }}
-{{- $rwx := .Values.cluster.persistence.readWriteMany.enabled }}
-{{- $wildcard := .Values.certificate.wildcard }}
+{{- $rwx := dig "cluster" "persistence" "readWriteMany" "enabled" false .Values }}
+{{- $wildcard := dig "certificate" "wildcard" false .Values }}
 {{- $tlsSecret := "synaplan-tls" }}
 {{- if $wildcard }}
-{{- $tlsSecret = .Values.ingress.tls.secretName | required "certificate.wildcard needs ingress.tls.secretName" }}
+{{- $tlsSecret = dig "ingress" "tls" "secretName" "" .Values | required "certificate.wildcard needs ingress.tls.secretName" }}
 {{- end }}
 {{- $annotations := dict }}
-{{- if and (not $wildcard) .Values.certificate.create }}
-{{- $issuerKey := ternary "cert-manager.io/issuer" "cert-manager.io/cluster-issuer" (eq .Values.certificate.issuerRef.kind "Issuer") }}
-{{- $_ := set $annotations $issuerKey .Values.certificate.issuerRef.name }}
+{{- if and (not $wildcard) (dig "certificate" "create" false .Values) }}
+{{- $issuerKey := ternary "cert-manager.io/issuer" "cert-manager.io/cluster-issuer" (eq (dig "certificate" "issuerRef" "kind" "ClusterIssuer" .Values) "Issuer") }}
+{{- $_ := set $annotations $issuerKey (dig "certificate" "issuerRef" "name" "" .Values | required "certificate.create needs certificate.issuerRef.name") }}
 {{- end }}
 publicUrl: "https://{{ $host }}"
 
@@ -36,14 +37,14 @@ publicUrl: "https://{{ $host }}"
 {{- if or .repository .tag }}
 image:
   {{- with .repository }}
-  repository: {{ printf "%s/%s" (coalesce $.Values.global.imageRegistry $.Values.images.synaplan.registry) . | trimPrefix "/" | quote }}
+  repository: {{ printf "%s/%s" (coalesce (dig "global" "imageRegistry" "" $.Values) $.Values.images.synaplan.registry) . | trimPrefix "/" | quote }}
   {{- end }}
   {{- with .tag }}
   tag: {{ . | quote }}
   {{- end }}
 {{- end }}
 {{- end }}
-{{- with .Values.global.imagePullSecrets }}
+{{- with (dig "global" "imagePullSecrets" list .Values) }}
 imagePullSecrets:
   {{- range . }}
   - name: {{ . | quote }}
@@ -68,7 +69,7 @@ persistence:
     enabled: true
     accessMode: {{ ternary "ReadWriteMany" "ReadWriteOnce" $rwx | quote }}
     size: {{ .Values.persistence.storages.synaplan.size | quote }}
-    storageClass: {{ coalesce .Values.persistence.storages.synaplan.storageClassName (ternary .Values.persistence.storageClassNames.RWX .Values.persistence.storageClassNames.RWO $rwx) | default "" | quote }}
+    storageClass: {{ coalesce .Values.persistence.storages.synaplan.storageClassName (ternary (dig "persistence" "storageClassNames" "RWX" "" .Values) (dig "persistence" "storageClassNames" "RWO" "" .Values) $rwx) | default "" | quote }}
 
 {{- if not $rwx }}
 # The uploads volume is ReadWriteOnce: the worker and the scheduler run on
@@ -154,7 +155,7 @@ speech:
 oidc:
   enabled: {{ $t.oidc.enabled }}
   {{- if $t.oidc.enabled }}
-  issuerURI: {{ $t.oidc.issuerURI | default (printf "https://%s.%s/realms/%s" .Values.global.hosts.keycloak .Values.global.domain .Values.platform.realm) | quote }}
+  issuerURI: {{ $t.oidc.issuerURI | default (printf "https://%s.%s/realms/%s" (dig "global" "hosts" "keycloak" "id" .Values) $domain (dig "platform" "realm" "" .Values | required "platform.realm is required, or technical.synaplan.oidc.issuerURI")) | quote }}
   clientId: {{ $t.oidc.clientId | quote }}
   {{- with $t.oidc.clientSecretRef }}
   clientSecretRef: {{ . | quote }}
@@ -176,14 +177,14 @@ featurePins:
   {{- toYaml . | nindent 2 }}
 {{- end }}
 
-{{- if .Values.certificate.selfSigned }}
+{{- if dig "certificate" "selfSigned" false .Values }}
 customRootCA:
   secretRef: {{ $tlsSecret | quote }}
 {{- end }}
 
 ingress:
   enabled: true
-  className: {{ .Values.ingress.ingressClassName | quote }}
+  className: {{ dig "ingress" "ingressClassName" "" .Values | quote }}
   {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

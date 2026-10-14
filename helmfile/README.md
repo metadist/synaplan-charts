@@ -12,9 +12,8 @@ helmfile-defaults.yaml.gotmpl       # the apps, in order
 helmfile/
 ├── bases/environments.yaml.gotmpl
 ├── environments/
-│   ├── default/                    # every value with its default
-│   ├── triton/                     # example: Triton installed here
-│   ├── ollama/                     # example: Ollama installed here
+│   ├── default/                    # Synaplan's own values, the same everywhere
+│   ├── standalone/                 # example: a cluster of its own
 │   └── opendesk/                   # example: next to a running openDesk
 └── apps/
     ├── synaplan/                   # Synaplan, speech-to-text server
@@ -37,7 +36,7 @@ Secret of your own), an ingress controller, and an OIDC provider with a
 confidential client for Synaplan.
 
 ```bash
-cp -r helmfile/environments/ollama helmfile/environments/my-cluster
+cp -r helmfile/environments/standalone helmfile/environments/my-cluster
 $EDITOR helmfile/environments/my-cluster/values.yaml.gotmpl
 
 export MASTER_PASSWORD='...'
@@ -47,10 +46,11 @@ helmfile -e my-cluster -n synaplan --kube-context my-cluster apply
 Run Helmfile from the repository root; each app also runs on its own with
 `-f helmfile/apps/<app>/helmfile.yaml.gotmpl`. Every release goes into the namespace
 given with `-n`. An environment's files are merged over
-[environments/default](environments/default/); set there what differs,
-starting with `global.domain`, `global.hosts`, `platform.realm` and
-`ingress.ingressClassName`. Environment directories other than `default`,
-`triton`, `ollama` and `opendesk` are gitignored.
+[environments/default](environments/default/), which holds only Synaplan's
+own values. The platform values (`global`, `platform`, `cluster`, `ingress`,
+`certificate`, `persistence.storageClassNames`) come from the environment,
+or from openDesk when Synaplan runs inside it. Environment directories other
+than `default`, `standalone` and `opendesk` are gitignored.
 
 The issuer is `https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>`
 unless `technical.synaplan.oidc.issuerURI` sets another.

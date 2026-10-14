@@ -172,12 +172,12 @@ A tag that is not a complete semver skips that check.
 Synaplan with MariaDB, Tika and a model backend (Triton or Ollama) is the
 [Helmfile](helmfile/), laid out like openDesk. It runs on its own or as an app
 inside an openDesk, and offers only models that run in the cluster unless you
-allow cloud providers. One example environment per backend, `triton` and
-`ollama`:
+allow cloud providers. Example environments: `standalone` (a cluster of its
+own) and `opendesk` (next to a running openDesk):
 
 ```bash
 export MASTER_PASSWORD='...'
-helmfile -e ollama -n synaplan apply
+helmfile -e standalone -n synaplan apply
 ```
 
 ## Installation
