@@ -104,6 +104,9 @@ the render rather than replace a secret the release may already use.
 {{- end }}
 {{ $key }}: {{ $value | quote }}
 {{- end }}
+{{- with index $existing "database-root-password" | default "" | b64dec | default .Values.database.rootPassword }}
+database-root-password: {{ . | quote }}
+{{- end }}
 {{- end }}
 
 {{/*

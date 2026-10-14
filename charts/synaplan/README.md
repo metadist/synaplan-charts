@@ -191,6 +191,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | database.password | string | `""` | Database password, kept in the Secret <fullname>-credentials. Empty: the value already in that Secret; the render fails without one. Used unless passwordSecretRef is set. |
 | database.passwordSecretRef | string | `""` | Name of an existing Secret holding the database password (key: password) |
 | database.port | string | `"3306"` |  |
+| database.rootPassword | string | `""` | Root password of a database installed next to Synaplan, kept in <fullname>-credentials (key database-root-password) for that database. Synaplan does not read it. Written once: a value already in that Secret wins, because the database only takes its root password on first start. |
 | database.serverVersion | string | `"11.7.2-MariaDB"` |  |
 | database.user | string | `"synaplan"` |  |
 | env[0].name | string | `"APP_ENV"` |  |

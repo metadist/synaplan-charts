@@ -105,6 +105,11 @@ database:
   password: ""
   # -- Name of an existing Secret holding the database password (key: password)
   passwordSecretRef: ""
+  # -- Root password of a database installed next to Synaplan, kept in
+  # <fullname>-credentials (key database-root-password) for that database.
+  # Synaplan does not read it. Written once: a value already in that Secret
+  # wins, because the database only takes its root password on first start.
+  rootPassword: ""
 
 # Triton Inference Server configuration
 triton:
