@@ -394,7 +394,7 @@ tts:
   huggingfaceVoices:
     image:
       repository: python
-      tag: "3.11-slim"
+      tag: "3.15-slim"
     repo: "rhasspy/piper-voices"
     revision: ""  # pin to a known-good commit hash (recommended)
     voices: []
