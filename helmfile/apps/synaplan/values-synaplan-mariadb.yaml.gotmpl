@@ -14,9 +14,10 @@ job:
     imagePullPolicy: {{ (dig "global" "imagePullPolicy" "IfNotPresent" .Values) | quote }}
   users:
     - username: {{ $db.username | quote }}
-      # Without a derived value: the password in Synaplan's credentials
-      # Secret, read by the chart (it renders this through tpl).
-      password: {{ $db.password.value | default `{{ required "synaplan-credentials has no password yet" (index ((lookup "v1" "Secret" .Release.Namespace "synaplan-credentials").data | default dict) "password") | b64dec }}` | quote }}
+      password:
+        existingSecret:
+          name: "synaplan-credentials"
+          key: "password"
       connectionLimit: 100
   databases:
     - name: {{ $db.name | quote }}
