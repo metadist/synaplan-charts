@@ -109,6 +109,13 @@ install-helmfile: ## Install helmfile
 	sudo mv helmfile /usr/local/bin/ && \
 	rm helmfile.tar.gz
 
+.PHONY: install-k3d
+install-k3d: ## Install k3d (for the e2e suite)
+	@echo "Installing k3d..."
+	@curl -fsSL -o /tmp/k3d https://github.com/k3d-io/k3d/releases/download/v5.8.3/k3d-linux-amd64 && \
+	sudo install /tmp/k3d /usr/local/bin/k3d && \
+	rm /tmp/k3d
+
 .PHONY: install-kubeconform
 install-kubeconform: ## Install kubeconform tool
 	@echo "Installing kubeconform..."

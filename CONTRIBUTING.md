@@ -85,7 +85,7 @@ Once the tag is pushed:
    - Lints all charts
    - Templates and validates manifests
    - Checks documentation is up-to-date
-   - Runs deployment tests (placeholder for now)
+   - Deploys the Helmfile into a k3d cluster per environment and signs in with Playwright ([e2e](e2e/))
 
 2. **Release Job**
    - Extracts version from tag (`synaplan-v1.0.0` → version `1.0.0`)

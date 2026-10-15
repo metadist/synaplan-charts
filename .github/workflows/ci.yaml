@@ -114,33 +114,62 @@ jobs:
           fi
 
   test-deployment:
-    name: Test Deployment
+    name: Test Deployment (${{ matrix.environment }})
     runs-on: ubuntu-latest
-    needs: lint-and-package
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [standalone]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Download chart artifacts
-        uses: actions/download-artifact@v8
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
         with:
-          path: /tmp/charts
+          version: ${{ env.HELM_VERSION }}
 
-      - name: List downloaded artifacts
-        run: ls -R /tmp/charts
+      - name: Install helmfile and k3d
+        run: make install-helmfile install-k3d
 
-      # TODO: Set up k3s or kind cluster
-      # TODO: Deploy with helmfile
-      # TODO: Smoke test endpoints
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: e2e/package.json
 
-      - name: Placeholder for deployment tests
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: e2e/pnpm-lock.yaml
+
+      - name: Install Playwright
+        working-directory: e2e
         run: |
-          echo "Deployment tests will be implemented here"
-          echo "- Create k3s/kind cluster"
-          echo "- Deploy MariaDB operator"
-          echo "- Deploy charts using helmfile"
-          echo "- Verify all pods are ready"
-          echo "- Smoke test endpoints"
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Deploy the Helmfile and run the suite
+        run: e2e/run.sh ${{ matrix.environment }}
+
+      - name: Show the cluster
+        if: failure()
+        env:
+          KUBECONFIG: e2e/.kubeconfig-${{ matrix.environment }}
+        run: |
+          kubectl get pods,jobs,ingress -A
+          kubectl -n synaplan describe pods
+          kubectl -n synaplan logs deployment/synaplan --all-containers --tail=200
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-${{ matrix.environment }}
+          path: e2e/playwright-report
+          retention-days: 7
 
   release-dev:
     name: Publish Development Builds

@@ -1,0 +1,20 @@
+# Merged over helmfile/environments/standalone for the e2e run.
+global:
+  domain: "e2e.test"
+
+ingress:
+  ingressClassName: "haproxy"
+
+certificate:
+  create: false
+
+apps:
+  ollama:
+    enabled: false
+
+technical:
+  synaplan:
+    ollama:
+      baseUrl: "http://ollama.invalid:11434"
+    tts:
+      enabled: false
