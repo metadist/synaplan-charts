@@ -199,9 +199,26 @@ Synaplan becomes an app of an openDesk by adding the two apps to the
     values: *values
 ```
 
-openDesk's environment then supplies `global`, `platform`, `ingress`,
-`certificate` and `apps.collabora`. Register the `synaplan` client as in
-[Next to openDesk](#next-to-opendesk).
+Run openDesk's Helmfile from openDesk's root, as openDesk requires: the apps
+then read openDesk's defaults (`global`, `platform`, `ingress`,
+`certificate`, `apps.collabora`) from there. Synaplan's own settings go into
+a file in openDesk's environment folder, e.g. the model backend and the
+switches of the [opendesk](environments/opendesk/) example:
+
+```yaml
+technical:
+  synaplan:
+    sovereign: true
+    ollama:
+      baseUrl: "http://ollama.example:11434"
+    models:
+      enabled: ["ollama:gpt-oss-20b", "ollama:bge-m3"]
+      defaults: {chat: "ollama:gpt-oss-20b", sort: "ollama:gpt-oss-20b", vectorize: "ollama:bge-m3"}
+    oidc:
+      adminRoles: "admin,realm-admin,synaplan-admin,administrator,domain admins"
+```
+
+Register the `synaplan` client as in [Next to openDesk](#next-to-opendesk).
 
 ## Remove
 
