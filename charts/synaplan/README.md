@@ -180,7 +180,9 @@ openDesk, is the [Helmfile](../../helmfile/).
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| bootstrapAdmin.email | string | `""` | Email of the first administrator, instead of secretRef. Empty = off. |
 | bootstrapAdmin.forcePasswordChange | bool | `nil` | BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default. |
+| bootstrapAdmin.password | string | `""` | Password of the first administrator, kept in the Secret <fullname>-credentials. Written once: Synaplan creates the administrator only while it has none, so a later value does not change it. |
 | bootstrapAdmin.secretRef | string | `""` | Name of an existing Secret with keys email and password (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off. |
 | compute.tokenSecretRef | string | `""` | Name of an existing Secret holding the token under key compute-token. |
 | compute.url | string | `""` | Compute sidecar URL. Empty = off. |

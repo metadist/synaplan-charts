@@ -128,7 +128,9 @@ oidc:
 ```
 
 A local first administrator, when you are not using SSO, is
-`bootstrapAdmin.secretRef` (Secret keys `email` and `password`).
+`bootstrapAdmin.email` with `bootstrapAdmin.password` (kept in the Secret
+`<fullname>-credentials`, key `admin-password`), or `bootstrapAdmin.secretRef`
+(Secret keys `email` and `password`).
 
 The model catalog is applied at startup by `models.providers.only` (an
 allow-list; preferred for air-gapped installs), or by `models.providers.enabled`

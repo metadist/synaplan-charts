@@ -263,6 +263,12 @@ bootstrapAdmin:
   # -- Name of an existing Secret with keys email and password
   # (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off.
   secretRef: ""
+  # -- Email of the first administrator, instead of secretRef. Empty = off.
+  email: ""
+  # -- Password of the first administrator, kept in the Secret
+  # <fullname>-credentials. Written once: Synaplan creates the administrator
+  # only while it has none, so a later value does not change it.
+  password: ""
   # -- (bool) BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default.
   forcePasswordChange: null
 

@@ -107,6 +107,13 @@ the render rather than replace a secret the release may already use.
 {{- with index $existing "database-root-password" | default "" | b64dec | default .Values.database.rootPassword }}
 database-root-password: {{ . | quote }}
 {{- end }}
+{{- if and .Values.bootstrapAdmin.email (not .Values.bootstrapAdmin.secretRef) }}
+{{- $adminPassword := index $existing "admin-password" | default "" | b64dec | default .Values.bootstrapAdmin.password }}
+{{- if not $adminPassword }}
+{{- fail (printf "bootstrapAdmin.password is empty and the Secret %s has no key admin-password yet" (include "synaplan.credentials.secretName" $)) }}
+{{- end }}
+admin-password: {{ $adminPassword | quote }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -393,18 +400,27 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- end }}
 {{- end }}
 {{- end }}
-{{- with .Values.bootstrapAdmin.secretRef }}
+{{- if .Values.bootstrapAdmin.secretRef }}
 # First administrator (local accounts)
 - name: BOOTSTRAP_ADMIN_EMAIL
   valueFrom:
     secretKeyRef:
-      name: {{ . | quote }}
+      name: {{ .Values.bootstrapAdmin.secretRef | quote }}
       key: email
 - name: BOOTSTRAP_ADMIN_PASSWORD
   valueFrom:
     secretKeyRef:
-      name: {{ . | quote }}
+      name: {{ .Values.bootstrapAdmin.secretRef | quote }}
       key: password
+{{- else if .Values.bootstrapAdmin.email }}
+# First administrator (local accounts)
+- name: BOOTSTRAP_ADMIN_EMAIL
+  value: {{ .Values.bootstrapAdmin.email | quote }}
+- name: BOOTSTRAP_ADMIN_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . }}
+      key: admin-password
 {{- end }}
 {{- if kindIs "bool" .Values.bootstrapAdmin.forcePasswordChange }}
 - name: BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE
