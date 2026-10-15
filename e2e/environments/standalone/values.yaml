@@ -1,0 +1,6 @@
+# Merged over helmfile/environments/standalone: the runner has no GPU, and
+# the example's models are too large to pull.
+technical:
+  ollama:
+    mode: "cpu"
+    pull: []
