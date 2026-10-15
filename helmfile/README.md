@@ -115,7 +115,8 @@ against the values in the cluster.
 | An Ollama you run | `technical.synaplan.ollama.baseUrl` |
 
 `technical.synaplan.models` lists the models Synaplan enables and its
-defaults. The Ollama release pulls the `ollama:` models listed there. The
+defaults, by their catalog keys (`ollama:gpt-oss-20b`); `technical.ollama.pull`
+lists the Ollama model names the Ollama release pulls (`gpt-oss:20b`). The
 render fails without a backend, or when a listed model has none.
 
 By default only models that run in the cluster are offered, and the browser's

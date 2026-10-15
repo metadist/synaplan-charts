@@ -39,6 +39,7 @@ technical:
   # "gpu" or "cpu"
   ollama:
     mode: "gpu"
+    pull: ["gpt-oss:20b", "bge-m3"]
   triton:
     mode: "gpu"
   synaplan:
@@ -48,9 +49,9 @@ technical:
       adminRoles: "admin,realm-admin,synaplan-admin,administrator,domain admins"
     models:
       enabled:
-        - "ollama:gpt-oss:20b"
+        - "ollama:gpt-oss-20b"
         - "ollama:bge-m3"
       defaults:
-        chat: "ollama:gpt-oss:20b"
-        sort: "ollama:gpt-oss:20b"
+        chat: "ollama:gpt-oss-20b"
+        sort: "ollama:gpt-oss-20b"
         vectorize: "ollama:bge-m3"

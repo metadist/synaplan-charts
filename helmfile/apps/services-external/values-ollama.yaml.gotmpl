@@ -1,16 +1,9 @@
-{{- $pull := list }}
-{{- range .Values.technical.synaplan.models.enabled }}
-{{- if hasPrefix "ollama:" . }}
-{{- $pull = append $pull (trimPrefix "ollama:" .) }}
-{{- end }}
-{{- end }}
 ollama:
   gpu:
     enabled: {{ eq .Values.technical.ollama.mode "gpu" }}
-  # The models Synaplan enables
   models:
     pull:
-      {{- toYaml $pull | nindent 6 }}
+      {{- toYaml .Values.technical.ollama.pull | nindent 6 }}
 
 persistentVolume:
   enabled: true
