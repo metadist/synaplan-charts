@@ -18,6 +18,11 @@ technical:
     # namespace (apps.collabora), else none.
     office:
       convertUrl: ""
+    # A speech-to-text server this deployment does not install. Empty: the
+    # synaplan-stt release (apps.synaplanStt), else whisper.cpp in the
+    # Synaplan pod.
+    speech:
+      whisperServerUrl: ""
     models:
       enabled: []
       defaults: {}

@@ -148,8 +148,8 @@ speech:
   webSpeech: false
   {{- end }}
   whisper: true
-  {{- if .Values.apps.synaplanStt.enabled }}
-  whisperServerUrl: "http://synaplan-stt:8080"
+  {{- with $t.speech.whisperServerUrl | default (ternary "http://synaplan-stt:8080" "" .Values.apps.synaplanStt.enabled) }}
+  whisperServerUrl: {{ . | quote }}
   {{- end }}
 
 {{- with $t.bootstrapAdmin.email }}
