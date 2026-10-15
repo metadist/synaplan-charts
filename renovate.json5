@@ -8,6 +8,13 @@
   ],
   packageRules: [
     {
+      description: 'openDesk releases are tagged vX.Y.Z; older calendar tags (24.03) are not releases to follow',
+      matchPackageNames: [
+        'bmi/opendesk/deployment/opendesk',
+      ],
+      allowedVersions: '/^v\\d+\\.\\d+\\.\\d+$/',
+    },
+    {
       description: 'Triton Server PyTorch variant - only update YY.MM version, keep -pyt-python-py3 suffix',
       matchDatasources: [
         'docker',
@@ -73,6 +80,19 @@
       ],
       datasourceTemplate: 'docker',
       packageNameTemplate: '{{{packageName}}}/{{{depName}}}',
+    },
+    {
+      customType: 'regex',
+      description: 'openDesk release the e2e suite deploys (e2e/environments/*/env.sh)',
+      managerFilePatterns: [
+        '/^e2e/environments/.+/env\\.sh$/',
+      ],
+      matchStrings: [
+        'OPENDESK_REF=\\$\\{E2E_OPENDESK_REF:-(?<currentValue>v[^}]+)\\}',
+      ],
+      datasourceTemplate: 'gitlab-tags',
+      depNameTemplate: 'bmi/opendesk/deployment/opendesk',
+      registryUrlTemplate: 'https://gitlab.opencode.de',
     },
   ],
   'helm-values': {
