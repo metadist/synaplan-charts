@@ -1,20 +1,6 @@
-# Merged over helmfile/environments/standalone for the e2e run.
-global:
-  domain: "e2e.test"
-
-ingress:
-  ingressClassName: "haproxy"
-
-certificate:
-  create: false
-
-apps:
-  ollama:
-    enabled: false
-
+# Merged over helmfile/environments/standalone: the runner has no GPU, and
+# the example's models are too large to pull.
 technical:
-  synaplan:
-    ollama:
-      baseUrl: "http://ollama.invalid:11434"
-    tts:
-      enabled: false
+  ollama:
+    mode: "cpu"
+    pull: []

@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test'
 
-const domain = process.env.E2E_DOMAIN ?? 'e2e.test'
+const host = process.env.E2E_HOST ?? 'synaplan.example.org'
 const ingressIp = process.env.E2E_INGRESS_IP ?? '127.0.0.1'
 
 export default defineConfig({
@@ -9,11 +9,11 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: `https://synaplan.${domain}`,
+    baseURL: `https://${host}`,
     ignoreHTTPSErrors: true,
     trace: 'retain-on-failure',
     launchOptions: {
-      args: [`--host-resolver-rules=MAP *.${domain} ${ingressIp}`],
+      args: [`--host-resolver-rules=MAP ${host} ${ingressIp}`],
     },
   },
   projects: [{ name: 'standalone', testDir: './tests/standalone' }],

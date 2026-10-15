@@ -18,12 +18,12 @@ HELMFILE="helmfile --helm-binary $HELM"
 
 CLUSTER=${E2E_CLUSTER:-synaplan-e2e-$ENVIRONMENT}
 K3S_IMAGE=${E2E_K3S_IMAGE:-rancher/k3s:v1.33.5-k3s1}
-HAPROXY_INGRESS_VERSION=0.16.2
+INGRESS_NGINX_VERSION=4.15.1
 NAMESPACE=synaplan
-export E2E_DOMAIN=${E2E_DOMAIN:-e2e.test}
+ENV_DIR=$E2E/environments/$ENVIRONMENT
 export KUBECONFIG=$E2E/.kubeconfig-$ENVIRONMENT
 
-[ -d "$E2E/environments/$ENVIRONMENT" ] || { echo "unknown environment: $ENVIRONMENT" >&2; exit 1; }
+[ -d "$ENV_DIR" ] || { echo "unknown environment: $ENVIRONMENT" >&2; exit 1; }
 
 up() {
   "$K3D" cluster create "$CLUSTER" --image "$K3S_IMAGE" --no-lb --wait --timeout 300s \
@@ -32,15 +32,20 @@ up() {
     --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%@server:*' \
     --k3s-arg '--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%@server:*'
   "$K3D" kubeconfig get "$CLUSTER" > "$KUBECONFIG"
-  "$HELM" repo add haproxy-ingress https://haproxy-ingress.github.io/charts --force-update >/dev/null
-  "$HELM" upgrade --install haproxy-ingress haproxy-ingress/haproxy-ingress --version "$HAPROXY_INGRESS_VERSION" \
-    -n ingress --create-namespace --wait --timeout 5m -f "$E2E/cluster/haproxy-ingress.yaml"
+  if [ -f "$ENV_DIR/ingress-nginx.yaml" ]; then
+    "$HELM" repo add ingress-nginx https://kubernetes.github.io/ingress-nginx --force-update >/dev/null
+    "$HELM" upgrade --install ingress-nginx ingress-nginx/ingress-nginx --version "$INGRESS_NGINX_VERSION" \
+      -n ingress --create-namespace -f "$ENV_DIR/ingress-nginx.yaml"
+    kubectl -n ingress rollout status daemonset/ingress-nginx-controller --timeout=5m
+  fi
 }
 
 deploy() {
   MASTER_PASSWORD=${1:-e2e-master-password} $HELMFILE -e "$ENVIRONMENT" -n "$NAMESPACE" \
-    --state-values-file "$E2E/environments/$ENVIRONMENT/values.yaml" sync
-  kubectl -n "$NAMESPACE" rollout status deployment/synaplan --timeout=15m
+    --state-values-file "$ENV_DIR/values.yaml" sync
+  for workload in $(kubectl -n "$NAMESPACE" get deployments,statefulsets -o name); do
+    kubectl -n "$NAMESPACE" rollout status "$workload" --timeout=15m
+  done
 }
 
 ingress_ip() {
@@ -53,7 +58,9 @@ secret() {
 
 test_suite() {
   export E2E_INGRESS_IP=$(ingress_ip)
-  export E2E_ADMIN_EMAIL=admin@example.org
+  export E2E_HOST=$(kubectl -n "$NAMESPACE" get ingress synaplan -o 'jsonpath={.spec.rules[0].host}')
+  export E2E_ADMIN_EMAIL=$(kubectl -n "$NAMESPACE" get deployment synaplan \
+    -o 'jsonpath={.spec.template.spec.containers[0].env[?(@.name=="BOOTSTRAP_ADMIN_EMAIL")].value}')
   export E2E_ADMIN_PASSWORD=$(secret admin-password)
   (cd "$E2E" && pnpm exec playwright test --project "$ENVIRONMENT" "$@")
 }
