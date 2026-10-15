@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.6.0](https://img.shields.io/badge/Version-0.6.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.0.6](https://img.shields.io/badge/AppVersion-5.0.6-informational?style=flat-square)
+![Version: 0.7.0](https://img.shields.io/badge/Version-0.7.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.4.1](https://img.shields.io/badge/AppVersion-5.4.1-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.6.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.0
 ```
 
 ### Install from local chart
@@ -138,7 +138,7 @@ settings:
   "IAM.ADMIN_IMPERSONATION": "audited"
   "IAM.AUDIT_RETENTION_DAYS": 365
   "MCP.CLIENT_ENABLED": false
-  "BRANDING.BRAND_NAME": "VS-AP"
+  "BRANDING.BRAND_NAME": "Example Corp"
   "IAM.DIRECTORY_GROUP_NAMES":
     synaplan-users: "Synaplan users"
 ```

@@ -240,7 +240,7 @@ featurePins: {}
 #     "IAM.DIRECTORY_GROUPS_CLAIM": "groups"
 #     "IAM.ADMIN_IMPERSONATION": "audited"
 #     "MCP.CLIENT_ENABLED": false
-#     "BRANDING.BRAND_NAME": "VS-AP"
+#     "BRANDING.BRAND_NAME": "Example Corp"
 #     "IAM.DIRECTORY_GROUP_NAMES":
 #       synaplan-users: "Synaplan users"
 
