@@ -1,7 +1,4 @@
 {{- if .Values.tts.enabled }}
-{{- if .Values.tts.image.digest }}
-{{- fail "tts.image.digest is no longer read: put the digest into tts.image.tag as <tag>@sha256:..." }}
-{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
