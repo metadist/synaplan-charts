@@ -75,6 +75,47 @@ Name of the Secret holding the custom root CA (key ca.crt)
 {{- .Values.customRootCA.secretRef | default (printf "%s-ca" (include "synaplan.fullname" .)) -}}
 {{- end }}
 
+{{- define "synaplan.credentials.secretName" -}}
+{{- printf "%s-credentials" (include "synaplan.fullname" .) -}}
+{{- end }}
+
+{{/*
+Keys of the credentials Secret, one per secret without a *SecretRef: the
+value given in values, else the value already in the Secret. Neither fails
+the render rather than replace a secret the release may already use.
+*/}}
+{{- define "synaplan.credentials" -}}
+{{- $existing := (lookup "v1" "Secret" .Release.Namespace (include "synaplan.credentials.secretName" .)).data | default dict }}
+{{- $given := dict }}
+{{- if not .Values.database.passwordSecretRef }}
+{{- $_ := set $given "password" .Values.database.password }}
+{{- end }}
+{{- if not .Values.appSecretRef }}
+{{- $_ := set $given "app-secret" .Values.appSecret }}
+{{- end }}
+{{- if and .Values.oidc.enabled (not .Values.oidc.clientSecretRef) }}
+{{- $_ := set $given "client-secret" .Values.oidc.clientSecret }}
+{{- end }}
+{{- range $key, $value := $given }}
+{{- $value = $value | default (index $existing $key | default "" | b64dec) }}
+{{- if not $value }}
+{{- $from := dict "password" "database.password" "app-secret" "appSecret" "client-secret" "oidc.clientSecret" }}
+{{- fail (printf "%s is empty and the Secret %s has no key %s yet" (index $from $key) (include "synaplan.credentials.secretName" $) $key) }}
+{{- end }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- with index $existing "database-root-password" | default "" | b64dec | default .Values.database.rootPassword }}
+database-root-password: {{ . | quote }}
+{{- end }}
+{{- if and .Values.bootstrapAdmin.email (not .Values.bootstrapAdmin.secretRef) }}
+{{- $adminPassword := index $existing "admin-password" | default "" | b64dec | default .Values.bootstrapAdmin.password }}
+{{- if not $adminPassword }}
+{{- fail (printf "bootstrapAdmin.password is empty and the Secret %s has no key admin-password yet" (include "synaplan.credentials.secretName" $)) }}
+{{- end }}
+admin-password: {{ $adminPassword | quote }}
+{{- end }}
+{{- end }}
+
 {{/*
 Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
 */}}
@@ -116,9 +157,11 @@ role deployments add SYNAPLAN_ROLE on top.
       name: {{ .Values.database.passwordSecretRef | quote }}
       key: password
   {{- else }}
-  value: {{ .Values.database.password | quote }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . | quote }}
+      key: password
   {{- end }}
-{{- if or .Values.appSecret .Values.appSecretRef }}
 # Symfony kernel secret (CSRF tokens, signed URLs, at-rest credential encryption)
 - name: APP_SECRET
   {{- if .Values.appSecretRef }}
@@ -127,9 +170,11 @@ role deployments add SYNAPLAN_ROLE on top.
       name: {{ .Values.appSecretRef | quote }}
       key: app-secret
   {{- else }}
-  value: {{ .Values.appSecret | quote }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . | quote }}
+      key: app-secret
   {{- end }}
-{{- end }}
 # Redis (mandatory since synaplan 4.0: Symfony cache, Messenger queues,
 # rate limiter). LOCK_DSN points at the same redis so locks are visible
 # across the web/worker/scheduler pods (flock would be per-pod).
@@ -185,7 +230,10 @@ role deployments add SYNAPLAN_ROLE on top.
       name: {{ .Values.oidc.clientSecretRef | quote }}
       key: "client-secret"
   {{- else }}
-  value: {{ .Values.oidc.clientSecret | quote }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . | quote }}
+      key: "client-secret"
   {{- end }}
 - name: OIDC_AUTO_REDIRECT
   value: {{ .Values.oidc.autoRedirect | quote }}
@@ -194,24 +242,22 @@ role deployments add SYNAPLAN_ROLE on top.
   value: {{ .Values.oidc.scopes | quote }}
 {{- end }}
 {{- end }}
-{{- if .Values.tika.enabled }}
 # Tika Document Processing
 - name: TIKA_BASE_URL
-  value: {{ .Values.tika.url | quote }}
-{{- end }}
+  value: {{ ternary .Values.tika.url "" .Values.tika.enabled | quote }}
 {{- if .Values.tts.enabled }}
 # TTS (text-to-speech)
 - name: SYNAPLAN_TTS_URL
   value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
 {{- end }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list }}
+{{- $managed := list "TIKA_BASE_URL" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which the chart already emits from tika.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply)." .name) }}
 {{- end }}
 {{- end }}
 {{- $switchEnv }}
@@ -354,18 +400,27 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- end }}
 {{- end }}
 {{- end }}
-{{- with .Values.bootstrapAdmin.secretRef }}
+{{- if .Values.bootstrapAdmin.secretRef }}
 # First administrator (local accounts)
 - name: BOOTSTRAP_ADMIN_EMAIL
   valueFrom:
     secretKeyRef:
-      name: {{ . | quote }}
+      name: {{ .Values.bootstrapAdmin.secretRef | quote }}
       key: email
 - name: BOOTSTRAP_ADMIN_PASSWORD
   valueFrom:
     secretKeyRef:
-      name: {{ . | quote }}
+      name: {{ .Values.bootstrapAdmin.secretRef | quote }}
       key: password
+{{- else if .Values.bootstrapAdmin.email }}
+# First administrator (local accounts)
+- name: BOOTSTRAP_ADMIN_EMAIL
+  value: {{ .Values.bootstrapAdmin.email | quote }}
+- name: BOOTSTRAP_ADMIN_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.credentials.secretName" . }}
+      key: admin-password
 {{- end }}
 {{- if kindIs "bool" .Values.bootstrapAdmin.forcePasswordChange }}
 - name: BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE

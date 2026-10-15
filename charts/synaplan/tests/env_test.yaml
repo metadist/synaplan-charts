@@ -2,12 +2,37 @@ suite: env
 templates:
   - deployment.yaml
   - init-scripts-configmap.yaml
+set:
+  appSecret: test
+  database:
+    password: test
 tests:
+  - it: emits each URL of a neighbour service once
+    template: deployment.yaml
+    set:
+      qdrant:
+        url: http://qdrant:6333
+      office:
+        convertUrl: http://collabora:9980
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QDRANT_URL
+          any: true
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OFFICE_CONVERT_URL
+          any: true
+          count: 1
+
   - it: refuses a name that a chart value already emits
     template: deployment.yaml
-    values:
-      - ../../../examples/values-opendesk.yaml
     set:
+      qdrant:
+        url: http://qdrant:6333
       env:
         - name: QDRANT_URL
           value: http://qdrant:6333
@@ -27,3 +52,35 @@ tests:
           content:
             name: MY_SETTING
             value: "1"
+
+  - it: sets TIKA_BASE_URL empty when Tika is off
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TIKA_BASE_URL
+            value: ""
+
+  - it: sets TIKA_BASE_URL to tika.url when Tika is on
+    template: deployment.yaml
+    set:
+      tika:
+        enabled: true
+        url: http://tika:9998
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TIKA_BASE_URL
+            value: http://tika:9998
+
+  - it: refuses TIKA_BASE_URL in env
+    template: deployment.yaml
+    set:
+      env:
+        - name: TIKA_BASE_URL
+          value: http://tika:9998
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets TIKA_BASE_URL"

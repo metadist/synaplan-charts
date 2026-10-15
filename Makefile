@@ -7,7 +7,7 @@ SHELL := bash
 .SHELLFLAGS := -o pipefail -c
 
 HELM ?= helm
-HELMFILE := helmfile --helm-binary $(HELM) -f deployments/synaplan-standalone/helmfile.yaml.gotmpl
+HELMFILE := helmfile --helm-binary $(HELM)
 
 .PHONY: all docs lint package clean
 
@@ -63,18 +63,20 @@ validate: template ## Validate charts with kubeconform
 	done
 
 .PHONY: check
-check: ## Unit-test the synaplan chart; render the examples and the full-stack Helmfile
+check: ## Unit-test the synaplan chart; render the Helmfile
 	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
 	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
 	$(HELM) unittest charts/synaplan
-	$(HELM) template charts/synaplan | kubeconform -strict -summary -
-	$(HELM) template charts/synaplan -f examples/values-opendesk.yaml | kubeconform -strict -summary -
-	$(HELMFILE) -e triton template >/dev/null
-	$(HELMFILE) -e triton --state-values-set services.backend=triton-cpu template >/dev/null
-	$(HELMFILE) -e ollama template >/dev/null
-	($(HELMFILE) -e triton --state-values-set services.backend=sidecar template 2>&1 || true) | grep -q 'services.backend must be'
-	$(HELMFILE) -e triton --state-values-set services.synaplan.values.publicUrl=https://passed-through.example -l name=synaplan template | grep -q 'value: "https://passed-through.example"'
+	$(HELM) template charts/synaplan --set appSecret=check,database.password=check | kubeconform -strict -summary -
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone template | kubeconform -strict -summary -
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set apps.triton.enabled=true,technical.triton.mode=cpu template | kubeconform -strict -summary -
+	MASTER_PASSWORD=check $(HELMFILE) -e opendesk template | kubeconform -strict -summary -
+	(MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set apps.ollama.enabled=false template 2>&1 || true) | grep -q 'no model backend'
+	($(HELMFILE) -e standalone -l name=synaplan template 2>&1 || true) | grep -q 'appSecret is empty'
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone -l name=synaplan template | grep -q 'name: BOOTSTRAP_ADMIN_EMAIL'
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set certificate.wildcard=true,ingress.tls.secretName=wildcard-tls -l name=synaplan template | (! grep -q 'cert-manager.io/')
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set customization.release.synaplan.lint=../../../ci/synaplan/lint-values.yaml -l name=synaplan template | grep -q 'image: "ghcr.io/metadist/synaplan:latest"'
 
 .PHONY: clean
 clean: ## Remove build artifacts

@@ -286,7 +286,7 @@ jobs:
       - name: Install helm-unittest, helmfile and kubeconform
         run: make install-helm-unittest install-helmfile install-kubeconform
 
-      - name: Unit-test the chart, render the examples and the full stack
+      - name: Unit-test the chart, render the Helmfile
         run: make check
 
   all-checks-passed:

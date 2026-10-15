@@ -11,7 +11,7 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.6.0 | Synaplan 5.0.6, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
+| [synaplan](charts/synaplan/) | 0.7.0 | Synaplan 5.4.1, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 | [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |
 
@@ -93,9 +93,8 @@ speech:
   whisperServerUrl: "http://stt.synaplan.svc.cluster.local:8080"
 ```
 
-In the example helmfile deployment, `services.stt.mode: gpu` (or `cpu`) adds
-the release and sets this URL from the chart's Service name and port, including
-`service.port`, `nameOverride`, and `fullnameOverride` in `services.stt.values`.
+The [Helmfile](helmfile/) adds the release with `apps.synaplanStt.enabled: true` and
+sets this URL.
 
 Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
 `null` leaves the database row:
@@ -129,7 +128,9 @@ oidc:
 ```
 
 A local first administrator, when you are not using SSO, is
-`bootstrapAdmin.secretRef` (Secret keys `email` and `password`).
+`bootstrapAdmin.email` with `bootstrapAdmin.password` (kept in the Secret
+`<fullname>-credentials`, key `admin-password`), or `bootstrapAdmin.secretRef`
+(Secret keys `email` and `password`).
 
 The model catalog is applied at startup by `models.providers.only` (an
 allow-list; preferred for air-gapped installs), or by `models.providers.enabled`
@@ -155,7 +156,7 @@ settings:
   "IAM.ADMIN_IMPERSONATION": "audited"
   "IAM.AUDIT_RETENTION_DAYS": 365
   "MCP.CLIENT_ENABLED": false
-  "BRANDING.BRAND_NAME": "VS-AP"
+  "BRANDING.BRAND_NAME": "Example Corp"
 ```
 
 `settingSecrets` is the same map when the value comes from a Secret (`name`
@@ -168,24 +169,23 @@ Do not repeat a key that `features.*` or `featurePins` already pins. Synaplan
 render when either map is set. `5.0.6-alpine` fails. `5.1.0-rc.1` is accepted.
 A tag that is not a complete semver skips that check.
 
-## Example values
+## Helmfile
 
-[examples/values-opendesk.yaml](examples/values-opendesk.yaml) is an overlay
-for openDesk, applied with `-f` next to your own values file: SSO, shared
-Collabora, internet-facing features pinned off. It needs synaplan >= 5.0.0.
+Synaplan with MariaDB, Tika and a model backend (Triton or Ollama) is the
+[Helmfile](helmfile/), laid out like openDesk. It offers only models that run
+in the cluster unless you allow cloud providers, and runs in three ways:
 
-```bash
-helm install synaplan ./charts/synaplan -f my-values.yaml -f examples/values-opendesk.yaml
-```
-
-A full stack with MariaDB, Tika and a model backend (Triton, or an Ollama you
-run) is [deployments/synaplan-standalone/](deployments/synaplan-standalone/).
-It offers only models that run in the cluster unless you allow cloud
-providers. One example environment per backend, `triton` and `ollama`:
+| | Sign-in | Guide |
+| --- | --- | --- |
+| In a cluster of its own (example environment `standalone`) | local accounts, first administrator from the deployment | [Standalone](helmfile/README.md#standalone) |
+| Next to a running openDesk (example environment `opendesk`) | openDesk's Keycloak | [Next to openDesk](helmfile/README.md#next-to-opendesk) |
+| As an app of openDesk's own Helmfile | openDesk's Keycloak | [Inside openDesk](helmfile/README.md#inside-opendesk) |
 
 ```bash
-cd deployments/synaplan-standalone
-helmfile -e ollama apply
+cp -r helmfile/environments/standalone helmfile/environments/my-cluster
+$EDITOR helmfile/environments/my-cluster/values.yaml.gotmpl
+export MASTER_PASSWORD='...'
+helmfile -e my-cluster -n synaplan apply
 ```
 
 ## Installation
@@ -196,11 +196,11 @@ helmfile -e ollama apply
 
 Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
 `triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
-synaplan **0.6.0**, triton **0.1.0** and stt **0.1.0**.
+synaplan **0.7.0**, triton **0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.6.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.0
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # This checkout, including values that are not in an older GHCR release yet
@@ -226,7 +226,7 @@ make install-helmfile
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
-make check      # helm-unittest suites; renders the examples and the full-stack Helmfile (fetches the stack's chart repos)
+make check      # helm-unittest suites; renders the Helmfile (fetches its chart repos)
 make package
 make all        # all of the above
 ```

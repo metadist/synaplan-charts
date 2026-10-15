@@ -1,0 +1,40 @@
+{{- $db := .Values.databases.synaplan }}
+{{- $img := .Values.images.synaplanMariadb }}
+image:
+  registry: {{ coalesce (dig "global" "imageRegistry" "" .Values) $img.registry | quote }}
+  repository: {{ $img.repository | quote }}
+  tag: {{ $img.tag | quote }}
+  imagePullPolicy: {{ (dig "global" "imagePullPolicy" "IfNotPresent" .Values) | quote }}
+
+job:
+  image:
+    registry: {{ coalesce (dig "global" "imageRegistry" "" .Values) $img.registry | quote }}
+    repository: {{ $img.repository | quote }}
+    tag: {{ $img.tag | quote }}
+    imagePullPolicy: {{ (dig "global" "imagePullPolicy" "IfNotPresent" .Values) | quote }}
+  users:
+    - username: {{ $db.username | quote }}
+      # Without a derived value: the password in Synaplan's credentials
+      # Secret, read by the chart (it renders this through tpl).
+      password: {{ $db.password.value | default `{{ required "synaplan-credentials has no password yet" (index ((lookup "v1" "Secret" .Release.Namespace "synaplan-credentials").data | default dict) "password") | b64dec }}` | quote }}
+      connectionLimit: 100
+  databases:
+    - name: {{ $db.name | quote }}
+      user: {{ $db.username | quote }}
+
+mariadb:
+  rootPassword:
+    existingSecret:
+      name: "synaplan-credentials"
+      key: "database-root-password"
+
+persistence:
+  size: {{ .Values.persistence.storages.synaplanMariadb.size | quote }}
+  storageClass: {{ coalesce .Values.persistence.storages.synaplanMariadb.storageClassName (dig "persistence" "storageClassNames" "RWO" "" .Values) | default "" | quote }}
+
+{{- with (dig "global" "imagePullSecrets" list .Values) }}
+imagePullSecrets:
+  {{- range . }}
+  - name: {{ . | quote }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,11 @@
+{{- with .Values.images.tika }}
+{{- if or .repository .tag }}
+image:
+  {{- with .repository }}
+  repository: {{ printf "%s/%s" (coalesce (dig "global" "imageRegistry" "" $.Values) $.Values.images.tika.registry) . | trimPrefix "/" | quote }}
+  {{- end }}
+  {{- with .tag }}
+  tag: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,23 @@
+ollama:
+  gpu:
+    enabled: {{ eq .Values.technical.ollama.mode "gpu" }}
+  models:
+    pull:
+      {{- toYaml .Values.technical.ollama.pull | nindent 6 }}
+
+persistentVolume:
+  enabled: true
+  size: {{ .Values.persistence.storages.ollama.size | quote }}
+  storageClass: {{ coalesce .Values.persistence.storages.ollama.storageClassName (dig "persistence" "storageClassNames" "RWO" "" .Values) | default "" | quote }}
+
+{{- with .Values.images.ollama }}
+{{- if or .repository .tag }}
+image:
+  {{- with .repository }}
+  repository: {{ printf "%s/%s" (coalesce (dig "global" "imageRegistry" "" $.Values) $.Values.images.ollama.registry) . | trimPrefix "/" | quote }}
+  {{- end }}
+  {{- with .tag }}
+  tag: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

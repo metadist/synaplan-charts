@@ -1,0 +1,57 @@
+# Example environment: Synaplan next to an openDesk that already runs, in
+# its namespace (-n), without changing openDesk. Values from openDesk's
+# environment keep their openDesk names.
+
+global:
+  domain: "example.org"
+  hosts:
+    keycloak: "id"
+
+platform:
+  realm: "opendesk"
+
+ingress:
+  ingressClassName: "haproxy"
+  tls:
+    secretName: "opendesk-certificates-tls"
+
+certificate:
+  # openDesk's certificate covers *.<domain> (certificate.wildcard there)
+  wildcard: true
+
+# Model backend: Ollama or Triton, installed here. To switch to Triton,
+# turn ollama off and triton on, and list triton models instead:
+#   models:
+#     enabled: ["triton:gpt-oss-20b", "triton:bge-m3", "triton:mistral-7b-instruct-v0.3"]
+#     defaults: {chat: "triton:gpt-oss-20b", sort: "triton:gpt-oss-20b", vectorize: "triton:bge-m3"}
+# For an Ollama you run yourself, turn both off and set
+# technical.synaplan.ollama.baseUrl.
+apps:
+  ollama:
+    enabled: true
+  triton:
+    enabled: false
+  # openDesk runs Collabora; Synaplan uses it for Office previews
+  collabora:
+    enabled: true
+
+technical:
+  # "gpu" or "cpu"
+  ollama:
+    mode: "gpu"
+    pull: ["gpt-oss:20b", "bge-m3"]
+  triton:
+    mode: "gpu"
+  synaplan:
+    sovereign: true
+    oidc:
+      # openDesk's installation administrators are the group "Domain Admins"
+      adminRoles: "admin,realm-admin,synaplan-admin,administrator,domain admins"
+    models:
+      enabled:
+        - "ollama:gpt-oss-20b"
+        - "ollama:bge-m3"
+      defaults:
+        chat: "ollama:gpt-oss-20b"
+        sort: "ollama:gpt-oss-20b"
+        vectorize: "ollama:bge-m3"
