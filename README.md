@@ -172,14 +172,20 @@ A tag that is not a complete semver skips that check.
 ## Helmfile
 
 Synaplan with MariaDB, Tika and a model backend (Triton or Ollama) is the
-[Helmfile](helmfile/), laid out like openDesk. It runs on its own or as an app
-inside an openDesk, and offers only models that run in the cluster unless you
-allow cloud providers. Example environments: `standalone` (a cluster of its
-own) and `opendesk` (next to a running openDesk):
+[Helmfile](helmfile/), laid out like openDesk. It offers only models that run
+in the cluster unless you allow cloud providers, and runs in three ways:
+
+| | Sign-in | Guide |
+| --- | --- | --- |
+| In a cluster of its own (example environment `standalone`) | local accounts, first administrator from the deployment | [Standalone](helmfile/README.md#standalone) |
+| Next to a running openDesk (example environment `opendesk`) | openDesk's Keycloak | [Next to openDesk](helmfile/README.md#next-to-opendesk) |
+| As an app of openDesk's own Helmfile | openDesk's Keycloak | [Inside openDesk](helmfile/README.md#inside-opendesk) |
 
 ```bash
+cp -r helmfile/environments/standalone helmfile/environments/my-cluster
+$EDITOR helmfile/environments/my-cluster/values.yaml.gotmpl
 export MASTER_PASSWORD='...'
-helmfile -e standalone -n synaplan apply
+helmfile -e my-cluster -n synaplan apply
 ```
 
 ## Installation
