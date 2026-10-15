@@ -130,8 +130,9 @@ features that reach the internet. `technical.synaplan.features` and
 ## Speech-to-text
 
 `apps.synaplanStt.enabled: true` installs the speech-to-text server, on the CPU or the
-GPU (`technical.synaplanStt.mode`). Without it, Synaplan runs whisper.cpp in its own
-pod.
+GPU (`technical.synaplanStt.mode`). `technical.synaplan.speech.whisperServerUrl`
+points Synaplan at one you run. Without either, Synaplan runs whisper.cpp in
+its own pod.
 
 ## Certificates
 
@@ -200,6 +201,20 @@ Synaplan becomes an app of an openDesk by adding the two apps to the
 openDesk's environment then supplies `global`, `platform`, `ingress`,
 `certificate` and `apps.collabora`. Register the `synaplan` client as in
 [Next to openDesk](#next-to-opendesk).
+
+## Remove
+
+```bash
+helmfile -e my-cluster -n synaplan destroy
+kubectl -n synaplan delete pvc data-synaplan-mariadb-0
+kubectl -n synaplan delete secret synaplan-credentials
+```
+
+`synaplan-credentials` carries `helm.sh/resource-policy: keep`, so a
+reinstall finds the same passwords. Delete it only together with the
+database volume: MariaDB keeps the root password it started with. Inside or
+next to openDesk, also remove the `synaplan` client from openDesk's
+environment.
 
 ## Check the installation
 
