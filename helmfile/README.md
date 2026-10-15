@@ -249,6 +249,28 @@ URI `https://<synaplan host>/api/v1/auth/keycloak/callback`, and tokens with
 of the roles or groups in `technical.synaplan.oidc.adminRoles` are
 administrators; Synaplan checks this on every sign-in.
 
+`scopes`, `roleClaims`, `roleMapping`, `providerLabel`, `bearerAudience` and
+`accessPolicy` under `technical.synaplan.oidc` go to the chart's `oidc.*`
+values as they are (see the chart's
+[README](../charts/synaplan/README.md)). A successful sign-in at the provider
+admits everyone by default; `accessPolicy` limits Synaplan to one
+organization, a role or a set of permissions, and can stop the first sign-in
+from creating an account (Synaplan 5.3.1 or newer). Example for Kinde:
+
+```yaml
+technical:
+  synaplan:
+    oidc:
+      issuerURI: "https://acme.kinde.com"
+      clientId: "<client id>"
+      bearerAudience: "<audience of the API registered in Kinde>"
+      roleClaims: "roles"
+      accessPolicy:
+        orgCode: "org_yyyzzzzxxxxx"
+        requiredRole: "admin"
+        allowUserProvisioning: false
+```
+
 ## Model backend
 
 | Backend | Set |

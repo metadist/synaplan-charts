@@ -393,10 +393,24 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
   value: {{ index $extraPins $envName | toString | quote }}
 {{- end }}
 {{- if .Values.oidc.enabled }}
-{{- range $env, $key := dict "OIDC_ADMIN_ROLES" "adminRoles" "OIDC_ROLE_CLAIMS" "roleClaims" "OIDC_ROLE_MAPPING" "roleMapping" "OIDC_PROVIDER_LABEL" "providerLabel" "OIDC_BEARER_AUDIENCE" "bearerAudience" }}
-{{- with index $.Values.oidc $key }}
+{{- $policy := .Values.oidc.accessPolicy | default dict }}
+{{- $oidcEnv := dict
+      "OIDC_ADMIN_ROLES" .Values.oidc.adminRoles
+      "OIDC_ROLE_CLAIMS" .Values.oidc.roleClaims
+      "OIDC_ROLE_MAPPING" .Values.oidc.roleMapping
+      "OIDC_PROVIDER_LABEL" .Values.oidc.providerLabel
+      "OIDC_BEARER_AUDIENCE" .Values.oidc.bearerAudience
+      "OIDC_ORG_CODE" $policy.orgCode
+      "OIDC_ORG_CLAIM" $policy.orgClaim
+      "OIDC_REQUIRED_ROLE" $policy.requiredRole
+      "OIDC_REQUIRED_PERMISSIONS" $policy.requiredPermissions
+      "OIDC_PERMISSIONS_CLAIM" $policy.permissionsClaim
+      "OIDC_ALLOW_USER_PROVISIONING" $policy.allowUserProvisioning }}
+{{- range $env := keys $oidcEnv | sortAlpha }}
+{{- $value := index $oidcEnv $env }}
+{{- if and (not (kindIs "invalid" $value)) (ne (toString $value) "") }}
 - name: {{ $env }}
-  value: {{ . | quote }}
+  value: {{ $value | toString | quote }}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -113,8 +113,11 @@ Any other flag the application pins from the environment goes into
 `MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
 `FEATURE_*` variable the same way the application does.
 
-Identity needs no clicks either: `oidc.adminRoles` / `oidc.roleClaims` /
-`oidc.roleMapping` decide who becomes administrator on login,
+Identity needs no clicks either: `oidc.accessPolicy` (synaplan >= 5.3.1)
+decides who may use the instance at all (organization, roles, permissions,
+and whether a first SSO sign-in creates an account),
+`oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who becomes
+administrator on login,
 `features.setupWizard: false` skips the first-run page on SSO-only installs, and
 `bootstrapAdmin.secretRef` creates a first local administrator where local
 accounts are used.
@@ -260,9 +263,15 @@ openDesk, is the [Helmfile](../../helmfile/).
 | nodeSelector | object | `{}` |  |
 | office.convertTimeoutMs | int | `60000` | Convert timeout in milliseconds. Only emitted when convertUrl is set. |
 | office.convertUrl | string | `""` | Convert-to base URL (e.g. http://collabora.office.svc.cluster.local:9980). Empty = off. |
+| oidc.accessPolicy.allowUserProvisioning | bool | `nil` | Create an account on the first SSO sign-in (OIDC_ALLOW_USER_PROVISIONING). false = only people who signed in through SSO before. null = application default (true). |
+| oidc.accessPolicy.orgClaim | string | `""` | Claim holding the organization (OIDC_ORG_CLAIM), e.g. organization on Keycloak. Empty = application default (org_code). |
+| oidc.accessPolicy.orgCode | string | `""` | Organization the token must name (OIDC_ORG_CODE); also sent as org_code at sign-in (Kinde). Empty = no check. |
+| oidc.accessPolicy.permissionsClaim | string | `""` | Claim holding the permissions (OIDC_PERMISSIONS_CLAIM). Empty = application default (permissions). |
+| oidc.accessPolicy.requiredPermissions | string | `""` | Comma-separated permissions, all required (OIDC_REQUIRED_PERMISSIONS). Empty = no check. |
+| oidc.accessPolicy.requiredRole | string | `""` | Comma-separated roles, at least one required (OIDC_REQUIRED_ROLE). Read from oidc.roleClaims; set roleClaims to roles for Kinde. Empty = no check. |
 | oidc.adminRoles | string | `""` | Comma-separated claim values that make a user administrator on login (OIDC_ADMIN_ROLES). Empty = application default (admin, realm-admin, synaplan-admin, administrator). |
 | oidc.autoRedirect | bool | `true` | Auto-redirect to OIDC provider on login page |
-| oidc.bearerAudience | string | `""` | Expected JWT audience for bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId. |
+| oidc.bearerAudience | string | `""` | Expected JWT audience for login, refresh and bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId. synaplan >= 5.3.1 also requests it at sign-in; Kinde and Auth0 need that (Kinde: the API audience). |
 | oidc.clientId | string | `""` |  |
 | oidc.clientSecret | string | `""` |  |
 | oidc.clientSecretRef | string | `""` |  |
