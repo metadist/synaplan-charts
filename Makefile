@@ -75,6 +75,7 @@ check: ## Unit-test the synaplan chart; render the Helmfile
 	(MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set apps.ollama.enabled=false template 2>&1 || true) | grep -q 'no model backend'
 	($(HELMFILE) -e standalone -l name=synaplan template 2>&1 || true) | grep -q 'appSecret is empty'
 	MASTER_PASSWORD=check $(HELMFILE) -e standalone -l name=synaplan template | grep -q 'name: BOOTSTRAP_ADMIN_EMAIL'
+	MASTER_PASSWORD=check $(HELMFILE) -e opendesk --state-values-set technical.synaplan.oidc.accessPolicy.orgCode=org_1,technical.synaplan.oidc.accessPolicy.allowUserProvisioning=false,technical.synaplan.oidc.scopes=openid -l name=synaplan template | grep -A1 -E 'name: OIDC_(ORG_CODE|ALLOW_USER_PROVISIONING|SCOPES)$$' | grep -c -E 'value: "(org_1|false|openid)"' | grep -qx 9
 	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set certificate.wildcard=true,ingress.tls.secretName=wildcard-tls -l name=synaplan template | (! grep -q 'cert-manager.io/')
 	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set customization.release.synaplan.lint=../../../ci/synaplan/lint-values.yaml -l name=synaplan template | grep -q 'image: "ghcr.io/metadist/synaplan:latest"'
 
