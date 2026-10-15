@@ -1,0 +1,13 @@
+controller:
+  kind: DaemonSet
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  ingressClass: haproxy
+  ingressClassResource:
+    enabled: true
+  service:
+    type: ClusterIP
+  config:
+    config-global: |
+      tune.bufsize 65536
+      tune.http.maxhdr 256

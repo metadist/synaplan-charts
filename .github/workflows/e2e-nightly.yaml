@@ -1,0 +1,19 @@
+name: E2E nightly
+
+# Pull requests test against the pinned openDesk release; this run catches
+# changes in openDesk's develop branch before they reach a release.
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  opendesk-develop:
+    name: openDesk develop
+    uses: ./.github/workflows/e2e.yaml
+    with:
+      environment: opendesk
+      opendesk-ref: develop

@@ -115,61 +115,13 @@ jobs:
 
   test-deployment:
     name: Test Deployment (${{ matrix.environment }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        environment: [standalone]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v5
-        with:
-          version: ${{ env.HELM_VERSION }}
-
-      - name: Install helmfile and k3d
-        run: make install-helmfile install-k3d
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          package_json_file: e2e/package.json
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: e2e/pnpm-lock.yaml
-
-      - name: Install Playwright
-        working-directory: e2e
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm exec playwright install --with-deps chromium
-
-      - name: Deploy the Helmfile and run the suite
-        run: e2e/run.sh ${{ matrix.environment }}
-
-      - name: Show the cluster
-        if: failure()
-        env:
-          KUBECONFIG: e2e/.kubeconfig-${{ matrix.environment }}
-        run: |
-          kubectl get pods,jobs,ingress -A
-          kubectl -n synaplan describe pods
-          kubectl -n synaplan logs deployment/synaplan --all-containers --tail=200
-
-      - name: Upload the Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-${{ matrix.environment }}
-          path: e2e/playwright-report
-          retention-days: 7
+        environment: [standalone, opendesk]
+    uses: ./.github/workflows/e2e.yaml
+    with:
+      environment: ${{ matrix.environment }}
 
   release-dev:
     name: Publish Development Builds

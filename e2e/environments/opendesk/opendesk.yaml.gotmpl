@@ -1,0 +1,43 @@
+# openDesk's environment for the e2e run: self-signed wildcard certificate,
+# and only what Synaplan uses or needs to sign in (Nubus with Keycloak and
+# its PostgreSQL, Redis, Memcached and object store; Collabora; Jitsi).
+certificate:
+  wildcard: true
+  selfSigned: true
+  selfSignedOverrides:
+    issuer:
+      create: true
+    caCertificate:
+      create: true
+trust:
+  create: true
+  certificateAuthorities:
+    secret: "opendesk-certificates-ca-tls"
+  secret:
+    mount: true
+    name: "opendesk-certificates-ca-bundle-tls"
+apps:
+  clamavSimple:
+    enabled: false
+  cryptpad:
+    enabled: false
+  dovecot:
+    enabled: false
+  element:
+    enabled: false
+  elementAdmin:
+    enabled: false
+  home:
+    enabled: false
+  mariadb:
+    enabled: false
+  nextcloud:
+    enabled: false
+  openproject:
+    enabled: false
+  oxAppSuite:
+    enabled: false
+  postfix:
+    enabled: false
+  xwiki:
+    enabled: false
