@@ -27,18 +27,6 @@
       ],
       versioning: 'semver',
     },
-    {
-      description: 'Group all MariaDB operator charts',
-      matchDatasources: [
-        'helm',
-      ],
-      groupName: 'mariadb',
-      matchPackageNames: [
-        'mariadb-operator-crds',
-        'mariadb-operator',
-        'mariadb-cluster',
-      ],
-    },
   ],
   customManagers: [
     {
@@ -51,11 +39,45 @@
         '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\nappVersion:\\s*"(?<currentValue>[^"]+)"',
       ],
     },
+    {
+      customType: 'regex',
+      description: 'Helm charts from HTTP repositories in the Helmfile environments (charts.*)',
+      managerFilePatterns: [
+        '/^helmfile/environments/.+\\.yaml\\.gotmpl$/',
+      ],
+      matchStrings: [
+        'repository: "(?<registryUrl>https?://[^"]+)"\\n\\s*name: "(?<depName>[^"]+)"\\n\\s*version: "(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: 'helm',
+    },
+    {
+      customType: 'regex',
+      description: 'Helm charts from OCI registries in the Helmfile environments (charts.*)',
+      managerFilePatterns: [
+        '/^helmfile/environments/.+\\.yaml\\.gotmpl$/',
+      ],
+      matchStrings: [
+        'repository: "(?<packageName>[a-z0-9.-]+\\.[a-z]+/[^"]+)"\\n\\s*name: "(?<depName>[^"]+)"\\n\\s*version: "(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: 'docker',
+      packageNameTemplate: '{{{packageName}}}/{{{depName}}}',
+    },
+    {
+      customType: 'regex',
+      description: 'Images in the Helmfile environments (images.*)',
+      managerFilePatterns: [
+        '/^helmfile/environments/.+\\.yaml\\.gotmpl$/',
+      ],
+      matchStrings: [
+        'registry: "(?<packageName>[^"]+)"\\n\\s*repository: "(?<depName>[^"]+)"\\n\\s*tag: "(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: 'docker',
+      packageNameTemplate: '{{{packageName}}}/{{{depName}}}',
+    },
   ],
   'helm-values': {
     managerFilePatterns: [
       '/charts/.+/values\\.yaml$/',
-      '/deployments/.+/values-.+\\.yaml$/',
     ],
   },
 }
