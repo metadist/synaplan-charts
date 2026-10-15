@@ -17,8 +17,10 @@ tests:
     set:
       oidc.accessPolicy:
         orgCode: org_1
+        orgClaim: organization
         requiredRole: admin,editor
         requiredPermissions: read
+        permissionsClaim: perms
         allowUserProvisioning: false
     asserts:
       - contains:
@@ -29,6 +31,11 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
+            name: OIDC_ORG_CLAIM
+            value: organization
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
             name: OIDC_REQUIRED_ROLE
             value: admin,editor
       - contains:
@@ -36,6 +43,11 @@ tests:
           content:
             name: OIDC_REQUIRED_PERMISSIONS
             value: read
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_PERMISSIONS_CLAIM
+            value: perms
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -56,18 +68,13 @@ tests:
             name: OIDC_ORG_CODE
           any: true
 
-  - it: refuses a policy value that is not a string
+  - it: passes a value YAML reads as a number as text
     template: deployment.yaml
     set:
       oidc.accessPolicy.requiredRole: 0
     asserts:
-      - failedTemplate:
-          errorPattern: "requiredRole must be a string"
-
-  - it: refuses allowUserProvisioning that is not a boolean
-    template: deployment.yaml
-    set:
-      oidc.accessPolicy.allowUserProvisioning: "no"
-    asserts:
-      - failedTemplate:
-          errorPattern: "allowUserProvisioning must be true, false or null"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_REQUIRED_ROLE
+            value: "0"

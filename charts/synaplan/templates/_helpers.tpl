@@ -393,29 +393,25 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
   value: {{ index $extraPins $envName | toString | quote }}
 {{- end }}
 {{- if .Values.oidc.enabled }}
-{{- range $env, $key := dict "OIDC_ADMIN_ROLES" "adminRoles" "OIDC_ROLE_CLAIMS" "roleClaims" "OIDC_ROLE_MAPPING" "roleMapping" "OIDC_PROVIDER_LABEL" "providerLabel" "OIDC_BEARER_AUDIENCE" "bearerAudience" }}
-{{- with index $.Values.oidc $key }}
-- name: {{ $env }}
-  value: {{ . | quote }}
-{{- end }}
-{{- end }}
 {{- $policy := .Values.oidc.accessPolicy | default dict }}
-{{- range $env, $key := dict "OIDC_ORG_CODE" "orgCode" "OIDC_ORG_CLAIM" "orgClaim" "OIDC_REQUIRED_ROLE" "requiredRole" "OIDC_REQUIRED_PERMISSIONS" "requiredPermissions" "OIDC_PERMISSIONS_CLAIM" "permissionsClaim" }}
-{{- $value := index $policy $key }}
-{{- if not (or (kindIs "invalid" $value) (kindIs "string" $value)) }}
-{{- fail (printf "oidc.accessPolicy.%s must be a string, got %v; quote it in YAML" $key $value) }}
-{{- end }}
-{{- with $value }}
+{{- $oidcEnv := dict
+      "OIDC_ADMIN_ROLES" .Values.oidc.adminRoles
+      "OIDC_ROLE_CLAIMS" .Values.oidc.roleClaims
+      "OIDC_ROLE_MAPPING" .Values.oidc.roleMapping
+      "OIDC_PROVIDER_LABEL" .Values.oidc.providerLabel
+      "OIDC_BEARER_AUDIENCE" .Values.oidc.bearerAudience
+      "OIDC_ORG_CODE" $policy.orgCode
+      "OIDC_ORG_CLAIM" $policy.orgClaim
+      "OIDC_REQUIRED_ROLE" $policy.requiredRole
+      "OIDC_REQUIRED_PERMISSIONS" $policy.requiredPermissions
+      "OIDC_PERMISSIONS_CLAIM" $policy.permissionsClaim
+      "OIDC_ALLOW_USER_PROVISIONING" $policy.allowUserProvisioning }}
+{{- range $env := keys $oidcEnv | sortAlpha }}
+{{- $value := index $oidcEnv $env }}
+{{- if and (not (kindIs "invalid" $value)) (ne (toString $value) "") }}
 - name: {{ $env }}
-  value: {{ . | quote }}
+  value: {{ $value | toString | quote }}
 {{- end }}
-{{- end }}
-{{- $provisioning := index $policy "allowUserProvisioning" }}
-{{- if kindIs "bool" $provisioning }}
-- name: OIDC_ALLOW_USER_PROVISIONING
-  value: {{ $provisioning | toString | quote }}
-{{- else if not (kindIs "invalid" $provisioning) }}
-{{- fail (printf "oidc.accessPolicy.allowUserProvisioning must be true, false or null, got %v" $provisioning) }}
 {{- end }}
 {{- end }}
 {{- if .Values.bootstrapAdmin.secretRef }}
