@@ -6,8 +6,10 @@ on:
     tags:
       - 'synaplan-v*.*.*'
       - 'triton-v*.*.*'
+      - 'stt-v*.*.*'
+  # Every pull request, whichever branch it targets. A pull request into a
+  # feature branch runs the same jobs as one into main.
   pull_request:
-    branches: [main]
 
 # The default GITHUB_TOKEN grant no longer includes packages:write (broke the
 # GHCR chart publishes with 403s on the blob upload); the publish jobs request
@@ -57,10 +59,15 @@ jobs:
 
       - name: Helm template
         run: |
-          if [ -f "ci/${{ matrix.chart }}/lint-values.yaml" ]; then
-            helm template charts/${{ matrix.chart }} -f ci/${{ matrix.chart }}/lint-values.yaml > /tmp/${{ matrix.chart }}-templated.yaml
-          else
-            helm template charts/${{ matrix.chart }} > /tmp/${{ matrix.chart }}-templated.yaml
+          out="/tmp/${{ matrix.chart }}-templated.yaml"
+          : > "$out"
+          for values in ci/${{ matrix.chart }}/lint-values*.yaml; do
+            if [ -f "$values" ]; then
+              helm template charts/${{ matrix.chart }} -f "$values" >> "$out"
+            fi
+          done
+          if [ ! -s "$out" ]; then
+            helm template charts/${{ matrix.chart }} > "$out"
           fi
 
       - name: Install kubeconform
@@ -141,7 +148,7 @@ jobs:
       contents: read
       packages: write
     runs-on: ubuntu-latest
-    needs: [discover-charts, lint-and-package, helm-docs-check, test-deployment]
+    needs: [discover-charts, lint-and-package, helm-docs-check, test-deployment, install-checks]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     strategy:
       matrix:
@@ -201,7 +208,7 @@ jobs:
       contents: read
       packages: write
     runs-on: ubuntu-latest
-    needs: [lint-and-package, helm-docs-check, test-deployment]
+    needs: [lint-and-package, helm-docs-check, test-deployment, install-checks]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout code
@@ -224,7 +231,7 @@ jobs:
 
           # Validate chart exists
           if [ ! -d "charts/$CHART_NAME" ]; then
-            echo "::error::Chart 'charts/$CHART_NAME' does not exist. Valid charts: synaplan, triton"
+            echo "::error::Chart 'charts/$CHART_NAME' does not exist. Valid charts: $(ls charts | tr '\n' ' ')"
             exit 1
           fi
 
@@ -263,10 +270,29 @@ jobs:
 
           echo "✅ Chart pushed to ghcr.io/${{ github.repository }}/$CHART_NAME:$VERSION"
 
+  install-checks:
+    name: Install Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      # Versions are pinned in the Makefile targets.
+      - name: Install helm-unittest, helmfile and kubeconform
+        run: make install-helm-unittest install-helmfile install-kubeconform
+
+      - name: Unit-test the chart, render the Helmfile
+        run: make check
+
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [discover-charts, lint-and-package, helm-docs-check, test-deployment, release-dev, release]
+    needs: [discover-charts, lint-and-package, helm-docs-check, test-deployment, install-checks, release-dev, release]
     if: always()
     steps:
       - name: Verify all jobs succeeded
@@ -275,7 +301,8 @@ jobs:
           if [ "${{ needs.discover-charts.result }}" != "success" ] || \
              [ "${{ needs.lint-and-package.result }}" != "success" ] || \
              [ "${{ needs.helm-docs-check.result }}" != "success" ] || \
-             [ "${{ needs.test-deployment.result }}" != "success" ]; then
+             [ "${{ needs.test-deployment.result }}" != "success" ] || \
+             [ "${{ needs.install-checks.result }}" != "success" ]; then
             echo "::error::One or more required checks failed"
             exit 1
           fi

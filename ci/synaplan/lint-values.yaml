@@ -3,6 +3,11 @@
 persistence:
   enabled: true
 
+appSecret: lint
+
+database:
+  password: lint
+
 image:
   repository: ghcr.io/metadist/synaplan
   tag: latest

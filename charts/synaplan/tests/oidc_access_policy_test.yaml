@@ -1,0 +1,80 @@
+suite: oidc access policy
+templates:
+  - deployment.yaml
+  - init-scripts-configmap.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+  oidc:
+    enabled: true
+    issuerURI: https://id.example.org/realms/test
+    clientId: synaplan
+    clientSecret: test
+tests:
+  - it: emits the access policy
+    template: deployment.yaml
+    set:
+      oidc.accessPolicy:
+        orgCode: org_1
+        orgClaim: organization
+        requiredRole: admin,editor
+        requiredPermissions: read
+        permissionsClaim: perms
+        allowUserProvisioning: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_ORG_CODE
+            value: org_1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_ORG_CLAIM
+            value: organization
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_REQUIRED_ROLE
+            value: admin,editor
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_REQUIRED_PERMISSIONS
+            value: read
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_PERMISSIONS_CLAIM
+            value: perms
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_ALLOW_USER_PROVISIONING
+            value: "false"
+
+  - it: emits nothing without a policy
+    template: deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_ALLOW_USER_PROVISIONING
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_ORG_CODE
+          any: true
+
+  - it: passes a value YAML reads as a number as text
+    template: deployment.yaml
+    set:
+      oidc.accessPolicy.requiredRole: 0
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_REQUIRED_ROLE
+            value: "0"

@@ -1,0 +1,15 @@
+apps:
+  synaplan:
+    enabled: true
+  # Speech-to-text server (charts/stt); off: Synaplan runs whisper.cpp in its pod
+  synaplanStt:
+    enabled: false
+  # MariaDB 11.8 for Synaplan, with the chart of openDesk's MariaDB
+  synaplanMariadb:
+    enabled: true
+  tika:
+    enabled: true
+  triton:
+    enabled: false
+  ollama:
+    enabled: false

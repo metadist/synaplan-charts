@@ -1,0 +1,6 @@
+helmfiles:
+  - path: "./helmfile-child.yaml.gotmpl"
+    values:
+      - "{{ requiredEnv "PWD" }}/helmfile/environments/default/*.yaml.gotmpl"
+      - "../../environments/default/*.yaml.gotmpl"
+      - {{ toYaml .Values | nindent 8 }}

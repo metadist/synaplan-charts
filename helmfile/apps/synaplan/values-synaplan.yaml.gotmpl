@@ -1,0 +1,221 @@
+{{- if .Values | getOrNil "services" }}
+{{- fail "services.* was replaced by global, platform, cluster, ingress, certificate, apps and technical.synaplan (see helmfile/README.md)" }}
+{{- end }}
+{{- $domain := dig "global" "domain" "" .Values | required "global.domain is required" }}
+{{- $host := printf "%s.%s" .Values.global.hosts.synaplan $domain }}
+{{- $t := .Values.technical.synaplan }}
+{{- $triton := .Values.apps.triton.enabled }}
+{{- $ollamaUrl := $t.ollama.baseUrl }}
+{{- if and .Values.apps.ollama.enabled (not $ollamaUrl) }}
+{{- $ollamaUrl = "http://ollama:11434" }}
+{{- end }}
+{{- if not (or $triton $ollamaUrl) }}
+{{- fail "no model backend: enable apps.triton or apps.ollama, or set technical.synaplan.ollama.baseUrl" }}
+{{- end }}
+{{- range concat $t.models.enabled (values $t.models.defaults) }}
+{{- if and (hasPrefix "triton:" .) (not $triton) }}
+{{- fail (printf "technical.synaplan.models names %s, but apps.triton is off" .) }}
+{{- end }}
+{{- if and (hasPrefix "ollama:" .) (not $ollamaUrl) }}
+{{- fail (printf "technical.synaplan.models names %s, but there is no Ollama" .) }}
+{{- end }}
+{{- end }}
+{{- $rwx := dig "cluster" "persistence" "readWriteMany" "enabled" false .Values }}
+{{- $wildcard := dig "certificate" "wildcard" false .Values }}
+{{- $tlsSecret := "synaplan-tls" }}
+{{- if $wildcard }}
+{{- $tlsSecret = dig "ingress" "tls" "secretName" "" .Values | required "certificate.wildcard needs ingress.tls.secretName" }}
+{{- end }}
+{{- $annotations := dict }}
+{{- if and (not $wildcard) (dig "certificate" "create" false .Values) }}
+{{- $issuerKey := ternary "cert-manager.io/issuer" "cert-manager.io/cluster-issuer" (eq (dig "certificate" "issuerRef" "kind" "ClusterIssuer" .Values) "Issuer") }}
+{{- $_ := set $annotations $issuerKey (dig "certificate" "issuerRef" "name" "" .Values | required "certificate.create needs certificate.issuerRef.name") }}
+{{- end }}
+publicUrl: "https://{{ $host }}"
+
+{{- with .Values.images.synaplan }}
+{{- if or .repository .tag }}
+image:
+  {{- with .repository }}
+  repository: {{ printf "%s/%s" (coalesce (dig "global" "imageRegistry" "" $.Values) $.Values.images.synaplan.registry) . | trimPrefix "/" | quote }}
+  {{- end }}
+  {{- with .tag }}
+  tag: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- with (dig "global" "imagePullSecrets" list .Values) }}
+imagePullSecrets:
+  {{- range . }}
+  - name: {{ . | quote }}
+  {{- end }}
+{{- end }}
+
+appSecret: {{ .Values.secrets.synaplan.appSecret.value | quote }}
+
+database:
+  host: {{ .Values.databases.synaplan.host | quote }}
+  port: {{ .Values.databases.synaplan.port | quote }}
+  name: {{ .Values.databases.synaplan.name | quote }}
+  user: {{ .Values.databases.synaplan.username | quote }}
+  password: {{ .Values.databases.synaplan.password.value | quote }}
+  {{- if .Values.apps.synaplanMariadb.enabled }}
+  serverVersion: "{{ regexFind "^[0-9]+\\.[0-9]+" .Values.images.synaplanMariadb.tag }}.0-MariaDB"
+  rootPassword: {{ .Values.secrets.synaplanMariadb.rootPassword.value | quote }}
+  {{- end }}
+
+persistence:
+  uploads:
+    enabled: true
+    accessMode: {{ ternary "ReadWriteMany" "ReadWriteOnce" $rwx | quote }}
+    size: {{ .Values.persistence.storages.synaplan.size | quote }}
+    storageClass: {{ coalesce .Values.persistence.storages.synaplan.storageClassName (ternary (dig "persistence" "storageClassNames" "RWX" "" .Values) (dig "persistence" "storageClassNames" "RWO" "" .Values) $rwx) | default "" | quote }}
+
+{{- if not $rwx }}
+# The uploads volume is ReadWriteOnce: the worker and the scheduler run on
+# the node of the web pod (only the web pods carry no component label).
+{{- $withWeb := dict "podAffinity" (dict "requiredDuringSchedulingIgnoredDuringExecution" (list (dict
+      "topologyKey" "kubernetes.io/hostname"
+      "labelSelector" (dict "matchExpressions" (list
+        (dict "key" "app.kubernetes.io/name" "operator" "In" "values" (list "synaplan"))
+        (dict "key" "app.kubernetes.io/instance" "operator" "In" "values" (list "synaplan"))
+        (dict "key" "app.kubernetes.io/component" "operator" "DoesNotExist")))))) }}
+worker:
+  affinity:
+    {{- toYaml $withWeb | nindent 4 }}
+scheduler:
+  affinity:
+    {{- toYaml $withWeb | nindent 4 }}
+{{- end }}
+
+{{- if $triton }}
+tritonMode: {{ .Values.technical.triton.mode | quote }}
+{{- end }}
+triton:
+  url: {{ ternary "triton:8001" "" $triton | quote }}
+
+{{- with $ollamaUrl }}
+ollama:
+  baseUrl: {{ . | quote }}
+{{- end }}
+
+{{- $tikaUrl := $t.tika.url | default (ternary "http://tika:9998" "" .Values.apps.tika.enabled) }}
+tika:
+  enabled: {{ ne $tikaUrl "" }}
+  url: {{ $tikaUrl | quote }}
+
+{{- with $t.office.convertUrl | default (ternary "http://collabora:9980" "" (dig "apps" "collabora" "enabled" false .Values)) }}
+office:
+  convertUrl: {{ . | quote }}
+{{- end }}
+
+tts:
+  {{- toYaml $t.tts | nindent 2 }}
+
+models:
+  {{- if not $t.cloudProviders }}
+  # Allow-list: only what runs in the cluster. A cloud provider that a later
+  # release adds stays off.
+  providers:
+    only:
+      {{- if $triton }}
+      - triton
+      {{- end }}
+      {{- if $ollamaUrl }}
+      - ollama
+      {{- end }}
+      {{- if $t.tts.enabled }}
+      - piper
+      {{- end }}
+      - whisper
+  {{- end }}
+  {{- with $t.models.enabled }}
+  enabled:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- $defaults := $t.models.defaults | deepCopy }}
+  {{- if $t.tts.enabled }}
+  {{- $defaults = merge $defaults (dict "text2sound" "piper:piper-multi") }}
+  {{- end }}
+  {{- with $defaults }}
+  defaults:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+speech:
+  {{- if not $t.cloudProviders }}
+  # Chrome's Web Speech API sends audio to Google. Record for on-server Whisper instead.
+  webSpeech: false
+  {{- end }}
+  whisper: true
+  {{- with $t.speech.whisperServerUrl | default (ternary "http://synaplan-stt:8080" "" .Values.apps.synaplanStt.enabled) }}
+  whisperServerUrl: {{ . | quote }}
+  {{- end }}
+
+{{- with $t.bootstrapAdmin.email }}
+bootstrapAdmin:
+  email: {{ . | quote }}
+  password: {{ $.Values.secrets.synaplan.adminPassword.value | quote }}
+{{- end }}
+
+oidc:
+  enabled: {{ $t.oidc.enabled }}
+  {{- if $t.oidc.enabled }}
+  issuerURI: {{ $t.oidc.issuerURI | default (printf "https://%s.%s/realms/%s" (dig "global" "hosts" "keycloak" "id" .Values) $domain (dig "platform" "realm" "" .Values | required "platform.realm is required, or technical.synaplan.oidc.issuerURI")) | quote }}
+  clientId: {{ $t.oidc.clientId | quote }}
+  {{- with $t.oidc.clientSecretRef }}
+  clientSecretRef: {{ . | quote }}
+  {{- else }}
+  clientSecret: {{ .Values.secrets.keycloak.clientSecret.synaplan.value | quote }}
+  {{- end }}
+  autoRedirect: {{ $t.oidc.autoRedirect }}
+  {{- range $key := list "scopes" "adminRoles" "roleClaims" "roleMapping" "providerLabel" "bearerAudience" }}
+  {{- with index $t.oidc $key }}
+  {{ $key }}: {{ . | quote }}
+  {{- end }}
+  {{- end }}
+  {{- with $t.oidc.accessPolicy }}
+  accessPolicy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+
+{{- $features := $t.features | deepCopy }}
+{{- $featurePins := $t.featurePins | deepCopy }}
+{{- if $t.sovereign }}
+{{- $features = merge $features (dict
+      "registration" false "guestChat" false "setupWizard" false
+      "customHttpTools" false "urlFetch" false "desktopAgent" false "compute" false) }}
+{{- $featurePins = merge $featurePins (dict
+      "MULTITASK.MCP_FETCH_ENABLED" false "MULTITASK.MCP_ACTION_ENABLED" false "COMPUTE.EGRESS_ENABLED" false) }}
+{{- end }}
+{{- with $features }}
+features:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with $featurePins }}
+featurePins:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+
+{{- if dig "certificate" "selfSigned" false .Values }}
+customRootCA:
+  secretRef: {{ $tlsSecret | quote }}
+{{- end }}
+
+ingress:
+  enabled: true
+  className: {{ dig "ingress" "ingressClassName" "" .Values | quote }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  hosts:
+    - host: {{ $host | quote }}
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: {{ $tlsSecret | quote }}
+      hosts:
+        - {{ $host | quote }}

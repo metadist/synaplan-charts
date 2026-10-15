@@ -1,0 +1,67 @@
+# Example environment: Synaplan in a cluster of its own, with local accounts,
+# its own ingress and cert-manager.
+
+global:
+  domain: "example.org"
+  imageRegistry: ""
+  imagePullSecrets: []
+  imagePullPolicy: "IfNotPresent"
+
+cluster:
+  persistence:
+    # Uploads on ReadWriteMany storage. false: ReadWriteOnce, with the worker
+    # and the scheduler on the node of the web pod.
+    readWriteMany:
+      enabled: false
+
+persistence:
+  storageClassNames:
+    RWX: ""
+    RWO: ""
+
+ingress:
+  ingressClassName: "nginx"
+
+certificate:
+  # cert-manager issues synaplan-tls for the Synaplan host. false: you create
+  # synaplan-tls yourself.
+  create: true
+  issuerRef:
+    name: "letsencrypt-prod"
+    kind: "ClusterIssuer"
+  # Synaplan trusts the CA in the certificate Secret (key ca.crt)
+  selfSigned: false
+
+# Model backend: Ollama or Triton, installed here. To switch to Triton,
+# turn ollama off and triton on, and list triton models instead:
+#   models:
+#     enabled: ["triton:gpt-oss-20b", "triton:bge-m3", "triton:mistral-7b-instruct-v0.3"]
+#     defaults: {chat: "triton:gpt-oss-20b", sort: "triton:gpt-oss-20b", vectorize: "triton:bge-m3"}
+# For an Ollama you run yourself, turn both off and set
+# technical.synaplan.ollama.baseUrl.
+apps:
+  ollama:
+    enabled: true
+  triton:
+    enabled: false
+
+technical:
+  # "gpu" or "cpu"
+  ollama:
+    mode: "gpu"
+    pull: ["gpt-oss:20b", "bge-m3"]
+  triton:
+    mode: "gpu"
+  synaplan:
+    bootstrapAdmin:
+      email: "admin@example.org"
+    oidc:
+      enabled: false
+    models:
+      enabled:
+        - "ollama:gpt-oss-20b"
+        - "ollama:bge-m3"
+      defaults:
+        chat: "ollama:gpt-oss-20b"
+        sort: "ollama:gpt-oss-20b"
+        vectorize: "ollama:bge-m3"

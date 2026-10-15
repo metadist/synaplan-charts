@@ -1,0 +1,65 @@
+technical:
+  synaplan:
+    # false: only models that run in the cluster are offered, and the
+    # browser's Web Speech API (audio goes to the browser vendor) is off.
+    # true lifts both.
+    cloudProviders: false
+    # true: sign-in only through the identity provider (no registration,
+    # guest chat or setup wizard) and features that reach the internet off
+    sovereign: false
+    # An Ollama this deployment does not install. apps.ollama installs one.
+    ollama:
+      baseUrl: ""
+    # A Tika this deployment does not install. Empty: the tika release
+    # (apps.tika).
+    tika:
+      url: ""
+    # Collabora for Office previews. Empty: openDesk's Collabora in the same
+    # namespace (apps.collabora), else none.
+    office:
+      convertUrl: ""
+    # A speech-to-text server this deployment does not install. Empty: the
+    # synaplan-stt release (apps.synaplanStt), else whisper.cpp in the
+    # Synaplan pod.
+    speech:
+      whisperServerUrl: ""
+    models:
+      enabled: []
+      defaults: {}
+    # First administrator, a local account; its password is the key
+    # admin-password in the Secret synaplan-credentials. Empty: none.
+    bootstrapAdmin:
+      email: ""
+    oidc:
+      enabled: true
+      # Empty: https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>
+      issuerURI: ""
+      clientId: "synaplan"
+      # An existing Secret with key client-secret, instead of
+      # secrets.keycloak.clientSecret.synaplan
+      clientSecretRef: ""
+      autoRedirect: true
+      adminRoles: ""
+      # scopes, roleClaims, roleMapping, providerLabel, bearerAudience and
+      # accessPolicy are passed to the chart's oidc values as they are
+      accessPolicy: {}
+    # Passed to the chart's tts values
+    tts:
+      enabled: true
+      huggingfaceVoices:
+        voices:
+          - name: "en_US-lessac-medium"
+            subfolder: "en/en_US/lessac/medium"
+          - name: "de_DE-thorsten-medium"
+            subfolder: "de/de_DE/thorsten/medium"
+    features: {}
+    featurePins: {}
+  # "gpu" or "cpu"
+  triton:
+    mode: "gpu"
+  ollama:
+    mode: "gpu"
+    # Ollama model names the ollama release pulls, e.g. "gpt-oss:20b"
+    pull: []
+  synaplanStt:
+    mode: "cpu"

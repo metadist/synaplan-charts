@@ -20,6 +20,7 @@ spec:
         # This annotation tracks changes to the init-scripts configmap and triggers pod restarts.
         # It is rendered last to ensure it always takes precedence over user-provided annotations.
         checksum/init-scripts: {{ include (print $.Template.BasePath "/init-scripts-configmap.yaml") . | sha256sum }}
+        checksum/credentials: {{ include "synaplan.credentials" . | sha256sum }}
       labels:
         {{- include "synaplan.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}

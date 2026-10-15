@@ -1,0 +1,4 @@
+environments:
+  {{ .Environment.Name }}:
+    values:
+      - "{{ requiredEnv "PWD" }}/helmfile/environments/{{ .Environment.Name }}/*.yaml.gotmpl"

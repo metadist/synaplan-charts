@@ -11,8 +11,9 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.6.0 | Synaplan 5.0.6, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
+| [synaplan](charts/synaplan/) | 0.7.0 | Synaplan 5.4.1, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
+| [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |
 
 ## AI backends
 
@@ -72,6 +73,7 @@ An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 | `compute.url` plus `compute.tokenSecretRef` | URL empty, or the token Secret is absent |
 | `tika.enabled` | `false` |
 | `tts.enabled` | `false` |
+| `speech.whisperServerUrl` | `""` (speech-to-text runs on the whisper.cpp binary in the pod) |
 
 Speech (`synaplan` >= 5.0.0). `null` leaves the application default:
 
@@ -81,6 +83,18 @@ speech:
   whisper: true       # whisper.cpp in the image
   whisperModel: base
 ```
+
+With GPU nodes, install the [`stt` chart](charts/stt/) and send speech there
+(Synaplan with the Whisper server mode; older images ignore the URL):
+
+```yaml
+speech:
+  whisper: true
+  whisperServerUrl: "http://stt.synaplan.svc.cluster.local:8080"
+```
+
+The [Helmfile](helmfile/) adds the release with `apps.synaplanStt.enabled: true` and
+sets this URL.
 
 Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
 `null` leaves the database row:
@@ -114,7 +128,9 @@ oidc:
 ```
 
 A local first administrator, when you are not using SSO, is
-`bootstrapAdmin.secretRef` (Secret keys `email` and `password`).
+`bootstrapAdmin.email` with `bootstrapAdmin.password` (kept in the Secret
+`<fullname>-credentials`, key `admin-password`), or `bootstrapAdmin.secretRef`
+(Secret keys `email` and `password`).
 
 The model catalog is applied at startup by `models.providers.only` (an
 allow-list; preferred for air-gapped installs), or by `models.providers.enabled`
@@ -140,7 +156,7 @@ settings:
   "IAM.ADMIN_IMPERSONATION": "audited"
   "IAM.AUDIT_RETENTION_DAYS": 365
   "MCP.CLIENT_ENABLED": false
-  "BRANDING.BRAND_NAME": "VS-AP"
+  "BRANDING.BRAND_NAME": "Example Corp"
 ```
 
 `settingSecrets` is the same map when the value comes from a Secret (`name`
@@ -153,38 +169,23 @@ Do not repeat a key that `features.*` or `featurePins` already pins. Synaplan
 render when either map is set. `5.0.6-alpine` fails. `5.1.0-rc.1` is accepted.
 A tag that is not a complete semver skips that check.
 
-## Example values
+## Helmfile
 
-Overlays, applied with `-f` next to your own values file:
+Synaplan with MariaDB, Tika and a model backend (Triton or Ollama) is the
+[Helmfile](helmfile/), laid out like openDesk. It offers only models that run
+in the cluster unless you allow cloud providers, and runs in three ways:
 
-```bash
-# Local models and speech. Cloud providers added later stay off.
-helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
-
-# openDesk: Keycloak, shared Collabora, internet-facing features pinned off.
-# synaplan >= 5.0.0
-helm install synaplan ./charts/synaplan -f examples/values-opendesk.yaml
-
-# Database settings (IAM, MCP client). synaplan >= 5.1.0
-helm install synaplan ./charts/synaplan \
-  -f examples/values-opendesk.yaml \
-  -f examples/values-managed-settings.yaml \
-  --set image.tag=5.1.0
-```
-
-| File | Use |
-| ---- | --- |
-| [examples/values-airgap.yaml](examples/values-airgap.yaml) | Ollama, Piper, and Whisper only. Browser Web Speech off |
-| [examples/values-opendesk.yaml](examples/values-opendesk.yaml) | SSO, shared Collabora, sovereign feature pins |
-| [examples/values-managed-settings.yaml](examples/values-managed-settings.yaml) | IAM options and the MCP client, without the admin UI |
-
-A full stack with Triton and MariaDB is
-[deployments/synaplan-with-triton/](deployments/synaplan-with-triton/). One
-environment, named `default`:
+| | Sign-in | Guide |
+| --- | --- | --- |
+| In a cluster of its own (example environment `standalone`) | local accounts, first administrator from the deployment | [Standalone](helmfile/README.md#standalone) |
+| Next to a running openDesk (example environment `opendesk`) | openDesk's Keycloak | [Next to openDesk](helmfile/README.md#next-to-opendesk) |
+| As an app of openDesk's own Helmfile | openDesk's Keycloak | [Inside openDesk](helmfile/README.md#inside-opendesk) |
 
 ```bash
-cd deployments/synaplan-with-triton
-helmfile -e default apply
+cp -r helmfile/environments/standalone helmfile/environments/my-cluster
+$EDITOR helmfile/environments/my-cluster/values.yaml.gotmpl
+export MASTER_PASSWORD='...'
+helmfile -e my-cluster -n synaplan apply
 ```
 
 ## Installation
@@ -193,13 +194,13 @@ helmfile -e default apply
 - Helm 3.14+
 - kubectl pointed at the cluster
 
-Charts are published to GHCR when a git tag `synaplan-vX.Y.Z` or
-`triton-vX.Y.Z` is pushed. The versions in this checkout are synaplan
-**0.6.0** and triton **0.1.0**.
+Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
+`triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
+synaplan **0.7.0**, triton **0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.6.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.0
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # This checkout, including values that are not in an older GHCR release yet
@@ -214,17 +215,20 @@ Charts are public. Authentication is only required to publish.
 
 ## Development
 
-helm-docs, kubeconform, and helmfile (for the example deployment).
+helm-docs, kubeconform, the helm-unittest plugin and helmfile.
 
 ```bash
 make install-helm-docs
 make install-kubeconform
+make install-helm-unittest
+make install-helmfile
 
 make docs       # regenerate charts/*/README.md from the .gotmpl sources
 make lint
 make validate
+make check      # helm-unittest suites; renders the Helmfile (fetches its chart repos)
 make package
-make all
+make all        # all of the above
 ```
 
 `charts/*/README.md` is generated. Edit the `.gotmpl` file, then `make docs`.
