@@ -1,16 +1,11 @@
-# Example environment: Synaplan in a cluster of its own, with its own
-# identity provider, ingress and cert-manager.
+# Example environment: Synaplan in a cluster of its own, with local accounts,
+# its own ingress and cert-manager.
 
 global:
   domain: "example.org"
-  hosts:
-    keycloak: "id"
   imageRegistry: ""
   imagePullSecrets: []
   imagePullPolicy: "IfNotPresent"
-
-platform:
-  realm: "synaplan"
 
 cluster:
   persistence:
@@ -57,6 +52,10 @@ technical:
   triton:
     mode: "gpu"
   synaplan:
+    bootstrapAdmin:
+      email: "admin@example.org"
+    oidc:
+      enabled: false
     # Pulled by the Ollama release
     models:
       enabled:

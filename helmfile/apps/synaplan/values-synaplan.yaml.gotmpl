@@ -152,6 +152,12 @@ speech:
   whisperServerUrl: "http://synaplan-stt:8080"
   {{- end }}
 
+{{- with $t.bootstrapAdmin.email }}
+bootstrapAdmin:
+  email: {{ . | quote }}
+  password: {{ $.Values.secrets.synaplan.adminPassword.value | quote }}
+{{- end }}
+
 oidc:
   enabled: {{ $t.oidc.enabled }}
   {{- if $t.oidc.enabled }}

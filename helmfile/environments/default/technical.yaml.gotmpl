@@ -21,6 +21,10 @@ technical:
     models:
       enabled: []
       defaults: {}
+    # First administrator, a local account; its password is the key
+    # admin-password in the Secret synaplan-credentials. Empty: none.
+    bootstrapAdmin:
+      email: ""
     oidc:
       enabled: true
       # Empty: https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>

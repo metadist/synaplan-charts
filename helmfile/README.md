@@ -15,9 +15,10 @@ helmfile/
 │   ├── default/                    # Synaplan's own values, the same everywhere
 │   ├── standalone/                 # example: a cluster of its own
 │   └── opendesk/                   # example: next to a running openDesk
-└── apps/
-    ├── synaplan/                   # Synaplan, speech-to-text server
-    └── services-external/          # MariaDB, Tika, Triton, Ollama
+├── apps/
+│   ├── synaplan/                   # Synaplan, speech-to-text server, MariaDB
+│   └── services-external/          # Tika, Triton, Ollama
+└── opendesk/                       # for an openDesk environment
 ```
 
 | Release | Installed when | Chart |
@@ -32,8 +33,7 @@ helmfile/
 ## Install
 
 Requirements: Kubernetes 1.24+, Helm 3.14+, Helmfile, cert-manager (or a TLS
-Secret of your own), an ingress controller, and an OIDC provider with a
-confidential client for Synaplan.
+Secret of your own) and an ingress controller.
 
 ```bash
 cp -r helmfile/environments/standalone helmfile/environments/my-cluster
@@ -52,15 +52,35 @@ own values. The platform values (`global`, `platform`, `cluster`, `ingress`,
 or from openDesk when Synaplan runs inside it. Environment directories other
 than `default`, `standalone` and `opendesk` are gitignored.
 
-The issuer is `https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>`
-unless `technical.synaplan.oidc.issuerURI` sets another.
-
 GPU backends (`technical.triton.mode`, `technical.ollama.mode` or
 `technical.synaplanStt.mode` set to `gpu`) need a node with `nvidia.com/gpu`:
 
 ```bash
 kubectl get nodes -o json | grep nvidia.com/gpu
 ```
+
+## Sign-in
+
+| Setting | Sign-in |
+| --- | --- |
+| `technical.synaplan.oidc.enabled: false`, as in `standalone` | local accounts |
+| `technical.synaplan.oidc.enabled: true` (default) | an OIDC provider, e.g. Keycloak |
+
+`technical.synaplan.bootstrapAdmin.email` creates the first administrator, a
+local account, on the first start. Its password is in the Secret
+`synaplan-credentials`:
+
+```bash
+kubectl -n synaplan get secret synaplan-credentials -o jsonpath='{.data.admin-password}' | base64 -d
+```
+
+With OIDC, the issuer is
+`https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>`
+unless `technical.synaplan.oidc.issuerURI` sets another. The provider needs a
+confidential client `synaplan` with the redirect URI
+`https://<synaplan host>/api/v1/auth/keycloak/callback`. Users with one of
+the roles or groups in `technical.synaplan.oidc.adminRoles` become
+administrators.
 
 ## Secrets
 
@@ -72,9 +92,10 @@ in the Secret `synaplan-credentials`:
 - Without it, the values already in that Secret stay.
 - Without it and without that Secret, the render fails.
 
-The MariaDB root password is there too (`database-root-password`). It is
-written once: MariaDB takes it only on its first start, so a new
-`MASTER_PASSWORD` does not change it.
+The MariaDB root password (`database-root-password`) and the first
+administrator's password (`admin-password`) are there too. They are written
+once: MariaDB and Synaplan take them only on their first start, so a new
+`MASTER_PASSWORD` does not change them.
 
 The OIDC client secret is
 `secrets.keycloak.clientSecret.synaplan.value`; your identity provider needs
@@ -148,55 +169,12 @@ helmfile -e my-opendesk -n <openDesk namespace> apply
 ```
 
 openDesk's Keycloak bootstrap removes clients it does not know on every
-openDesk deployment. Declare the `synaplan` client in your openDesk
-environment, so it survives openDesk updates. Its secret is the one in
-`synaplan-credentials`:
-
-```yaml
-functional:
-  authentication:
-    oidc:
-      clients:
-        synaplan:
-          clientId: "synaplan"
-          name: "Synaplan"
-          protocol: "openid-connect"
-          publicClient: false
-          clientAuthenticatorType: "client-secret"
-          secret:
-            existingSecret:
-              name: "synaplan-credentials"
-              key: "client-secret"
-          standardFlowEnabled: true
-          directAccessGrantsEnabled: false
-          frontchannelLogout: true
-          rootUrl: "https://synaplan.example.org"
-          redirectUris:
-            - "https://synaplan.example.org/api/v1/auth/keycloak/callback"
-          webOrigins:
-            - "https://synaplan.example.org"
-          attributes:
-            post.logout.redirect.uris: "https://synaplan.example.org/"
-          defaultClientScopes: ["web-origins", "acr", "profile", "roles", "email"]
-          optionalClientScopes: ["offline_access"]
-          protocolMappers:
-            - name: "groups"
-              protocol: "openid-connect"
-              protocolMapper: "oidc-group-membership-mapper"
-              config:
-                claim.name: "groups"
-                full.path: "false"
-                id.token.claim: "true"
-                access.token.claim: "true"
-                userinfo.token.claim: "true"
-            - name: "synaplan-audience"
-              protocol: "openid-connect"
-              protocolMapper: "oidc-audience-mapper"
-              config:
-                included.client.audience: "synaplan"
-                access.token.claim: "true"
-                id.token.claim: "false"
-```
+openDesk deployment, so the `synaplan` client belongs in your openDesk
+environment. Put [opendesk/synaplan-client.yaml.gotmpl](opendesk/synaplan-client.yaml.gotmpl),
+or a symlink to it, into openDesk's `helmfile/environments/<env>/`. It takes
+the domain from `DOMAIN` and derives the client secret from
+`MASTER_PASSWORD`, like openDesk itself, so run Synaplan with openDesk's
+`MASTER_PASSWORD`.
 
 Then deploy only that part of openDesk:
 
@@ -210,8 +188,7 @@ on their first sign-in.
 ## Inside openDesk
 
 Synaplan becomes an app of an openDesk by adding the two apps to the
-`helmfiles` of openDesk's `helmfile-defaults.yaml.gotmpl`, `synaplan` first
-(it creates the Secret that `synaplan-mariadb` reads):
+`helmfiles` of openDesk's `helmfile-defaults.yaml.gotmpl`:
 
 ```yaml
   - path: "git::https://github.com/metadist/synaplan-charts.git@helmfile/apps/synaplan/helmfile-defaults.yaml.gotmpl?ref=<tag>"
