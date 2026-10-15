@@ -1,0 +1,70 @@
+# Synaplan's client in openDesk's Keycloak. Put this file (or a symlink to it)
+# into your openDesk environment folder, helmfile/environments/<env>/: openDesk's
+# Keycloak bootstrap removes every client its environment does not declare.
+# The domain comes from DOMAIN, like openDesk's own global.domain, and the
+# secret from MASTER_PASSWORD, the same one Synaplan derives it from.
+{{- $masterPassword := required "A non-empty MASTER_PASSWORD is required!" (env "MASTER_PASSWORD") }}
+{{- $url := printf "https://synaplan.%s" (env "DOMAIN" | default "opendesk.internal") }}
+{{- $claims := dict "id.token.claim" "true" "access.token.claim" "true" "userinfo.token.claim" "true" }}
+functional:
+  authentication:
+    oidc:
+      clients:
+        synaplan:
+          clientId: "synaplan"
+          name: "Synaplan"
+          enabled: true
+          protocol: "openid-connect"
+          publicClient: false
+          clientAuthenticatorType: "client-secret"
+          secret: {{ derivePassword 1 "long" $masterPassword "keycloak" "synaplan_client_secret" | sha1sum | quote }}
+          standardFlowEnabled: true
+          implicitFlowEnabled: false
+          directAccessGrantsEnabled: false
+          serviceAccountsEnabled: false
+          frontchannelLogout: true
+          fullScopeAllowed: true
+          rootUrl: {{ $url | quote }}
+          baseUrl: {{ $url | quote }}
+          redirectUris:
+            - {{ printf "%s/api/v1/auth/keycloak/callback" $url | quote }}
+          webOrigins:
+            - {{ $url | quote }}
+          attributes:
+            post.logout.redirect.uris: {{ printf "%s/" $url | quote }}
+            use.refresh.tokens: "true"
+          defaultClientScopes: ["web-origins", "acr", "profile", "roles", "email"]
+          optionalClientScopes: ["offline_access"]
+          protocolMappers:
+            - name: "sub"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-usermodel-property-mapper"
+              config:
+                {{- toYaml (merge (dict "user.attribute" "id" "claim.name" "sub" "jsonType.label" "String") $claims) | nindent 16 }}
+            - name: "email"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-usermodel-property-mapper"
+              config:
+                {{- toYaml (merge (dict "user.attribute" "email" "claim.name" "email" "jsonType.label" "String") $claims) | nindent 16 }}
+            - name: "full name"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-full-name-mapper"
+              config:
+                {{- toYaml $claims | nindent 16 }}
+            - name: "username"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-usermodel-property-mapper"
+              config:
+                {{- toYaml (merge (dict "user.attribute" "username" "claim.name" "preferred_username" "jsonType.label" "String") $claims) | nindent 16 }}
+            - name: "groups"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-group-membership-mapper"
+              config:
+                {{- toYaml (merge (dict "claim.name" "groups" "full.path" "false") $claims) | nindent 16 }}
+            - name: "synaplan-audience"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-audience-mapper"
+              config:
+                included.client.audience: "synaplan"
+                access.token.claim: "true"
+                id.token.claim: "false"

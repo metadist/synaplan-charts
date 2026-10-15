@@ -1,0 +1,9 @@
+bases:
+  - "{{ requiredEnv "PWD" }}/helmfile/bases/environments.yaml.gotmpl"
+
+---
+
+helmfiles:
+  - path: "./helmfile-defaults.yaml.gotmpl"
+    values:
+      - {{ toYaml .Values | nindent 8 }}

@@ -41,7 +41,8 @@ apiKeysSecretRef: ""
 # Symfony kernel secret: CSRF tokens, signed URLs, and the at-rest encryption
 # of stored provider credentials. REQUIRED for production use; keep it stable,
 # rotating it invalidates already-encrypted credentials.
-# -- Option 1: plain text (not recommended for production)
+# -- Option 1: the value, kept in the Secret <fullname>-credentials. Empty:
+# the value already in that Secret; the render fails without one.
 appSecret: ""
 # -- Option 2: name of an existing Secret holding the value under key
 # app-secret. Takes precedence over appSecret.
@@ -98,11 +99,17 @@ database:
   name: "synaplan"
   user: "synaplan"
   serverVersion: "11.7.2-MariaDB"
-  # -- Database password (plain text, not recommended for production).
-  # Used unless passwordSecretRef is set.
+  # -- Database password, kept in the Secret <fullname>-credentials. Empty:
+  # the value already in that Secret; the render fails without one. Used
+  # unless passwordSecretRef is set.
   password: ""
   # -- Name of an existing Secret holding the database password (key: password)
   passwordSecretRef: ""
+  # -- Root password of a database installed next to Synaplan, kept in
+  # <fullname>-credentials (key database-root-password) for that database.
+  # Synaplan does not read it. Written once: a value already in that Secret
+  # wins, because the database only takes its root password on first start.
+  rootPassword: ""
 
 # Triton Inference Server configuration
 triton:
@@ -156,6 +163,11 @@ speech:
   whisper: null
   # -- Whisper model name (e.g. base, small). Only emitted when set.
   whisperModel: ""
+  # -- Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's
+  # `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs
+  # there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan
+  # with the Whisper server mode; older images ignore it. Empty = off.
+  whisperServerUrl: ""
 
 # Installation-wide feature pins (synaplan >= 5.0.0). Each key maps to one
 # environment variable the application already knows:
@@ -228,7 +240,7 @@ featurePins: {}
 #     "IAM.DIRECTORY_GROUPS_CLAIM": "groups"
 #     "IAM.ADMIN_IMPERSONATION": "audited"
 #     "MCP.CLIENT_ENABLED": false
-#     "BRANDING.BRAND_NAME": "VS-AP"
+#     "BRANDING.BRAND_NAME": "Example Corp"
 #     "IAM.DIRECTORY_GROUP_NAMES":
 #       synaplan-users: "Synaplan users"
 
@@ -251,6 +263,12 @@ bootstrapAdmin:
   # -- Name of an existing Secret with keys email and password
   # (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off.
   secretRef: ""
+  # -- Email of the first administrator, instead of secretRef. Empty = off.
+  email: ""
+  # -- Password of the first administrator, kept in the Secret
+  # <fullname>-credentials. Written once: Synaplan creates the administrator
+  # only while it has none, so a later value does not change it.
+  password: ""
   # -- (bool) BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default.
   forcePasswordChange: null
 
@@ -260,7 +278,8 @@ oidc:
   issuerURI: ""
   clientId: ""
   # OIDC client secret
-  # Option 1: Plain text (not recommended for production)
+  # Option 1: the value, kept in the Secret <fullname>-credentials. Empty:
+  # the value already in that Secret; the render fails without one.
   clientSecret: ""
   # Option 2: Reference to existing secret (recommended)
   # Create secret: kubectl create secret generic synaplan-oidc-credentials --from-literal=client-secret=YOUR_SECRET
@@ -327,10 +346,6 @@ prompts:
 # providers.disabled is a deny-list that must name every cloud provider and be
 # updated whenever one is added (easy to miss cloudflare, higgsfield, …).
 # only cannot be combined with enabled/disabled.
-#
-# Air-gapped example (local inference and speech only):
-#   examples/values-airgap.yaml
-#   helm install synaplan ./charts/synaplan -f examples/values-airgap.yaml
 #
 # Provider-level toggles run BEFORE the per-model lists, so per-model entries
 # win — e.g. disable the whole openai provider but re-enable one of its models.

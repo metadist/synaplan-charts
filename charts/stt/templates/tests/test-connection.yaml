@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "stt.fullname" . }}-test-connection"
+  # No selector labels: the Service must not route to this pod.
+  labels:
+    helm.sh/chart: {{ include "stt.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: test
+    {{- include "stt.testPodLabel" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 100
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: health
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      args:
+        - "-fsS"
+        - "--retry"
+        - "5"
+        - "--retry-connrefused"
+        - "http://{{ include "stt.fullname" . }}:{{ .Values.service.port }}/health"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+  restartPolicy: Never

@@ -141,7 +141,7 @@ settings:
   "IAM.ADMIN_IMPERSONATION": "audited"
   "IAM.AUDIT_RETENTION_DAYS": 365
   "MCP.CLIENT_ENABLED": false
-  "BRANDING.BRAND_NAME": "VS-AP"
+  "BRANDING.BRAND_NAME": "Example Corp"
   "IAM.DIRECTORY_GROUP_NAMES":
     synaplan-users: "Synaplan users"
 ```
@@ -161,14 +161,8 @@ Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
 fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
 that is not a complete semver skips that check.
 
-An overlay with the settings an openDesk install usually pins is
-[examples/values-managed-settings.yaml](../../examples/values-managed-settings.yaml).
-It is separate from the 5.0 overlay because it needs synaplan >= 5.1.0.
-
-An openDesk or air-gapped install starts from
-[examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
-login, the shared Collabora, local models and speech, and every feature that
-reaches the internet pinned off.
+An install with its database, Tika and a model backend, on its own or inside
+openDesk, is the [Helmfile](../../helmfile/).
 
 {{ template "chart.valuesSection" . }}
 

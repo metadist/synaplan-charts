@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.7.0](https://img.shields.io/badge/Version-0.7.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.0.6](https://img.shields.io/badge/AppVersion-5.0.6-informational?style=flat-square)
+![Version: 0.7.0](https://img.shields.io/badge/Version-0.7.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.4.1](https://img.shields.io/badge/AppVersion-5.4.1-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -142,7 +142,7 @@ settings:
   "IAM.ADMIN_IMPERSONATION": "audited"
   "IAM.AUDIT_RETENTION_DAYS": 365
   "MCP.CLIENT_ENABLED": false
-  "BRANDING.BRAND_NAME": "VS-AP"
+  "BRANDING.BRAND_NAME": "Example Corp"
   "IAM.DIRECTORY_GROUP_NAMES":
     synaplan-users: "Synaplan users"
 ```
@@ -162,14 +162,8 @@ Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
 fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
 that is not a complete semver skips that check.
 
-An overlay with the settings an openDesk install usually pins is
-[examples/values-managed-settings.yaml](../../examples/values-managed-settings.yaml).
-It is separate from the 5.0 overlay because it needs synaplan >= 5.1.0.
-
-An openDesk or air-gapped install starts from
-[examples/values-opendesk.yaml](../../examples/values-opendesk.yaml): Keycloak
-login, the shared Collabora, local models and speech, and every feature that
-reaches the internet pinned off.
+An install with its database, Tika and a model backend, on its own or inside
+openDesk, is the [Helmfile](../../helmfile/).
 
 ## Values
 
@@ -184,13 +178,15 @@ reaches the internet pinned off.
 | apiKeys.huggingface | string | `""` |  |
 | apiKeys.openai | string | `""` |  |
 | apiKeysSecretRef | string | `""` |  |
-| appSecret | string | `""` | Option 1: plain text (not recommended for production) |
+| appSecret | string | `""` | Option 1: the value, kept in the Secret <fullname>-credentials. Empty: the value already in that Secret; the render fails without one. |
 | appSecretRef | string | `""` | Option 2: name of an existing Secret holding the value under key app-secret. Takes precedence over appSecret. |
 | autoscaling.enabled | bool | `false` |  |
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| bootstrapAdmin.email | string | `""` | Email of the first administrator, instead of secretRef. Empty = off. |
 | bootstrapAdmin.forcePasswordChange | bool | `nil` | BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default. |
+| bootstrapAdmin.password | string | `""` | Password of the first administrator, kept in the Secret <fullname>-credentials. Written once: Synaplan creates the administrator only while it has none, so a later value does not change it. |
 | bootstrapAdmin.secretRef | string | `""` | Name of an existing Secret with keys email and password (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off. |
 | compute.tokenSecretRef | string | `""` | Name of an existing Secret holding the token under key compute-token. |
 | compute.url | string | `""` | Compute sidecar URL. Empty = off. |
@@ -198,9 +194,10 @@ reaches the internet pinned off.
 | customRootCA.secretRef | string | `""` | Option 2: name of an existing Secret holding the CA under key ca.crt. Takes precedence over crt. |
 | database.host | string | `"mariadb-cluster"` |  |
 | database.name | string | `"synaplan"` |  |
-| database.password | string | `""` | Database password (plain text, not recommended for production). Used unless passwordSecretRef is set. |
+| database.password | string | `""` | Database password, kept in the Secret <fullname>-credentials. Empty: the value already in that Secret; the render fails without one. Used unless passwordSecretRef is set. |
 | database.passwordSecretRef | string | `""` | Name of an existing Secret holding the database password (key: password) |
 | database.port | string | `"3306"` |  |
+| database.rootPassword | string | `""` | Root password of a database installed next to Synaplan, kept in <fullname>-credentials (key database-root-password) for that database. Synaplan does not read it. Written once: a value already in that Secret wins, because the database only takes its root password on first start. |
 | database.serverVersion | string | `"11.7.2-MariaDB"` |  |
 | database.user | string | `"synaplan"` |  |
 | env[0].name | string | `"APP_ENV"` |  |
@@ -324,6 +321,7 @@ reaches the internet pinned off.
 | speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
 | speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
+| speech.whisperServerUrl | string | `""` | Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan with the Whisper server mode; older images ignore it. Empty = off. |
 | tika.enabled | bool | `false` |  |
 | tika.url | string | `"http://tika.synaplan.svc.cluster.local:9998"` |  |
 | tolerations | list | `[]` |  |

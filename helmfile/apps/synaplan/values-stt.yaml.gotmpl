@@ -1,0 +1,25 @@
+# Synaplan's WHISPER_SERVER_URL is http://synaplan-stt:8080
+fullnameOverride: "synaplan-stt"
+service:
+  port: 8080
+
+networkPolicy:
+  enabled: true
+  # Only the pods that read WHISPER_SERVER_URL: web (no component label),
+  # worker and scheduler. Not the bundled redis or tts.
+  from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: synaplan
+          app.kubernetes.io/instance: synaplan
+        matchExpressions:
+          - key: app.kubernetes.io/component
+            operator: DoesNotExist
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: synaplan
+          app.kubernetes.io/instance: synaplan
+        matchExpressions:
+          - key: app.kubernetes.io/component
+            operator: In
+            values: [worker, scheduler]
