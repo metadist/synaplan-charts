@@ -40,6 +40,9 @@ technical:
       clientSecretRef: ""
       autoRedirect: true
       adminRoles: ""
+      # scopes, roleClaims, roleMapping, providerLabel, bearerAudience and
+      # accessPolicy are passed to the chart's oidc values as they are
+      accessPolicy: {}
     # Passed to the chart's tts values
     tts:
       enabled: true

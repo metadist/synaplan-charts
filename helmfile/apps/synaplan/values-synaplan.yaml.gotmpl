@@ -169,8 +169,14 @@ oidc:
   clientSecret: {{ .Values.secrets.keycloak.clientSecret.synaplan.value | quote }}
   {{- end }}
   autoRedirect: {{ $t.oidc.autoRedirect }}
-  {{- with $t.oidc.adminRoles }}
-  adminRoles: {{ . | quote }}
+  {{- range $key := list "scopes" "adminRoles" "roleClaims" "roleMapping" "providerLabel" "bearerAudience" }}
+  {{- with index $t.oidc $key }}
+  {{ $key }}: {{ . | quote }}
+  {{- end }}
+  {{- end }}
+  {{- with $t.oidc.accessPolicy }}
+  accessPolicy:
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   {{- end }}
 
