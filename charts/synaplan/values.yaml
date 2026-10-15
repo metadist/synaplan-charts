@@ -301,10 +301,10 @@ oidc:
   # -- Text on the sign-in button (OIDC_PROVIDER_LABEL). Empty = "Enterprise SSO".
   providerLabel: ""
   # -- Expected JWT audience for login, refresh and bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId.
-  # synaplan >= 5.4.0 also requests it at sign-in; Kinde and Auth0 need that (Kinde: the API audience).
+  # synaplan >= 5.3.1 also requests it at sign-in; Kinde and Auth0 need that (Kinde: the API audience).
   bearerAudience: ""
   # Who may use this instance after a successful sign-in at the provider
-  # (synaplan >= 5.4.0). All empty = every authenticated identity is admitted.
+  # (synaplan >= 5.3.1). All empty = every authenticated identity is admitted.
   # Checked on the validated access token at login, refresh and for bearer tokens.
   accessPolicy:
     # -- Organization the token must name (OIDC_ORG_CODE); also sent as org_code at sign-in (Kinde). Empty = no check.

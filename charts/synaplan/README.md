@@ -115,7 +115,7 @@ Any other flag the application pins from the environment goes into
 
 Identity needs no clicks either: `oidc.accessPolicy` decides who may use the
 instance at all (organization, roles, permissions, and whether a first SSO
-sign-in creates an account — synaplan >= 5.4.0; the render fails on an older
+sign-in creates an account; synaplan >= 5.3.1, the render fails on an older
 image, which would admit every authenticated identity),
 `oidc.adminRoles` / `oidc.roleClaims` /
 `oidc.roleMapping` decide who becomes administrator on login,
@@ -272,7 +272,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | oidc.accessPolicy.requiredRole | string | `""` | Comma-separated roles, at least one required (OIDC_REQUIRED_ROLE). Read from oidc.roleClaims; set roleClaims to roles for Kinde. Empty = no check. |
 | oidc.adminRoles | string | `""` | Comma-separated claim values that make a user administrator on login (OIDC_ADMIN_ROLES). Empty = application default (admin, realm-admin, synaplan-admin, administrator). |
 | oidc.autoRedirect | bool | `true` | Auto-redirect to OIDC provider on login page |
-| oidc.bearerAudience | string | `""` | Expected JWT audience for login, refresh and bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId. synaplan >= 5.4.0 also requests it at sign-in; Kinde and Auth0 need that (Kinde: the API audience). |
+| oidc.bearerAudience | string | `""` | Expected JWT audience for login, refresh and bearer tokens (OIDC_BEARER_AUDIENCE). Empty = clientId. synaplan >= 5.3.1 also requests it at sign-in; Kinde and Auth0 need that (Kinde: the API audience). |
 | oidc.clientId | string | `""` |  |
 | oidc.clientSecret | string | `""` |  |
 | oidc.clientSecretRef | string | `""` |  |

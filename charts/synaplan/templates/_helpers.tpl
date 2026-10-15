@@ -402,7 +402,11 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- $policy := .Values.oidc.accessPolicy | default dict }}
 {{- $policySet := false }}
 {{- range $env, $key := dict "OIDC_ORG_CODE" "orgCode" "OIDC_ORG_CLAIM" "orgClaim" "OIDC_REQUIRED_ROLE" "requiredRole" "OIDC_REQUIRED_PERMISSIONS" "requiredPermissions" "OIDC_PERMISSIONS_CLAIM" "permissionsClaim" }}
-{{- with index $policy $key }}
+{{- $value := index $policy $key }}
+{{- if not (or (kindIs "invalid" $value) (kindIs "string" $value)) }}
+{{- fail (printf "oidc.accessPolicy.%s must be a string, got %v; quote it in YAML" $key $value) }}
+{{- end }}
+{{- with $value }}
 {{- $policySet = true }}
 - name: {{ $env }}
   value: {{ . | quote }}
@@ -419,8 +423,8 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- /* An older image ignores these variables and admits every authenticated
        identity, so the operator would believe access is restricted when it is
        not. Same full-semver rule as the settings gate below. */}}
-{{- if and $policySet (regexMatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` $tag) (not (semverCompare ">=5.4.0-0" $tag)) }}
-{{- fail (printf "oidc.accessPolicy needs synaplan >= 5.4.0 (the release that enforces OIDC access restrictions); effective image tag is %q, which would ignore them and admit every authenticated identity. Set image.tag to 5.4.0 or newer, or leave oidc.accessPolicy empty." $tag) }}
+{{- if and $policySet (regexMatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` $tag) (not (semverCompare ">=5.3.1-0" $tag)) }}
+{{- fail (printf "oidc.accessPolicy needs synaplan >= 5.3.1 (the release that enforces OIDC access restrictions); effective image tag is %q, which would ignore them and admit every authenticated identity. Set image.tag to 5.3.1 or newer, or leave oidc.accessPolicy empty." $tag) }}
 {{- end }}
 {{- end }}
 {{- if .Values.bootstrapAdmin.secretRef }}
