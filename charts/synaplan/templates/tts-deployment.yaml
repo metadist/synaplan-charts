@@ -85,7 +85,7 @@ spec:
       {{- end }}
       containers:
         - name: tts
-          image: "{{ .Values.tts.image.repository }}:{{ .Values.tts.image.tag }}{{ with .Values.tts.image.digest }}@{{ . }}{{ end }}"
+          image: "{{ .Values.tts.image.repository }}:{{ .Values.tts.image.tag }}"
           imagePullPolicy: {{ .Values.tts.image.pullPolicy }}
           ports:
             - name: http

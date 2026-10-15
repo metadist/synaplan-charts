@@ -381,10 +381,7 @@ tts:
   # baked into the image, nothing is downloaded at startup.
   image:
     repository: ghcr.io/metadist/synaplan-tts
-    tag: "2.1.0"
-    # Must be the digest of the tag above: the template renders tag@digest and
-    # the runtime pulls by digest, so a stale digest silently runs an older image.
-    digest: "sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"
+    tag: "2.1.0@sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"
     pullPolicy: IfNotPresent
   port: 10200
   defaultVoice: "en_US-lessac-medium"
