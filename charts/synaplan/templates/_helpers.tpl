@@ -287,6 +287,7 @@ desktopAgent: FEATURE_DESKTOP_AGENT_ENABLED
 platformLinks: FEATURE_PLATFORM_LINKS_ENABLED
 urlFetch: FEATURE_MULTITASK_URL_FETCH_ENABLED
 compute: FEATURE_COMPUTE_ENABLED
+freeApi: FEATURE_FREEAPI_ENABLED
 registration: REGISTRATION_ENABLED
 guestChat: GUEST_CHAT_ENABLED
 setupWizard: SETUP_WIZARD_ENABLED
@@ -468,7 +469,7 @@ A tag that is not a complete semver (a branch name, a digest) skips the check.
 {{- /* Keys the application stores encrypted, or that are bookkeeping. A CONFIG_ pin is returned as plaintext and then decrypted, so it can never work. */}}
 {{- $excluded := list "M365.CLIENT_SECRET" "DROPBOX.APP_SECRET" "DIGEST.CURSOR" }}
 {{- /* BCONFIG name behind each features.* pin. A bool there already emits FEATURE_* (or REGISTRATION_ENABLED / GUEST_CHAT_ENABLED), which wins over CONFIG_*. */}}
-{{- $featureKeys := dict "groups" "IAM.GROUPS_ENABLED" "sharing" "IAM.SHARING_ENABLED" "userSearch" "IAM.USER_SEARCH_ENABLED" "directorySync" "IAM.DIRECTORY_SYNC_ENABLED" "groupPolicies" "IAM.GROUP_POLICIES_ENABLED" "agents" "AGENTS.ENABLED" "workflows" "WORKFLOWS.BUILDER_ENABLED" "tools" "TOOLS.REGISTRY_ENABLED" "toolApprovals" "TOOLS.APPROVALS_ENABLED" "customHttpTools" "TOOLS.CUSTOM_HTTP_ENABLED" "documentTools" "DOCUMENT_TOOLS.ENABLED" "desktopAgent" "DESKTOP_AGENT.ENABLED" "platformLinks" "PLATFORM_LINKS.ENABLED" "urlFetch" "MULTITASK.URL_FETCH_ENABLED" "compute" "COMPUTE.ENABLED" "registration" "ACCESS.REGISTRATION_ENABLED" "guestChat" "ACCESS.GUEST_CHAT_ENABLED" }}
+{{- $featureKeys := dict "groups" "IAM.GROUPS_ENABLED" "sharing" "IAM.SHARING_ENABLED" "userSearch" "IAM.USER_SEARCH_ENABLED" "directorySync" "IAM.DIRECTORY_SYNC_ENABLED" "groupPolicies" "IAM.GROUP_POLICIES_ENABLED" "agents" "AGENTS.ENABLED" "workflows" "WORKFLOWS.BUILDER_ENABLED" "tools" "TOOLS.REGISTRY_ENABLED" "toolApprovals" "TOOLS.APPROVALS_ENABLED" "customHttpTools" "TOOLS.CUSTOM_HTTP_ENABLED" "documentTools" "DOCUMENT_TOOLS.ENABLED" "desktopAgent" "DESKTOP_AGENT.ENABLED" "platformLinks" "PLATFORM_LINKS.ENABLED" "urlFetch" "MULTITASK.URL_FETCH_ENABLED" "compute" "COMPUTE.ENABLED" "freeApi" "FREEAPI.ENABLED" "registration" "ACCESS.REGISTRATION_ENABLED" "guestChat" "ACCESS.GUEST_CHAT_ENABLED" }}
 {{- $pinned := list }}
 {{- range $key, $value := (.Values.features | default dict) }}
 {{- if kindIs "bool" $value }}

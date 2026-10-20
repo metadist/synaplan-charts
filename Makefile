@@ -78,6 +78,8 @@ check: ## Unit-test the synaplan chart; render the Helmfile
 	MASTER_PASSWORD=check $(HELMFILE) -e opendesk --state-values-set technical.synaplan.oidc.accessPolicy.orgCode=org_1,technical.synaplan.oidc.accessPolicy.allowUserProvisioning=false,technical.synaplan.oidc.scopes=openid -l name=synaplan template | grep -A1 -E 'name: OIDC_(ORG_CODE|ALLOW_USER_PROVISIONING|SCOPES)$$' | grep -c -E 'value: "(org_1|false|openid)"' | grep -qx 9
 	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set certificate.wildcard=true,ingress.tls.secretName=wildcard-tls -l name=synaplan template | (! grep -q 'cert-manager.io/')
 	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set customization.release.synaplan.lint=../../../ci/synaplan/lint-values.yaml -l name=synaplan template | grep -q 'image: "ghcr.io/metadist/synaplan:latest"'
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone -l name=synaplan template | grep -A1 'name: FEATURE_FREEAPI_ENABLED$$' | grep -c 'value: "false"' | grep -qx 3
+	MASTER_PASSWORD=check $(HELMFILE) -e opendesk -l name=synaplan template | grep -A1 'name: FEATURE_FREEAPI_ENABLED$$' | grep -c 'value: "false"' | grep -qx 3
 
 .PHONY: clean
 clean: ## Remove build artifacts
