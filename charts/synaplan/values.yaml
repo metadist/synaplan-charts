@@ -207,6 +207,8 @@ features:
   urlFetch: null
   # -- (bool) FEATURE_COMPUTE_ENABLED (installation kill switch for compute)
   compute: null
+  # -- (bool) FEATURE_FREEAPI_ENABLED (Synaplan Demo shared onboarding key; pinned off on Kubernetes, set true for an evaluation cluster)
+  freeApi: false
   # -- (bool) REGISTRATION_ENABLED (local self-registration; false for SSO-only installs)
   registration: null
   # -- (bool) GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs)

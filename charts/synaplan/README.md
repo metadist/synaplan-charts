@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.7.0](https://img.shields.io/badge/Version-0.7.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.4.1](https://img.shields.io/badge/AppVersion-5.4.1-informational?style=flat-square)
+![Version: 0.7.1](https://img.shields.io/badge/Version-0.7.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.4.1](https://img.shields.io/badge/AppVersion-5.4.1-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.1
 ```
 
 ### Install from local chart
@@ -211,6 +211,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | features.desktopAgent | bool | `nil` | FEATURE_DESKTOP_AGENT_ENABLED (desktop client pairing) |
 | features.directorySync | bool | `nil` | FEATURE_IAM_DIRECTORY_SYNC_ENABLED (groups from the OIDC groups claim) |
 | features.documentTools | bool | `nil` | FEATURE_DOCUMENT_TOOLS_ENABLED (Word / Excel / PowerPoint tools) |
+| features.freeApi | bool | `false` | FEATURE_FREEAPI_ENABLED (Synaplan Demo shared onboarding key; pinned off on Kubernetes, set true for an evaluation cluster) |
 | features.groupPolicies | bool | `nil` | FEATURE_IAM_GROUP_POLICIES_ENABLED (needs groups) |
 | features.groups | bool | `nil` | FEATURE_IAM_GROUPS_ENABLED (people & groups) |
 | features.guestChat | bool | `nil` | GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs) |

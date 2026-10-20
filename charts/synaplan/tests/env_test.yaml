@@ -84,3 +84,27 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "env sets TIKA_BASE_URL"
+
+  - it: pins FEATURE_FREEAPI_ENABLED to false by default
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FEATURE_FREEAPI_ENABLED
+            value: "false"
+          count: 1
+
+  - it: lets an evaluation cluster enable features.freeApi
+    template: deployment.yaml
+    set:
+      features:
+        freeApi: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FEATURE_FREEAPI_ENABLED
+            value: "true"
+          count: 1
+
