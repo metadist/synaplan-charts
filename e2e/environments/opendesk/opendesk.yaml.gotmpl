@@ -1,6 +1,7 @@
 # openDesk's environment for the e2e run: self-signed wildcard certificate,
 # and only what Synaplan uses or needs to sign in (Nubus with Keycloak and
-# its PostgreSQL, Redis, Memcached and object store; Collabora; Jitsi).
+# its PostgreSQL, Redis, Memcached and object store; Collabora; Jitsi only
+# with E2E_OPENDESK_JITSI=true).
 certificate:
   wildcard: true
   selfSigned: true
@@ -29,6 +30,8 @@ apps:
     enabled: false
   home:
     enabled: false
+  jitsi:
+    enabled: {{ env "E2E_OPENDESK_JITSI" | default "false" }}
   mariadb:
     enabled: false
   nextcloud:

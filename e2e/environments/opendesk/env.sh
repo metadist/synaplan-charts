@@ -5,6 +5,7 @@ NAMESPACE=opendesk
 CERT_MANAGER=true
 WILDCARD_DOMAIN=opendesk.test
 OPENDESK_REF=${E2E_OPENDESK_REF:-v1.19.1}
+export E2E_OPENDESK_JITSI=${E2E_OPENDESK_JITSI:-false}
 OPENDESK=$E2E/.opendesk-$OPENDESK_REF
 # Nubus' consumer registration writes into its read-only working directory
 # and fails, so these two never start. Sign-in does not need them.
