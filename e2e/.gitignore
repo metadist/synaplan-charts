@@ -1,4 +1,6 @@
 node_modules/
 .kubeconfig-*
+.opendesk-*/
+.totp-*.json
 test-results/
 playwright-report/

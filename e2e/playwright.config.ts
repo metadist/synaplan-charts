@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test'
 
 const host = process.env.E2E_HOST ?? 'synaplan.example.org'
+const domain = host.split('.').slice(1).join('.')
 const ingressIp = process.env.E2E_INGRESS_IP ?? '127.0.0.1'
 
 export default defineConfig({
@@ -13,8 +14,11 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     trace: 'retain-on-failure',
     launchOptions: {
-      args: [`--host-resolver-rules=MAP ${host} ${ingressIp}`],
+      args: [`--host-resolver-rules=MAP *.${domain} ${ingressIp}`],
     },
   },
-  projects: [{ name: 'standalone', testDir: './tests/standalone' }],
+  projects: [
+    { name: 'standalone', testDir: './tests/standalone' },
+    { name: 'opendesk', testDir: './tests/opendesk' },
+  ],
 })

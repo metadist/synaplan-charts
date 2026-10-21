@@ -1,0 +1,16 @@
+# Synaplan's settings in openDesk's environment, as in helmfile/README.md
+# (Inside openDesk). Ollama on CPU, without pulling the models.
+apps:
+  ollama:
+    enabled: true
+technical:
+  ollama:
+    mode: "cpu"
+    pull: []
+  synaplan:
+    sovereign: true
+    models:
+      enabled: ["ollama:gpt-oss-20b", "ollama:bge-m3"]
+      defaults: {chat: "ollama:gpt-oss-20b", sort: "ollama:gpt-oss-20b", vectorize: "ollama:bge-m3"}
+    oidc:
+      adminRoles: "admin,realm-admin,synaplan-admin,administrator,domain admins"
