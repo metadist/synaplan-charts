@@ -3,13 +3,14 @@
 Deploys the [Helmfile](../helmfile/) into a throwaway k3d cluster and signs in
 with Playwright, like a user would. CI runs every environment for every pull
 request (job *Test Deployment*), and the `opendesk` environment nightly
-against openDesk's `develop` branch (*E2E nightly*). `opendesk` needs more
-than the standard runner's 4 vCPU and runs on `ubuntu-latest-m`.
+against openDesk's `develop` branch with Jitsi (*E2E nightly*; run it by
+hand for another ref or without Jitsi). `opendesk` needs more than the
+standard runner's 4 vCPU and runs on `ubuntu-latest-m`.
 
 | Environment | Deployment | Checks |
 | --- | --- | --- |
 | `standalone` | the `standalone` example as it is, on CPU and without pulling its models ([values.yaml](environments/standalone/values.yaml)); ingress-nginx like the example | the first administrator signs in, a wrong password is refused, a new `MASTER_PASSWORD` keeps the administrator's password |
-| `opendesk` | Synaplan inside openDesk (pinned release in [env.sh](environments/opendesk/env.sh)): openDesk's Helmfile with Synaplan's apps from this checkout, Synaplan's settings and Keycloak client in openDesk's environment, as in [Inside openDesk](../helmfile/README.md#inside-opendesk). openDesk runs reduced to Nubus (Keycloak) and Collabora, plus Jitsi with `E2E_OPENDESK_JITSI=true` ([opendesk.yaml.gotmpl](environments/opendesk/opendesk.yaml.gotmpl)); haproxy-ingress, cert-manager, self-signed wildcard certificate | a Domain Admin signs in through Keycloak (setting up TOTP) and is administrator, a plain openDesk user is not |
+| `opendesk` | Synaplan inside openDesk (pinned release in [env.sh](environments/opendesk/env.sh)): openDesk's Helmfile with Synaplan's apps from this checkout, Synaplan's settings and Keycloak client in openDesk's environment, as in [Inside openDesk](../helmfile/README.md#inside-opendesk). openDesk runs reduced to Nubus (Keycloak) and Collabora, plus Jitsi with `E2E_OPENDESK_JITSI=true` ([opendesk.yaml.gotmpl](environments/opendesk/opendesk.yaml.gotmpl)); haproxy-ingress, cert-manager, self-signed wildcard certificate | a Domain Admin signs in through Keycloak (setting up TOTP) and is administrator, a plain openDesk user is not; with Jitsi: two openDesk users sign in to Jitsi through Keycloak, meet in a room and receive each other's audio through the bridge (fake microphones, p2p off) |
 
 The suite overrides as little as possible: the cluster is built to fit the
 deployment (its ingress controller, its certificates), not the other way
@@ -36,6 +37,11 @@ and `ums-selfservice-listener` never start. Sign-in does not need them, so
 the suite does not wait for them. It does wait for `ums-stack-data-ums`:
 until that job has loaded the join data, the UDM REST API refuses the
 Administrator (`Not in allowed groups`).
+
+The test users are created through the UDM REST API with
+`opendeskVideoconferenceEnabled`: openDesk grants Jitsi per user, and
+without it Keycloak's userinfo for Jitsi's client lacks `opendesk_username`
+and the Keycloak adapter issues no token.
 
 ## Run it locally
 
