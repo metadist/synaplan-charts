@@ -45,10 +45,9 @@ async function signIn(page: Page, username: string, password: string) {
         await otp.fill(totp(totpSecrets()[username]))
         await otp.press('Enter')
         const accepted = await page
-          .waitForURL((url) => url.hostname === synaplanHost, { timeout: 5_000 })
+          .waitForURL((url) => url.hostname === synaplanHost, { timeout: 31_000 - (Date.now() % 30_000) })
           .then(() => true, () => false)
         if (accepted) break
-        await page.waitForTimeout(31_000 - (Date.now() % 30_000))
       }
     }
     await page.waitForURL((url) => url.hostname === synaplanHost)

@@ -21,7 +21,7 @@ An environment is a directory in `environments/` with:
 
 - `env.sh`, sourced by `run.sh`: `NAMESPACE`, `CERT_MANAGER`,
   `WILDCARD_DOMAIN` (resolved to the k3d node inside the cluster),
-  `IGNORED_WORKLOADS`, and the functions `deploy_environment`,
+  `IGNORED_WORKLOADS` (globs), and the functions `deploy_environment`,
   `prepare_tests` (exports what the tests read) and `run_scenario`
 - `ingress-nginx.yaml` or `haproxy-ingress.yaml`: the ingress controller
   and its values
@@ -30,9 +30,12 @@ An environment is a directory in `environments/` with:
 plus a Playwright project in `playwright.config.ts` and its tests in
 `tests/<environment>/`.
 
-In `opendesk`, Nubus' `ums-portal-consumer` and `ums-selfservice-listener`
-never start: their consumer registration writes into a read-only working
-directory. Sign-in does not need them, so the suite does not wait for them.
+In `opendesk`, Nubus' consumer registration (`ums-provisioning-register-consumers`)
+writes into a read-only working directory and fails, so `ums-portal-consumer`
+and `ums-selfservice-listener` never start. Sign-in does not need them, so
+the suite does not wait for them. It does wait for `ums-stack-data-ums`:
+until that job has loaded the join data, the UDM REST API refuses the
+Administrator (`Not in allowed groups`).
 
 ## Run it locally
 
@@ -48,6 +51,6 @@ e2e/run.sh opendesk down       # delete the cluster
 
 Steps one by one: `up`, `deploy`, `test`, `down`. `HELM` and `K3D` select
 the binaries. After each deploy every Deployment and StatefulSet must roll
-out. The browser opens the host of Synaplan's Ingress on the k3d node's IP
+out and every Job must complete. The browser opens the host of Synaplan's Ingress on the k3d node's IP
 (`--host-resolver-rules` for its whole domain), with the ingress
 controller's or the self-signed certificate.

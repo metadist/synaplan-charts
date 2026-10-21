@@ -89,11 +89,23 @@ EOF
   fi
 }
 
+ignored() {
+  local pattern
+  for pattern in $IGNORED_WORKLOADS; do
+    case $1 in $pattern) return 0 ;; esac
+  done
+  return 1
+}
+
 wait_for_workloads() {
   local workload
   for workload in $(kubectl -n "$NAMESPACE" get deployments,statefulsets -o name); do
-    case " $IGNORED_WORKLOADS " in *" $workload "*) continue ;; esac
+    ignored "$workload" && continue
     kubectl -n "$NAMESPACE" rollout status "$workload" --timeout=15m
+  done
+  for workload in $(kubectl -n "$NAMESPACE" get jobs -o name); do
+    ignored "$workload" && continue
+    kubectl -n "$NAMESPACE" wait --for=condition=complete "$workload" --timeout=15m
   done
 }
 
