@@ -132,6 +132,6 @@ networkPolicy:
 | startupProbe | object | `{"failureThreshold":60,"httpGet":{"path":"/health","port":"http"},"periodSeconds":5}` | Startup probe: the model loads in a few seconds; first image pull is not counted |
 | strategy | object | `{"rollingUpdate":{"maxSurge":0,"maxUnavailable":1},"type":"RollingUpdate"}` | Rollout strategy. No surge: an update must not wait for a second free GPU. |
 | tests.image.repository | string | `"curlimages/curl"` | Image for `helm test` |
-| tests.image.tag | string | `"8.23.0@sha256:a134550be58ab783810e613ae96fd253c38f7bdd16d9bf9be350700c7a29ac06"` | Tag for `helm test`, with its digest (`tag@sha256:...`) |
+| tests.image.tag | string | `"8.23.0@sha256:11e64e28c5f58c8d93ee95fcf22ac055f48b0bc440e0ce7d8013bbb5ad6aa8ac"` | Tag for `helm test`, with its digest (`tag@sha256:...`) |
 | tmpSizeLimit | string | `"2Gi"` | Scratch space for ffmpeg conversion (mounted at /tmp; the root filesystem is read-only). |
 | tolerations | list | `[]` | Tolerations, e.g. for tainted GPU nodes |
