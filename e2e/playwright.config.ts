@@ -13,6 +13,8 @@ export default defineConfig({
     baseURL: `https://${host}`,
     ignoreHTTPSErrors: true,
     trace: 'retain-on-failure',
+    actionTimeout: 30_000,
+    navigationTimeout: 60_000,
     launchOptions: {
       args: [
         `--host-resolver-rules=MAP *.${domain} ${ingressIp}`,
