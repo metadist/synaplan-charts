@@ -18,7 +18,7 @@ IGNORED_WORKLOADS="job.batch/ums-provisioning-register-consumers-* statefulset.a
 E2E_USER_PASSWORD=e2e-plain-user-7f3a9c
 
 opendesk_helmfile() {
-  (cd "$OPENDESK" && MASTER_PASSWORD=e2e-master-password DOMAIN=$WILDCARD_DOMAIN SYNASCRIBER_IMAGE=${E2E_SYNASCRIBER_IMAGE:-} \
+  (cd "$OPENDESK" && MASTER_PASSWORD=e2e-master-password DOMAIN=$WILDCARD_DOMAIN SYNAPLAN_TRANSCRIBER_IMAGE=${E2E_TRANSCRIBER_IMAGE:-} \
     $HELMFILE -e test -n "$NAMESPACE" "$@")
 }
 

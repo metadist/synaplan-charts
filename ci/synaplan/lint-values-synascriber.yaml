@@ -7,6 +7,9 @@ database:
 publicUrl: https://synaplan.opendesk.example
 synascriber:
   enabled: true
+  transcriber:
+    image:
+      tag: lint
   secrets:
     prosodySecret: lint-prosody-secret
     transcriberToken: lint-transcriber-token

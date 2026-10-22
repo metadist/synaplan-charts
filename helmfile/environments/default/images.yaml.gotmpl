@@ -13,16 +13,13 @@ images:
     registry: ""
     repository: ""
     tag: ""
-  # Meeting notes (technical.synaplan.synascriber): the synaScriber files
-  # image (plugin, Jitsi's silent page, Prosody module) and the transcriber
-  synascriber:
-    registry: "ghcr.io"
-    repository: "metadist/synascriber"
-    tag: "0.3.0"
+  # Meeting notes (technical.synaplan.synascriber): the transcriber, which
+  # also carries mod_synascriber.lua for Jitsi's Prosody. Pin a published
+  # tag (metadist/synaplan publishes the version and the short commit).
   synaplanTranscriber:
     registry: "ghcr.io"
     repository: "metadist/synaplan-transcriber"
-    tag: "09d72d3"
+    tag: "latest"
   ollama:
     registry: ""
     repository: ""

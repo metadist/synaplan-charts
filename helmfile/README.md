@@ -323,13 +323,15 @@ kubectl get nodes -o json | grep nvidia.com/gpu
 
 ## Meeting notes
 
-[synaScriber](https://github.com/metadist/synaScriber) writes notes of Jitsi
-meetings in openDesk: a Synaplan plugin, a transcriber Jitsi's bridge
-streams each speaker's audio to, a Prosody module and a loader script in
-Jitsi. It is part of the `synaplan` release, not an app of its own, and
-built from two images only (`images.synascriber`: the plugin, Jitsi's silent
-sign-in page and the Prosody module; `images.synaplanTranscriber`). Nothing
-is cloned or downloaded at start.
+Meeting notes write notes of Jitsi meetings in openDesk: the `synascriber`
+plugin bundled with Synaplan, a transcriber Jitsi's bridge streams each
+speaker's audio to, a Prosody module and a loader script in Jitsi, all from
+[metadist/synaplan](https://github.com/metadist/synaplan) (`plugins/synascriber`,
+`sidecars/synaplan-transcriber`). It is part of the `synaplan` release, not
+an app of its own, and needs two images only: Synaplan itself, with the
+plugin under `/plugins/synascriber`, and the transcriber
+(`images.synaplanTranscriber`), which also carries the Prosody module.
+Nothing is cloned or downloaded at start.
 
 ```yaml
 apps:
@@ -347,13 +349,14 @@ customization:
       synascriber: "<path>/helmfile/opendesk/synascriber-jitsi.yaml.gotmpl"
 ```
 
-With that, the `synaplan` release adds the plugin to every Synaplan pod (an
-init container copies it from the files image), the transcriber, the
-Secrets for Jitsi, and a Job that registers the plugin after every apply:
+With that, the `synaplan` release adds the transcriber, the Secrets for
+Jitsi, `DEFAULT_USER_PLUGINS=["synascriber"]` (Synaplan installs the plugin
+for every new user), and a Job that registers the plugin after every apply:
 installs it for the owner and every verified user, stores the transcriber's
 API key and writes the plugin's settings (languages, folder, timezone,
 captions, the speech-to-text and Prosody URLs). Synaplan has no declarative
-plugin setup yet, so the Job runs Synaplan's console in the Synaplan image.
+owner and settings setup yet, so the Job runs Synaplan's console in the
+Synaplan image.
 
 Two more files go into openDesk's environment folder:
 
@@ -364,14 +367,14 @@ Two more files go into openDesk's environment folder:
   as a values file of openDesk's `jitsi` release (`customization.release.jitsi`):
   `head.html` loads the loader script from Synaplan, Jitsi web serves the
   silent sign-in page ([opendesk/synascriber-silent.html](opendesk/synascriber-silent.html),
-  the one file not taken from the image: openDesk's chart fills the web
+  a static page openDesk's chart cannot take from an image: it fills the web
   pod's volumes itself and a values file could only replace that list), an
-  init container puts the Prosody module into Prosody from the files image,
-  and Jicofo streams audio to the transcriber. Prosody's and Jicofo's
+  init container puts the Prosody module into Prosody from the transcriber
+  image, and Jicofo streams audio to the transcriber. Prosody's and Jicofo's
   secrets are derived from `MASTER_PASSWORD` exactly as the `synaplan`
   release derives them, so Jitsi may be deployed before Synaplan. It reads
-  `MASTER_PASSWORD`, `DOMAIN`, `SYNASCRIBER_IMAGE` (keep in step with
-  `images.synascriber`), `SYNASCRIBER_OWNER` (`ownerUserId`),
+  `MASTER_PASSWORD`, `DOMAIN`, `SYNAPLAN_TRANSCRIBER_IMAGE` (keep in step
+  with `images.synaplanTranscriber`), `SYNASCRIBER_OWNER` (`ownerUserId`),
   `SYNAPLAN_HOST`, `KEYCLOAK_HOST`, `KEYCLOAK_REALM` and `SYNAPLAN_RELEASE`.
 
 openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only

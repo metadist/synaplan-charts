@@ -559,25 +559,15 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-# Meeting notes for Jitsi in openDesk (synaScriber): a Synaplan plugin, a
-# transcriber Jitsi's bridge streams each speaker's audio to, a Prosody
-# module and a loader script in Jitsi. Two images, nothing downloaded at
-# start: the files image (plugin, Jitsi's silent sign-in page, the Prosody
-# module; init containers copy them into the pods) and the transcriber.
-# What runs in other releases (Jitsi, Keycloak) is wired through their
-# values, see helmfile/opendesk/ in the chart repository.
+# Meeting notes for Jitsi in openDesk (synascriber): a plugin bundled with
+# Synaplan, a transcriber Jitsi's bridge streams each speaker's audio to
+# (its image also carries the Prosody module for Jitsi), and a loader
+# script in Jitsi. Needs a Synaplan image with the plugin under
+# /plugins/synascriber. What runs in other releases (Jitsi, Keycloak) is
+# wired through their values, see helmfile/opendesk/ in the chart repository.
 synascriber:
-  # -- Deploy meeting notes: the plugin in every Synaplan pod, the transcriber, the Secrets for Jitsi, and the registration Job
+  # -- Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan
   enabled: false
-  image:
-    # -- Registry of the files image
-    registry: ghcr.io
-    # -- Repository of the files image (the synaScriber plugin, Jitsi's silent page, mod_synascriber.lua)
-    repository: metadist/synascriber
-    # -- Tag of the files image
-    tag: "0.3.0"
-    # -- Pull policy of the files image
-    pullPolicy: IfNotPresent
   # Secrets shared with Jitsi's pods. Empty values keep what the Secret
   # `<release>-synascriber` already holds (first install: generated).
   secrets:
@@ -591,10 +581,10 @@ synascriber:
     image:
       # -- Registry of the transcriber image
       registry: ghcr.io
-      # -- Repository of the transcriber image (metadist/synaplan, sidecars/synaplan-transcriber)
+      # -- Repository of the transcriber image (metadist/synaplan, sidecars/synaplan-transcriber; it also carries mod_synascriber.lua)
       repository: metadist/synaplan-transcriber
       # -- Tag of the transcriber image
-      tag: "09d72d3"
+      tag: ""
       # -- Pull policy of the transcriber image
       pullPolicy: IfNotPresent
     # -- Replicas; one serves many meetings
@@ -669,8 +659,7 @@ synascriber:
 
 # Additional init containers on the web, worker and scheduler Deployments
 # (same shape as the triton chart's additionalInitContainers), e.g. to seed
-# a volume declared in `volumes` with model or plugin files before the app
-# starts.
+# a volume declared in `volumes` with model files before the app starts.
 additionalInitContainers: []
 
 # Additional volumes on the output Deployment definition.

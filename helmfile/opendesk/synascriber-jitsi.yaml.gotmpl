@@ -10,19 +10,19 @@
 # sign-in page comes from synascriber-silent.html next to this file (the
 # openDesk chart fills web.extraVolumes itself, a values file can only
 # replace that list); an init container copies the Prosody module from the
-# synaScriber files image; Jicofo streams each speaker's audio to the
-# transcriber. The shared secrets are derived from MASTER_PASSWORD exactly
+# transcriber image, which carries it; Jicofo streams each speaker's audio
+# to the transcriber. The shared secrets are derived from MASTER_PASSWORD exactly
 # as the synaplan release derives them (environments/default/secrets.yaml.gotmpl),
 # so Jitsi needs nothing from that release at start.
 #
 # Environment: MASTER_PASSWORD, DOMAIN (openDesk's global.domain),
-# SYNASCRIBER_IMAGE (default below, keep in step with images.synascriber),
-# SYNASCRIBER_OWNER (Synaplan user id of the plugin owner,
+# SYNAPLAN_TRANSCRIBER_IMAGE (default below, keep in step with
+# images.synaplanTranscriber), SYNASCRIBER_OWNER (Synaplan user id of the plugin owner,
 # technical.synaplan.synascriber.ownerUserId), SYNAPLAN_HOST, KEYCLOAK_HOST,
 # KEYCLOAK_REALM, SYNAPLAN_RELEASE.
 {{- $masterPassword := requiredEnv "MASTER_PASSWORD" }}
 {{- $domain := env "DOMAIN" | default "opendesk.internal" }}
-{{- $image := env "SYNASCRIBER_IMAGE" | default "ghcr.io/metadist/synascriber:0.3.0" }}
+{{- $image := env "SYNAPLAN_TRANSCRIBER_IMAGE" | default "ghcr.io/metadist/synaplan-transcriber:latest" }}
 {{- $owner := env "SYNASCRIBER_OWNER" | default "1" }}
 {{- $synaplan := printf "https://%s.%s" (env "SYNAPLAN_HOST" | default "synaplan") $domain }}
 {{- $issuer := printf "https://%s.%s/realms/%s" (env "KEYCLOAK_HOST" | default "id") $domain (env "KEYCLOAK_REALM" | default "opendesk") }}
@@ -38,7 +38,7 @@ jitsi:
         content: {{ readFile "synascriber-silent.html" | toJson }}
   prosody:
     extraInitContainers:
-      - {{ merge (dict "name" "synascriber-files" "command" (list "sh" "-c" "cp /synascriber/prosody/mod_synascriber.lua /files/") "volumeMounts" (list (dict "name" "synascriber-files" "mountPath" "/files"))) $copy | toJson }}
+      - {{ merge (dict "name" "synascriber-files" "command" (list "sh" "-c" "cp /app/prosody/mod_synascriber.lua /files/") "volumeMounts" (list (dict "name" "synascriber-files" "mountPath" "/files"))) $copy | toJson }}
     extraVolumes:
       - name: synascriber-files
         emptyDir: {}

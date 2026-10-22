@@ -322,11 +322,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
 | speech.whisperServerUrl | string | `""` | Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan with the Whisper server mode; older images ignore it. Empty = off. |
-| synascriber.enabled | bool | `false` | Deploy meeting notes: the plugin in every Synaplan pod, the transcriber, the Secrets for Jitsi, and the registration Job |
-| synascriber.image.pullPolicy | string | `"IfNotPresent"` | Pull policy of the files image |
-| synascriber.image.registry | string | `"ghcr.io"` | Registry of the files image |
-| synascriber.image.repository | string | `"metadist/synascriber"` | Repository of the files image (the synaScriber plugin, Jitsi's silent page, mod_synascriber.lua) |
-| synascriber.image.tag | string | `"0.3.0"` | Tag of the files image |
+| synascriber.enabled | bool | `false` | Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan |
 | synascriber.registration.enabled | bool | `true` | Run the registration Job after install and upgrade |
 | synascriber.registration.ownerUserId | int | `1` | Synaplan user id of the plugin owner, an administrator. Jitsi loads the loader script from this user's plugin assets |
 | synascriber.registration.resources | object | `{"limits":{"memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resources of the Job |
@@ -344,8 +340,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.transcriber.commitAfterMs | int | `8000` | Longest audio window (ms); windows usually end earlier, at a pause |
 | synascriber.transcriber.image.pullPolicy | string | `"IfNotPresent"` | Pull policy of the transcriber image |
 | synascriber.transcriber.image.registry | string | `"ghcr.io"` | Registry of the transcriber image |
-| synascriber.transcriber.image.repository | string | `"metadist/synaplan-transcriber"` | Repository of the transcriber image (metadist/synaplan, sidecars/synaplan-transcriber) |
-| synascriber.transcriber.image.tag | string | `"09d72d3"` | Tag of the transcriber image |
+| synascriber.transcriber.image.repository | string | `"metadist/synaplan-transcriber"` | Repository of the transcriber image (metadist/synaplan, sidecars/synaplan-transcriber; it also carries mod_synascriber.lua) |
+| synascriber.transcriber.image.tag | string | `""` | Tag of the transcriber image |
 | synascriber.transcriber.language | string | `"de"` | Meeting language the transcriber assumes until a session says otherwise |
 | synascriber.transcriber.nodeSelector | object | `{}` | Node selector of the transcriber |
 | synascriber.transcriber.podAnnotations | object | `{}` | Annotations on the transcriber pod |

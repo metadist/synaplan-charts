@@ -21,6 +21,7 @@ data:
     set -euo pipefail
     for script in /docker-entrypoint.d/*.sh; do bash "$script"; done
     cd /var/www/backend
+    [ -f /plugins/synascriber/manifest.json ] || { echo "this Synaplan image has no plugin under /plugins/synascriber" >&2; exit 1; }
     for i in $(seq 1 120); do
       code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SYNAPLAN_HOST" "$SYNAPLAN_WEB/api/health" || true)
       [ "$code" = 200 ] && break
@@ -80,7 +81,6 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- include "synaplan.initContainers" . | nindent 6 }}
       containers:
         - name: register
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"

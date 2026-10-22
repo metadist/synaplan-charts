@@ -154,15 +154,10 @@ speech:
 
 {{- with $t.synascriber }}
 {{- if .enabled }}
-{{- $img := $.Values.images.synascriber }}
 {{- $tr := $.Values.images.synaplanTranscriber }}
 {{- $sec := $.Values.secrets.synascriber }}
 synascriber:
   enabled: true
-  image:
-    registry: {{ $img.registry | quote }}
-    repository: {{ $img.repository | quote }}
-    tag: {{ $img.tag | quote }}
   secrets:
     prosodySecret: {{ $sec.prosodySecret.value | quote }}
     transcriberToken: {{ $sec.transcriberToken.value | quote }}

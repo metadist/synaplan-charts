@@ -52,11 +52,12 @@ the next Keycloak bootstrap removes Jitsi's client.
 Synaplan ([synascriber.yaml.gotmpl](environments/opendesk/synascriber.yaml.gotmpl):
 speech-to-text on CPU, `technical.synaplan.synascriber`, Jitsi's values and
 Keycloak client from [helmfile/opendesk](../helmfile/opendesk/)) and runs
-`notes.spec.ts`. The images are `images.synascriber` and
-`images.synaplanTranscriber`; `E2E_SYNASCRIBER_IMAGE` points Jitsi's init
-containers at another files image (a local build imported with
+`notes.spec.ts`. It needs a Synaplan image with the plugin under
+`/plugins/synascriber` and the transcriber image
+(`images.synaplanTranscriber`); `E2E_TRANSCRIBER_IMAGE` points Jitsi's init
+container at another transcriber image (a local build imported with
 `k3d image import`; the cluster never garbage-collects images, so an
-import survives a full disk). CI skips it until both images are published.
+import survives a full disk). CI skips it until both are published.
 
 ## Run it locally
 
