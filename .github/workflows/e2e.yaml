@@ -18,12 +18,11 @@ on:
         type: boolean
         default: true
       opendesk-synascriber:
-        description: Deploy meeting notes too and test them (opendesk environment; implies Jitsi)
+        description: Deploy meeting notes and test them (opendesk environment); false leaves them out
         required: false
         type: boolean
-        default: false
-  # By hand: another openDesk ref, or meeting notes (needs a Synaplan image
-  # with the plugin and the pinned ghcr.io/metadist/synaplan-transcriber).
+        default: true
+  # By hand, e.g. for another openDesk ref.
   workflow_dispatch:
     inputs:
       environment:
@@ -43,10 +42,10 @@ on:
         type: boolean
         default: true
       opendesk-synascriber:
-        description: Deploy meeting notes too and test them (opendesk environment; implies Jitsi)
+        description: Deploy meeting notes and test them (opendesk environment); false leaves them out
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
