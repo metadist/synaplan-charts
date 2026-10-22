@@ -112,8 +112,17 @@ jobs:
           kubectl get pods -A --no-headers | grep -v -E ' (Running|Completed) ' | while read -r namespace pod _; do
             kubectl -n "$namespace" describe pod "$pod" | sed -n '/^Events:/,$p'
           done
+          kubectl get pods -A --no-headers | awk '$4 != "0" || $3 != "Running" && $3 != "Completed" {print $1, $2}' | while read -r namespace pod; do
+            echo "::group::logs of $namespace/$pod"
+            kubectl -n "$namespace" logs "$pod" --all-containers --tail=150 2>&1 || true
+            echo "--- previous container"
+            kubectl -n "$namespace" logs "$pod" --all-containers --previous --tail=150 2>&1 || true
+            echo "::endgroup::"
+          done
           for namespace in synaplan opendesk; do
+            echo "::group::logs of $namespace/deployment/synaplan"
             kubectl -n "$namespace" logs deployment/synaplan --all-containers --tail=200 2>/dev/null || true
+            echo "::endgroup::"
           done
 
       - name: Upload the Playwright report
