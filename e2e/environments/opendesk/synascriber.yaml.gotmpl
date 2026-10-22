@@ -2,15 +2,6 @@
 # (E2E_OPENDESK_SYNASCRIBER=false leaves it out): speech-to-text on CPU, the
 # plugin, transcriber and Secrets through the synaplan release, and Jitsi's
 # part through helmfile/opendesk/synascriber-jitsi.yaml.gotmpl.
-#
-# The Synaplan image is the main build that merged the plugin (synaplan
-# 92804be, the commit the transcriber is pinned to), until a Synaplan release
-# carries it; then this block goes and the chart's appVersion is the image.
-images:
-  synaplan:
-    registry: "ghcr.io"
-    repository: "metadist/synaplan"
-    tag: "ci-92804be5b50add39bf906066bfb83983c1d287b6-amd64"
 apps:
   synaplanStt:
     enabled: true
