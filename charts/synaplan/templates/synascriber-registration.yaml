@@ -1,0 +1,127 @@
+{{- if and .Values.synascriber.enabled .Values.synascriber.registration.enabled }}
+{{- $r := .Values.synascriber.registration }}
+{{- $name := printf "%s-registration" (include "synaplan.synascriber.name" .) }}
+{{- $hook := dict "helm.sh/hook" "post-install,post-upgrade" "helm.sh/hook-delete-policy" "before-hook-creation" }}
+{{- $settings := dict "languages" $r.settings.languages "default_language" $r.settings.defaultLanguage "default_folder" $r.settings.folder "timezone" $r.settings.timezone "captions" $r.settings.captions "stt_url" ($r.settings.sttUrl | default .Values.speech.whisperServerUrl) "prosody_url" $r.settings.prosodyUrl }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: synascriber-registration
+  annotations:
+    {{- toYaml $hook | nindent 4 }}
+    helm.sh/hook-weight: "-5"
+data:
+  register.sh: |
+    #!/bin/bash
+    # Registers the meeting-notes plugin in Synaplan, with Synaplan's own
+    # console and environment: what an administrator would do by hand.
+    set -euo pipefail
+    for script in /docker-entrypoint.d/*.sh; do bash "$script"; done
+    cd /var/www/backend
+    for i in $(seq 1 120); do
+      code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SYNAPLAN_HOST" "$SYNAPLAN_WEB/api/health" || true)
+      [ "$code" = 200 ] && break
+      sleep 5
+    done
+    [ "$code" = 200 ] || { echo "Synaplan at $SYNAPLAN_WEB is not healthy (HTTP $code)" >&2; exit 1; }
+    php bin/console app:plugin:install "$OWNER_USER_ID" synascriber --no-interaction
+    php bin/console app:plugin:install-verified-users synascriber --no-interaction
+    printf '%s\n' "$API_KEY" | php /scripts/api-key.php "$OWNER_USER_ID"
+    settings=$(php -r 'echo json_encode(array_merge(json_decode($argv[1], true), ["prosody_secret" => $argv[2], "owner_user_id" => (int) $argv[3], "enabled" => true]));' "$SETTINGS" "$PROSODY_SECRET" "$OWNER_USER_ID")
+    code=$(printf '%s' "$settings" | curl -s -o /tmp/settings.json -w '%{http_code}' -X PUT -H "Host: $SYNAPLAN_HOST" \
+      -H "Authorization: Bearer $API_KEY" -H 'Content-Type: application/json' --data-binary @- \
+      "$SYNAPLAN_WEB/api/v1/plugins/synascriber/admin/settings")
+    echo "settings: HTTP $code"; cat /tmp/settings.json; echo
+    [ "$code" = 200 ]
+  api-key.php: |
+    <?php
+    $p = new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')), getenv('DB_USER'), getenv('DB_PASSWORD'));
+    [$owner, $key] = [(int) $argv[1], trim(stream_get_line(STDIN, 256, "\n"))];
+    $s = $p->prepare('SELECT BID, BOWNERID FROM BAPIKEYS WHERE BKEY = ?');
+    $s->execute([$key]);
+    $row = $s->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        $p->prepare("INSERT INTO BAPIKEYS (BOWNERID, BKEY, BSTATUS, BLASTUSED, BSCOPES, BCREATED, BNAME) VALUES (?, ?, 'active', 0, '[]', UNIX_TIMESTAMP(), 'synascriber-transcriber')")->execute([$owner, $key]);
+        echo "transcriber API key: created\n";
+    } else {
+        $p->prepare("UPDATE BAPIKEYS SET BOWNERID = ?, BSTATUS = 'active' WHERE BID = ?")->execute([$owner, $row['BID']]);
+        echo "transcriber API key: present\n";
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: synascriber-registration
+  annotations:
+    {{- toYaml $hook | nindent 4 }}
+    helm.sh/hook-weight: "0"
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: synascriber-registration
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "synaplan.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "synaplan.initContainers" . | nindent 6 }}
+      containers:
+        - name: register
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command: ["bash", "/scripts/register.sh"]
+          env:
+            - name: SYNAPLAN_WEB
+              value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}"
+            - name: SYNAPLAN_HOST
+              value: {{ (urlParse .Values.publicUrl).host | quote }}
+            - name: OWNER_USER_ID
+              value: {{ $r.ownerUserId | quote }}
+            - name: SETTINGS
+              value: {{ $settings | toJson | quote }}
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "synaplan.synascriber.name" . }}
+                  key: api-key
+            - name: PROSODY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "synaplan.synascriber.name" . }}
+                  key: prosody-secret
+            {{- include "synaplan.env" . | nindent 12 }}
+          {{- with $r.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "synaplan.volumeMounts" . | nindent 12 }}
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        {{- include "synaplan.volumes" (dict "ctx" . "initScripts" (printf "%s-init-scripts-aux" (include "synaplan.fullname" .))) | nindent 8 }}
+        - name: scripts
+          configMap:
+            name: {{ $name }}
+{{- end }}

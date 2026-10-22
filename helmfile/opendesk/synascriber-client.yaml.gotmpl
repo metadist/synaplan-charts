@@ -1,0 +1,66 @@
+# The Keycloak client of meeting notes (synaScriber): the Jitsi button signs
+# in silently with it (public, PKCE). Put this file (or a symlink to it) into
+# your openDesk environment folder next to synaplan-client.yaml.gotmpl.
+# The domain comes from DOMAIN, like openDesk's own global.domain; the Jitsi
+# host from JITSI_HOST (default meet).
+{{- $domain := env "DOMAIN" | default "opendesk.internal" }}
+{{- $jitsi := printf "https://%s.%s" (env "JITSI_HOST" | default "meet") $domain }}
+{{- $claims := dict "id.token.claim" "true" "access.token.claim" "true" "userinfo.token.claim" "true" }}
+functional:
+  authentication:
+    oidc:
+      clients:
+        synascriber:
+          clientId: "synascriber"
+          name: "Meeting notes (Jitsi button)"
+          enabled: true
+          protocol: "openid-connect"
+          publicClient: true
+          standardFlowEnabled: true
+          implicitFlowEnabled: false
+          directAccessGrantsEnabled: false
+          serviceAccountsEnabled: false
+          frontchannelLogout: true
+          fullScopeAllowed: false
+          rootUrl: {{ $jitsi | quote }}
+          baseUrl: {{ $jitsi | quote }}
+          redirectUris:
+            - {{ printf "%s/static/synascriber-silent.html" $jitsi | quote }}
+          webOrigins:
+            - {{ $jitsi | quote }}
+          attributes:
+            pkce.code.challenge.method: "S256"
+            post.logout.redirect.uris: "+"
+          defaultClientScopes: ["web-origins", "acr", "profile", "roles", "email"]
+          optionalClientScopes: []
+          protocolMappers:
+            - name: "sub"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-usermodel-property-mapper"
+              consentRequired: false
+              config: {{ merge (dict "user.attribute" "id" "claim.name" "sub" "jsonType.label" "String") $claims | toJson }}
+            - name: "email"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-usermodel-property-mapper"
+              consentRequired: false
+              config: {{ merge (dict "user.attribute" "email" "claim.name" "email" "jsonType.label" "String") $claims | toJson }}
+            - name: "full name"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-full-name-mapper"
+              consentRequired: false
+              config: {{ $claims | toJson }}
+            - name: "username"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-usermodel-property-mapper"
+              consentRequired: false
+              config: {{ merge (dict "user.attribute" "username" "claim.name" "preferred_username" "jsonType.label" "String") $claims | toJson }}
+            - name: "groups"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-group-membership-mapper"
+              consentRequired: false
+              config: {{ merge (dict "claim.name" "groups" "full.path" "false") $claims | toJson }}
+            - name: "synaplan-audience"
+              protocol: "openid-connect"
+              protocolMapper: "oidc-audience-mapper"
+              consentRequired: false
+              config: {"included.client.audience": "synaplan", "id.token.claim": "false", "access.token.claim": "true"}

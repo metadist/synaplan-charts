@@ -10,7 +10,7 @@ standard runner's 4 vCPU and runs on `ubuntu-latest-m`.
 | Environment | Deployment | Checks |
 | --- | --- | --- |
 | `standalone` | the `standalone` example as it is, on CPU and without pulling its models ([values.yaml](environments/standalone/values.yaml)); ingress-nginx like the example | the first administrator signs in, a wrong password is refused, a new `MASTER_PASSWORD` keeps the administrator's password |
-| `opendesk` | Synaplan inside openDesk (pinned release in [env.sh](environments/opendesk/env.sh)): openDesk's Helmfile with Synaplan's apps from this checkout, Synaplan's settings and Keycloak client in openDesk's environment, as in [Inside openDesk](../helmfile/README.md#inside-opendesk). openDesk runs reduced to Nubus (Keycloak) and Collabora, plus Jitsi with `E2E_OPENDESK_JITSI=true` ([opendesk.yaml.gotmpl](environments/opendesk/opendesk.yaml.gotmpl)); haproxy-ingress, cert-manager, self-signed wildcard certificate | a Domain Admin signs in through Keycloak (setting up TOTP) and is administrator, a plain openDesk user is not; with Jitsi: two openDesk users sign in to Jitsi through Keycloak, meet in a room and receive each other's audio through the bridge (fake microphones, p2p off); with synaScriber (`E2E_SYNASCRIBER=true`, deployed by hand for now): one of them starts meeting notes, speaks [fixtures/speech.wav](tests/opendesk/fixtures/speech.wav) into the room, the other sees live captions, and after Stop both find the transcript with the spoken words in Synaplan's Sources › Generated |
+| `opendesk` | Synaplan inside openDesk (pinned release in [env.sh](environments/opendesk/env.sh)): openDesk's Helmfile with Synaplan's apps from this checkout, Synaplan's settings and Keycloak client in openDesk's environment, as in [Inside openDesk](../helmfile/README.md#inside-opendesk). openDesk runs reduced to Nubus (Keycloak) and Collabora, plus Jitsi with `E2E_OPENDESK_JITSI=true` ([opendesk.yaml.gotmpl](environments/opendesk/opendesk.yaml.gotmpl)); haproxy-ingress, cert-manager, self-signed wildcard certificate | a Domain Admin signs in through Keycloak (setting up TOTP) and is administrator, a plain openDesk user is not; with Jitsi: two openDesk users sign in to Jitsi through Keycloak, meet in a room and receive each other's audio through the bridge (fake microphones, p2p off); with meeting notes (`E2E_OPENDESK_SYNASCRIBER=true`): one of them starts meeting notes, speaks [fixtures/speech.wav](tests/opendesk/fixtures/speech.wav) into the room, the other sees live captions, and after Stop both find the transcript with the spoken words in Synaplan's Sources › Generated |
 
 The suite overrides as little as possible: the cluster is built to fit the
 deployment (its ingress controller, its certificates), not the other way
@@ -48,12 +48,15 @@ Running openDesk's Helmfile by hand against the e2e cluster: export
 renders `apps.jitsi.enabled: false`, `helmfile apply` uninstalls Jitsi, and
 the next Keycloak bootstrap removes Jitsi's client.
 
-`notes.spec.ts` expects synaScriber in the cluster: the plugin mounted at
-`/plugins/synascriber` in Synaplan's pods and installed for an administrator,
-the transcriber, `mod_synascriber` and the transcription URL in Jitsi, the
-Keycloak client `synascriber`, and a speech-to-text server
-(`apps.synaplanStt.enabled`). Until synaplan-charts deploys all of that, run
-it only after setting these up yourself; CI skips it.
+`E2E_OPENDESK_SYNASCRIBER=true` (implies Jitsi) deploys meeting notes with
+Synaplan ([synascriber.yaml.gotmpl](environments/opendesk/synascriber.yaml.gotmpl):
+speech-to-text on CPU, `technical.synaplan.synascriber`, Jitsi's values and
+Keycloak client from [helmfile/opendesk](../helmfile/opendesk/)) and runs
+`notes.spec.ts`. The images are `images.synascriber` and
+`images.synaplanTranscriber`; `E2E_SYNASCRIBER_IMAGE` points Jitsi's init
+containers at another files image (a local build imported with
+`k3d image import`; the cluster never garbage-collects images, so an
+import survives a full disk). CI skips it until both images are published.
 
 ## Run it locally
 

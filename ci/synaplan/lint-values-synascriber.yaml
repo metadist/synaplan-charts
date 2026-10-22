@@ -1,0 +1,17 @@
+# Lint values for the synaplan chart with meeting notes (synaScriber) on.
+persistence:
+  enabled: true
+appSecret: lint
+database:
+  password: lint
+publicUrl: https://synaplan.opendesk.example
+synascriber:
+  enabled: true
+  secrets:
+    prosodySecret: lint-prosody-secret
+    transcriberToken: lint-transcriber-token
+    apiKey: sk_lint
+  registration:
+    settings:
+      sttUrl: http://synaplan-stt:8080
+      prosodyUrl: http://jitsi-prosody:5280

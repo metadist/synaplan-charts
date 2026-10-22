@@ -603,6 +603,11 @@ volumeMounts shared by every synaplan role (uploads, custom CA, init-scripts)
 - name: init-scripts
   mountPath: /docker-entrypoint.d
   readOnly: true
+{{- if .Values.synascriber.enabled }}
+- name: synascriber-plugin
+  mountPath: /plugins/synascriber
+  readOnly: true
+{{- end }}
 {{- with .Values.volumeMounts }}
 {{- toYaml . | nindent 0 }}
 {{- end }}
@@ -634,8 +639,55 @@ worker/scheduler pods the role-neutral aux subset.
   configMap:
     name: {{ .initScripts }}
     defaultMode: 0755
+{{- if $ctx.Values.synascriber.enabled }}
+- name: synascriber-plugin
+  emptyDir: {}
+{{- end }}
 {{- with $ctx.Values.volumes }}
 {{- toYaml . | nindent 0 }}
+{{- end }}
+{{- end }}
+
+{{/*
+initContainers of every synaplan role: the synaScriber plugin copied from
+the files image (synascriber.enabled), then additionalInitContainers.
+Renders nothing when there are none.
+*/}}
+{{- define "synaplan.initContainers" -}}
+{{- $items := list }}
+{{- if .Values.synascriber.enabled }}
+{{- $items = append $items (dict
+  "name" "synascriber-plugin"
+  "image" (include "synaplan.synascriber.filesImage" .)
+  "imagePullPolicy" .Values.synascriber.image.pullPolicy
+  "command" (list "sh" "-c" "cp -R /synascriber/plugin/. /plugin/")
+  "securityContext" (dict "allowPrivilegeEscalation" false "readOnlyRootFilesystem" true "capabilities" (dict "drop" (list "ALL")))
+  "volumeMounts" (list (dict "name" "synascriber-plugin" "mountPath" "/plugin"))) }}
+{{- end }}
+{{- $items = concat $items .Values.additionalInitContainers }}
+{{- with $items }}
+initContainers:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{- define "synaplan.synascriber.name" -}}
+{{- printf "%s-synascriber" (include "synaplan.fullname" .) }}
+{{- end }}
+
+{{- define "synaplan.synascriber.filesImage" -}}
+{{- printf "%s/%s:%s" .Values.synascriber.image.registry .Values.synascriber.image.repository (required "synascriber.image.tag is required" .Values.synascriber.image.tag) }}
+{{- end }}
+
+{{/*
+A synaScriber secret value: the one from the values, else the one the Secret
+in the cluster already holds, else a new random one (first install).
+*/}}
+{{- define "synaplan.synascriber.secretValue" -}}
+{{- $existing := lookup "v1" "Secret" .ctx.Release.Namespace (include "synaplan.synascriber.name" .ctx) }}
+{{- if .value }}{{ .value }}
+{{- else if and $existing (hasKey $existing.data .key) }}{{ index $existing.data .key | b64dec }}
+{{- else }}{{ randAlphaNum 48 }}
 {{- end }}
 {{- end }}
 

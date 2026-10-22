@@ -152,6 +152,40 @@ speech:
   whisperServerUrl: {{ . | quote }}
   {{- end }}
 
+{{- with $t.synascriber }}
+{{- if .enabled }}
+{{- $img := $.Values.images.synascriber }}
+{{- $tr := $.Values.images.synaplanTranscriber }}
+{{- $sec := $.Values.secrets.synascriber }}
+synascriber:
+  enabled: true
+  image:
+    registry: {{ $img.registry | quote }}
+    repository: {{ $img.repository | quote }}
+    tag: {{ $img.tag | quote }}
+  secrets:
+    prosodySecret: {{ $sec.prosodySecret.value | quote }}
+    transcriberToken: {{ $sec.transcriberToken.value | quote }}
+    apiKey: {{ $sec.apiKey.value | quote }}
+  transcriber:
+    image:
+      registry: {{ $tr.registry | quote }}
+      repository: {{ $tr.repository | quote }}
+      tag: {{ $tr.tag | quote }}
+    language: {{ .defaultLanguage | quote }}
+    previewEveryMs: {{ .previewEveryMs }}
+    commitAfterMs: {{ .commitAfterMs }}
+  registration:
+    ownerUserId: {{ .ownerUserId }}
+    settings:
+      languages: {{ toJson .languages }}
+      defaultLanguage: {{ .defaultLanguage | quote }}
+      folder: {{ .folder | quote }}
+      timezone: {{ .timezone | quote }}
+      captions: {{ .captions }}
+      prosodyUrl: {{ printf "http://%s-prosody:5280" .jitsiRelease | quote }}
+{{- end }}
+{{- end }}
 {{- with $t.bootstrapAdmin.email }}
 bootstrapAdmin:
   email: {{ . | quote }}

@@ -1,0 +1,66 @@
+# Meeting notes (synaScriber) in openDesk's Jitsi: values for the jitsi
+# release. Reference this file from your openDesk environment:
+#
+#   customization:
+#     release:
+#       jitsi:
+#         synascriber: "<path to this file>"
+#
+# head.html loads the plugin's loader script from Synaplan; the silent
+# sign-in page comes from synascriber-silent.html next to this file (the
+# openDesk chart fills web.extraVolumes itself, a values file can only
+# replace that list); an init container copies the Prosody module from the
+# synaScriber files image; Jicofo streams each speaker's audio to the
+# transcriber. The shared secrets are derived from MASTER_PASSWORD exactly
+# as the synaplan release derives them (environments/default/secrets.yaml.gotmpl),
+# so Jitsi needs nothing from that release at start.
+#
+# Environment: MASTER_PASSWORD, DOMAIN (openDesk's global.domain),
+# SYNASCRIBER_IMAGE (default below, keep in step with images.synascriber),
+# SYNASCRIBER_OWNER (Synaplan user id of the plugin owner,
+# technical.synaplan.synascriber.ownerUserId), SYNAPLAN_HOST, KEYCLOAK_HOST,
+# KEYCLOAK_REALM, SYNAPLAN_RELEASE.
+{{- $masterPassword := requiredEnv "MASTER_PASSWORD" }}
+{{- $domain := env "DOMAIN" | default "opendesk.internal" }}
+{{- $image := env "SYNASCRIBER_IMAGE" | default "ghcr.io/metadist/synascriber:0.3.0" }}
+{{- $owner := env "SYNASCRIBER_OWNER" | default "1" }}
+{{- $synaplan := printf "https://%s.%s" (env "SYNAPLAN_HOST" | default "synaplan") $domain }}
+{{- $issuer := printf "https://%s.%s/realms/%s" (env "KEYCLOAK_HOST" | default "id") $domain (env "KEYCLOAK_REALM" | default "opendesk") }}
+{{- $release := env "SYNAPLAN_RELEASE" | default "synaplan" }}
+{{- $copy := dict "image" $image "imagePullPolicy" "IfNotPresent" "securityContext" (dict "allowPrivilegeEscalation" false "readOnlyRootFilesystem" true "capabilities" (dict "drop" (list "ALL"))) }}
+jitsi:
+  web:
+    extraFiles:
+      - path: /usr/share/jitsi-meet/head.html
+        content: |
+          <script defer src="{{ $synaplan }}/api/v1/user/{{ $owner }}/plugins/synascriber/assets/jitsi/loader.js" data-synaplan="{{ $synaplan }}" data-issuer="{{ $issuer }}" data-client-id="synascriber"></script>
+      - path: /usr/share/jitsi-meet/static/synascriber-silent.html
+        content: {{ readFile "synascriber-silent.html" | toJson }}
+  prosody:
+    extraInitContainers:
+      - {{ merge (dict "name" "synascriber-files" "command" (list "sh" "-c" "cp /synascriber/prosody/mod_synascriber.lua /files/") "volumeMounts" (list (dict "name" "synascriber-files" "mountPath" "/files"))) $copy | toJson }}
+    extraVolumes:
+      - name: synascriber-files
+        emptyDir: {}
+    extraVolumeMounts:
+      - name: synascriber-files
+        mountPath: /prosody-plugins-custom/mod_synascriber.lua
+        subPath: mod_synascriber.lua
+        readOnly: true
+    extraEnvs:
+      XMPP_MODULES: "synascriber"
+      SYNASCRIBER_SECRET: {{ derivePassword 1 "long" $masterPassword "synascriber" "prosody_secret" | sha1sum | quote }}
+  jicofo:
+    extraEnvs:
+      SYNASCRIBER_TRANSCRIBER_TOKEN: {{ derivePassword 1 "long" $masterPassword "synascriber" "transcriber_token" | sha1sum | quote }}
+    custom:
+      configs:
+        _custom_jicofo_conf: |
+          jicofo {
+            transcription {
+              url-template = "ws://{{ $release }}-synascriber-transcriber:8095/transcribe?sessionId={{ "{{" }}MEETING_ID{{ "}}" }}"
+              http-headers {
+                "Authorization" = "Bearer "${?SYNASCRIBER_TRANSCRIBER_TOKEN}
+              }
+            }
+          }

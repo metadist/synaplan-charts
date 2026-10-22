@@ -6,6 +6,10 @@ CERT_MANAGER=true
 WILDCARD_DOMAIN=opendesk.test
 OPENDESK_REF=${E2E_OPENDESK_REF:-v1.19.1}
 export E2E_OPENDESK_JITSI=${E2E_OPENDESK_JITSI:-false}
+# Meeting notes (synaScriber) with Synaplan; needs Jitsi
+export E2E_OPENDESK_SYNASCRIBER=${E2E_OPENDESK_SYNASCRIBER:-false}
+[ "$E2E_OPENDESK_SYNASCRIBER" = true ] && export E2E_OPENDESK_JITSI=true
+export E2E_ROOT=$ROOT
 OPENDESK=$E2E/.opendesk-$OPENDESK_REF
 # Nubus' consumer registration writes into its read-only working directory
 # and fails, so the registration job never completes and these two never
@@ -14,7 +18,8 @@ IGNORED_WORKLOADS="job.batch/ums-provisioning-register-consumers-* statefulset.a
 E2E_USER_PASSWORD=e2e-plain-user-7f3a9c
 
 opendesk_helmfile() {
-  (cd "$OPENDESK" && MASTER_PASSWORD=e2e-master-password DOMAIN=$WILDCARD_DOMAIN $HELMFILE -e test -n "$NAMESPACE" "$@")
+  (cd "$OPENDESK" && MASTER_PASSWORD=e2e-master-password DOMAIN=$WILDCARD_DOMAIN SYNASCRIBER_IMAGE=${E2E_SYNASCRIBER_IMAGE:-} \
+    $HELMFILE -e test -n "$NAMESPACE" "$@")
 }
 
 deploy_environment() {
@@ -30,6 +35,11 @@ deploy_environment() {
   cp "$ENV_DIR/opendesk.yaml.gotmpl" "$environment/e2e-opendesk.yaml.gotmpl"
   cp "$ENV_DIR/synaplan.yaml.gotmpl" "$environment/e2e-synaplan.yaml.gotmpl"
   ln -sf "$ROOT/helmfile/opendesk/synaplan-client.yaml.gotmpl" "$environment/synaplan-client.yaml.gotmpl"
+  rm -f "$environment/e2e-synascriber.yaml.gotmpl" "$environment/synascriber-client.yaml.gotmpl"
+  if [ "$E2E_OPENDESK_SYNASCRIBER" = true ]; then
+    cp "$ENV_DIR/synascriber.yaml.gotmpl" "$environment/e2e-synascriber.yaml.gotmpl"
+    ln -sf "$ROOT/helmfile/opendesk/synascriber-client.yaml.gotmpl" "$environment/synascriber-client.yaml.gotmpl"
+  fi
 
   kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
   opendesk_helmfile sync --concurrency 6
@@ -70,6 +80,7 @@ prepare_tests() {
     E2E_JITSI_HOST=$(kubectl -n "$NAMESPACE" get ingress jitsi-web -o 'jsonpath={.spec.rules[0].host}')
     export E2E_JITSI_HOST
   fi
+  [ "$E2E_OPENDESK_SYNASCRIBER" = true ] && export E2E_SYNASCRIBER=true
 }
 
 run_scenario() {
