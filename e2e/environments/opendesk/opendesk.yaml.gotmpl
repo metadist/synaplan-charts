@@ -31,7 +31,7 @@ apps:
   home:
     enabled: false
   jitsi:
-    enabled: {{ env "E2E_OPENDESK_JITSI" | default "false" }}
+    enabled: {{ env "E2E_OPENDESK_JITSI" | default "true" }}
   mariadb:
     enabled: false
   nextcloud:

@@ -12,11 +12,6 @@ on:
         required: false
         type: string
         default: ''
-      jitsi:
-        description: Deploy Jitsi too
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -28,4 +23,3 @@ jobs:
     with:
       environment: opendesk
       opendesk-ref: ${{ github.event_name == 'schedule' && 'develop' || inputs.opendesk-ref }}
-      opendesk-jitsi: ${{ github.event_name == 'schedule' || inputs.jitsi }}
