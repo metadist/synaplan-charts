@@ -2,7 +2,7 @@ apiVersion: v2
 name: synaplan
 description: Synaplan - AI-powered document analysis and planning platform
 type: application
-version: 0.7.2
+version: 0.8.0
 # renovate: datasource=docker depName=ghcr.io/metadist/synaplan
 appVersion: "5.4.1"
 keywords:

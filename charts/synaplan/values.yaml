@@ -636,6 +636,8 @@ synascriber:
     ownerUserId: 1
     # -- E-mail address of the owner in the identity provider. On a fresh install the Job creates that administrator account before its first sign-in (Synaplan's first-admin bootstrap with a throwaway password), so the transcriber's API key has an owner; the sign-in through the identity provider then links to the account by its address. Empty: the owner has to exist already
     ownerEmail: ""
+    # -- Affinity of the Job's pod. With a ReadWriteOnce uploads volume, pin it to the node of the web pod like the worker and the scheduler
+    affinity: {}
     # -- Resources of the Job
     resources:
       requests:

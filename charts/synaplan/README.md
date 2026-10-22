@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.7.2](https://img.shields.io/badge/Version-0.7.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.4.1](https://img.shields.io/badge/AppVersion-5.4.1-informational?style=flat-square)
+![Version: 0.8.0](https://img.shields.io/badge/Version-0.8.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.4.1](https://img.shields.io/badge/AppVersion-5.4.1-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.2
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.8.0
 ```
 
 ### Install from local chart
@@ -323,6 +323,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
 | speech.whisperServerUrl | string | `""` | Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan with the Whisper server mode; older images ignore it. Empty = off. |
 | synascriber.enabled | bool | `false` | Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan |
+| synascriber.registration.affinity | object | `{}` | Affinity of the Job's pod. With a ReadWriteOnce uploads volume, pin it to the node of the web pod like the worker and the scheduler |
 | synascriber.registration.enabled | bool | `true` | Run the registration Job after install and upgrade |
 | synascriber.registration.ownerEmail | string | `""` | E-mail address of the owner in the identity provider. On a fresh install the Job creates that administrator account before its first sign-in (Synaplan's first-admin bootstrap with a throwaway password), so the transcriber's API key has an owner; the sign-in through the identity provider then links to the account by its address. Empty: the owner has to exist already |
 | synascriber.registration.ownerUserId | int | `1` | Synaplan user id of the plugin owner, an administrator that exists when the Job runs (the first account on a fresh install is 1). Jitsi loads the loader script from this user's plugin assets |

@@ -1,4 +1,5 @@
 {{- if and .Values.synascriber.enabled .Values.synascriber.registration.enabled }}
+{{- if not .Values.persistence.uploads.enabled }}{{ fail "synascriber.registration needs persistence.uploads.enabled: the Job installs the plugin into the owner's uploads directory, and the web pods serve Jitsi's loader from there" }}{{ end }}
 {{- $r := .Values.synascriber.registration }}
 {{- $name := printf "%s-registration" (include "synaplan.synascriber.name" .) }}
 {{- $settings := dict "languages" $r.settings.languages "default_language" $r.settings.defaultLanguage "default_folder" $r.settings.folder "timezone" $r.settings.timezone "captions" $r.settings.captions "stt_url" ($r.settings.sttUrl | default .Values.speech.whisperServerUrl) "prosody_url" $r.settings.prosodyUrl "jitsi_url" $r.settings.jitsiUrl }}
@@ -92,6 +93,10 @@ spec:
       automountServiceAccountToken: false
       {{- with .Values.podSecurityContext }}
       securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $r.affinity }}
+      affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:

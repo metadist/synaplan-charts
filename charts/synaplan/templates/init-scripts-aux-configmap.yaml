@@ -6,7 +6,7 @@ own role logic already makes non-web roles wait for the web pod's
 migrations, and running doctrine:schema:update from several pods at once
 would race.
 */ -}}
-{{- if or .Values.worker.enabled .Values.scheduler.enabled }}
+{{- if or .Values.worker.enabled .Values.scheduler.enabled (and .Values.synascriber.enabled .Values.synascriber.registration.enabled) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -1,6 +1,7 @@
 # Lint values for the synaplan chart with meeting notes (synaScriber) on.
 persistence:
-  enabled: true
+  uploads:
+    enabled: true
 appSecret: lint
 database:
   password: lint

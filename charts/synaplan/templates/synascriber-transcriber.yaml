@@ -19,10 +19,11 @@ spec:
       labels:
         {{- include "synaplan.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: synascriber-transcriber
-      {{- with $t.podAnnotations }}
       annotations:
+        {{- with $t.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/synascriber-secrets.yaml") . | sha256sum }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
