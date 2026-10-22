@@ -13,10 +13,10 @@ on:
         type: string
         default: ''
       opendesk-jitsi:
-        description: Deploy Jitsi too (opendesk environment)
+        description: Deploy Jitsi (opendesk environment); false leaves it out
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read

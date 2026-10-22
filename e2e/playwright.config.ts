@@ -14,7 +14,11 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     trace: 'retain-on-failure',
     launchOptions: {
-      args: [`--host-resolver-rules=MAP *.${domain} ${ingressIp}`],
+      args: [
+        `--host-resolver-rules=MAP *.${domain} ${ingressIp}`,
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+      ],
     },
   },
   projects: [

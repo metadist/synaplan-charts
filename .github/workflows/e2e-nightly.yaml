@@ -6,14 +6,20 @@ on:
   schedule:
     - cron: '0 3 * * *'
   workflow_dispatch:
+    inputs:
+      opendesk-ref:
+        description: openDesk tag or branch. Empty = the pinned release.
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
   opendesk-develop:
-    name: openDesk develop
+    name: openDesk ${{ github.event_name == 'schedule' && 'develop' || inputs.opendesk-ref || 'pinned release' }}
     uses: ./.github/workflows/e2e.yaml
     with:
       environment: opendesk
-      opendesk-ref: develop
+      opendesk-ref: ${{ github.event_name == 'schedule' && 'develop' || inputs.opendesk-ref }}

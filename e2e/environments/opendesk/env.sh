@@ -5,7 +5,7 @@ NAMESPACE=opendesk
 CERT_MANAGER=true
 WILDCARD_DOMAIN=opendesk.test
 OPENDESK_REF=${E2E_OPENDESK_REF:-v1.19.1}
-export E2E_OPENDESK_JITSI=${E2E_OPENDESK_JITSI:-false}
+export E2E_OPENDESK_JITSI=${E2E_OPENDESK_JITSI:-true}
 OPENDESK=$E2E/.opendesk-$OPENDESK_REF
 # Nubus' consumer registration writes into its read-only working directory
 # and fails, so the registration job never completes and these two never
@@ -35,28 +35,41 @@ deploy_environment() {
   opendesk_helmfile sync --concurrency 6
 }
 
-create_user() {
-  kubectl -n "$NAMESPACE" run "e2e-user-$RANDOM" --rm -i --restart=Never --quiet \
+udm() {
+  kubectl -n "$NAMESPACE" run "e2e-udm-$RANDOM" --rm -i --restart=Never --quiet \
     --image=curlimages/curl:8.10.1 --env="ADMIN_PASSWORD=$(secret ums-nubus-credentials administrator_password)" \
     --command -- sh -c "curl -s -o /dev/null -w '%{http_code}' -u \"Administrator:\$ADMIN_PASSWORD\" \
       -H 'Content-Type: application/json' -H 'Accept: application/json' \
-      -X POST http://ums-udm-rest-api:9979/univention/udm/users/user/ \
-      -d '{\"position\": \"cn=users,dc=swp-ldap,dc=internal\", \"properties\": {\"username\": \"$1\",
-        \"firstname\": \"E2E\", \"lastname\": \"User\", \"password\": \"$2\",
-        \"mailPrimaryAddress\": \"$1@$WILDCARD_DOMAIN\"}}'"
+      -X $1 'http://ums-udm-rest-api:9979/univention/udm/users/user/$2' -d '$3'" | tail -c 3
+}
+
+# A plain openDesk user who may use Jitsi: openDesk grants it per user
+# (opendeskVideoconferenceEnabled puts them into managed-by-attribute-Videoconference).
+create_user() {
+  local status
+  status=$(udm POST "" "{\"position\": \"cn=users,dc=swp-ldap,dc=internal\", \"properties\": {\"username\": \"$1\",
+    \"firstname\": \"E2E\", \"lastname\": \"$2\", \"password\": \"$E2E_USER_PASSWORD\",
+    \"mailPrimaryAddress\": \"$1@$WILDCARD_DOMAIN\", \"opendeskVideoconferenceEnabled\": true}}")
+  case $status in
+    201) ;;
+    422) status=$(udm PATCH "uid%3D$1%2Ccn%3Dusers%2Cdc%3Dswp-ldap%2Cdc%3Dinternal" \
+           "{\"properties\": {\"opendeskVideoconferenceEnabled\": true}}")
+         [ "$status" = 204 ] || { echo "updating $1 failed: HTTP $status" >&2; exit 1; } ;;
+    *) echo "creating $1 failed: HTTP $status" >&2; exit 1 ;;
+  esac
 }
 
 prepare_tests() {
-  local status
-  status=$(create_user e2e-user "$E2E_USER_PASSWORD")
-  case $status in
-    201|422) ;;
-    *) echo "creating e2e-user failed: HTTP $status" >&2; exit 1 ;;
-  esac
+  create_user e2e-user User
+  create_user e2e-user-2 Two
   E2E_ADMIN_USERNAME=Administrator
   E2E_ADMIN_PASSWORD=$(secret ums-nubus-credentials administrator_password)
-  export E2E_ADMIN_USERNAME E2E_ADMIN_PASSWORD E2E_USER_USERNAME=e2e-user E2E_USER_PASSWORD
+  export E2E_ADMIN_USERNAME E2E_ADMIN_PASSWORD E2E_USER_USERNAME=e2e-user E2E_USER2_USERNAME=e2e-user-2 E2E_USER_PASSWORD
   export E2E_TOTP_FILE=$E2E/.totp-$ENVIRONMENT.json
+  if [ "$E2E_OPENDESK_JITSI" = true ]; then
+    E2E_JITSI_HOST=$(kubectl -n "$NAMESPACE" get ingress jitsi-web -o 'jsonpath={.spec.rules[0].host}')
+    export E2E_JITSI_HOST
+  fi
 }
 
 run_scenario() {
