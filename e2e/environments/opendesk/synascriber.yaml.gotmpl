@@ -1,0 +1,18 @@
+# Meeting notes (synaScriber) with Synaplan inside openDesk, for the e2e run
+# (E2E_OPENDESK_SYNASCRIBER=false leaves it out): speech-to-text on CPU, the
+# plugin, transcriber and Secrets through the synaplan release, and Jitsi's
+# part through helmfile/opendesk/synascriber-jitsi.yaml.gotmpl.
+apps:
+  synaplanStt:
+    enabled: true
+technical:
+  synaplan:
+    synascriber:
+      enabled: true
+      # openDesk's Administrator: the Job creates the account (user 1) on
+      # this fresh install, the admin sign-in test links to it.
+      ownerEmail: "administrator@opendesk.test"
+customization:
+  release:
+    jitsi:
+      synascriber: '{{ env "E2E_ROOT" }}/helmfile/opendesk/synascriber-jitsi.yaml.gotmpl'

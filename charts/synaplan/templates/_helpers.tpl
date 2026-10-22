@@ -139,6 +139,11 @@ role deployments add SYNAPLAN_ROLE on top.
   value: {{ .Values.publicUrl | quote }}
 - name: FRONTEND_URL
   value: {{ .Values.publicUrl | quote }}
+{{- if .Values.synascriber.enabled }}
+# Meeting notes for every new user; the registration Job covers existing ones
+- name: DEFAULT_USER_PLUGINS
+  value: '["synascriber"]'
+{{- end }}
 # Database configuration
 - name: DB_HOST
   value: {{ .Values.database.host | quote }}
@@ -636,6 +641,38 @@ worker/scheduler pods the role-neutral aux subset.
     defaultMode: 0755
 {{- with $ctx.Values.volumes }}
 {{- toYaml . | nindent 0 }}
+{{- end }}
+{{- end }}
+
+{{/*
+initContainers of every synaplan role (additionalInitContainers). Renders
+nothing when there are none.
+*/}}
+{{- define "synaplan.initContainers" -}}
+{{- with .Values.additionalInitContainers }}
+initContainers:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{- define "synaplan.synascriber.name" -}}
+{{- printf "%s-synascriber" (include "synaplan.fullname" .) }}
+{{- end }}
+
+{{/*
+A synaScriber secret value: the one from the values, else the one the Secret
+in the cluster already holds, else a new random one (first install). The
+transcriber's API key carries Synaplan's sk_ prefix: a Bearer key without
+it is not accepted on /api routes.
+*/}}
+{{- define "synaplan.synascriber.secretValue" -}}
+{{- $existing := lookup "v1" "Secret" .ctx.Release.Namespace (include "synaplan.synascriber.name" .ctx) }}
+{{- $prefix := .prefix | default "" }}
+{{- if .value }}
+{{- if not (hasPrefix $prefix .value) }}{{ fail (printf "synascriber.secrets: the value for %s must start with %s" .key $prefix) }}{{ end }}
+{{- .value }}
+{{- else if and $existing (hasKey $existing.data .key) }}{{ index $existing.data .key | b64dec }}
+{{- else }}{{ $prefix }}{{ randAlphaNum 48 }}
 {{- end }}
 {{- end }}
 

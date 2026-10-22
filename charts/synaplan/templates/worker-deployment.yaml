@@ -44,6 +44,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- include "synaplan.initContainers" . | nindent 6 }}
       containers:
         - name: worker
           {{- with .Values.securityContext }}
