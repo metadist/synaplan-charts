@@ -18,7 +18,7 @@ on:
         type: boolean
         default: true
       synascriber:
-        description: Deploy meeting notes too and test them (needs the images ghcr.io/metadist/synascriber and synaplan-transcriber)
+        description: Deploy meeting notes too and test them (needs a Synaplan image with the plugin and the pinned ghcr.io/metadist/synaplan-transcriber)
         required: false
         type: boolean
         default: false
