@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { chromium, expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { signInAtKeycloak } from './keycloak'
 
 // Meeting notes (synaScriber) inside openDesk: needs Jitsi, the synaScriber
 // plugin, Prosody module, transcriber and a speech-to-text server deployed.
@@ -19,12 +20,6 @@ test.skip(!process.env.E2E_SYNASCRIBER || !jitsiHost, 'synaScriber not deployed 
 
 const hits = (text: string) => keywords.filter((k) => k.test(text)).length
 
-async function keycloak(page: Page, username: string) {
-  await page.locator('input[name="username"]').fill(username)
-  await page.locator('input[name="password"]').fill(password)
-  await page.locator('input[name="password"]').press('Enter')
-}
-
 // With a Keycloak session from Jitsi the redirects go straight through and
 // no Keycloak page is ever shown, so this waits for the outcome, not the hop.
 async function signInSynaplan(ctx: BrowserContext, username: string) {
@@ -35,7 +30,7 @@ async function signInSynaplan(ctx: BrowserContext, username: string) {
   const form = page.locator('input[name="username"]')
   await page.goto(`https://${synaplanHost}/`)
   await expect.poll(async () => (await form.count()) > 0 || (await signedIn()), { timeout: 60_000 }).toBe(true)
-  if (await form.count()) await keycloak(page, username)
+  if (await form.count()) await signInAtKeycloak(page, username, password)
   await expect.poll(signedIn, { timeout: 60_000 }).toBe(true)
   return page
 }
@@ -45,7 +40,7 @@ async function joinRoom(ctx: BrowserContext, room: string, username: string): Pr
   const hash = encodeURIComponent('config.p2p.enabled=false')
   await page.goto(`https://${jitsiHost}/oidc/auth?path=${encodeURIComponent(`/${room}`)}&search=&hash=${hash}`)
   await page.waitForURL((url) => url.hostname !== jitsiHost)
-  if (await page.locator('input[name="username"]').count()) await keycloak(page, username)
+  if (await page.locator('input[name="username"]').count()) await signInAtKeycloak(page, username, password)
   await page.waitForURL((url) => url.hostname === jitsiHost && !url.pathname.startsWith('/static/'))
   await page.getByRole('button', { name: /^join meeting$/i }).click()
   await page.waitForFunction(() => (window as any).APP?.conference?.isJoined?.())
