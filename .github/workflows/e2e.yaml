@@ -22,6 +22,31 @@ on:
         required: false
         type: boolean
         default: false
+  # By hand: another openDesk ref, or meeting notes (needs a Synaplan image
+  # with the plugin and the pinned ghcr.io/metadist/synaplan-transcriber).
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Directory in e2e/environments
+        required: true
+        type: choice
+        options: [opendesk, standalone]
+        default: opendesk
+      opendesk-ref:
+        description: openDesk tag or branch (opendesk environment). Empty = the pinned release.
+        required: false
+        type: string
+        default: ''
+      opendesk-jitsi:
+        description: Deploy Jitsi (opendesk environment); false leaves it out
+        required: false
+        type: boolean
+        default: true
+      opendesk-synascriber:
+        description: Deploy meeting notes too and test them (opendesk environment; implies Jitsi)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read

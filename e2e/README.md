@@ -2,10 +2,10 @@
 
 Deploys the [Helmfile](../helmfile/) into a throwaway k3d cluster and signs in
 with Playwright, like a user would. CI runs every environment for every pull
-request (job *Test Deployment*), and the `opendesk` environment nightly
-against openDesk's `develop` branch (*E2E nightly*; run it by hand for
-another ref). `opendesk` always includes Jitsi, needs more than the standard
-runner's 4 vCPU and runs on `ubuntu-latest-m`.
+request (job *Test Deployment*). The *E2E* workflow can also be started by
+hand, for another openDesk ref or with meeting notes. `opendesk` always
+includes Jitsi, needs more than the standard runner's 4 vCPU and runs on
+`ubuntu-latest-m`.
 
 | Environment | Deployment | Checks |
 | --- | --- | --- |
