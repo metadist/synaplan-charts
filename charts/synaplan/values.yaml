@@ -632,8 +632,10 @@ synascriber:
   registration:
     # -- Run the registration Job after install and upgrade
     enabled: true
-    # -- Synaplan user id of the plugin owner, an administrator that must exist when the Job runs (on a fresh install, bootstrapAdmin is user 1). Jitsi loads the loader script from this user's plugin assets
+    # -- Synaplan user id of the plugin owner, an administrator that exists when the Job runs (the first account on a fresh install is 1). Jitsi loads the loader script from this user's plugin assets
     ownerUserId: 1
+    # -- E-mail address of the owner in the identity provider. On a fresh install the Job creates that administrator account before its first sign-in (Synaplan's first-admin bootstrap with a throwaway password), so the transcriber's API key has an owner; the sign-in through the identity provider then links to the account by its address. Empty: the owner has to exist already
+    ownerEmail: ""
     # -- Resources of the Job
     resources:
       requests:

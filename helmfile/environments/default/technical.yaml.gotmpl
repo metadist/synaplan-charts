@@ -37,11 +37,13 @@ technical:
     # synascriber-client.yaml.gotmpl.
     synascriber:
       enabled: false
-      # Synaplan user id of the plugin owner, an administrator that exists
-      # when the registration Job runs: on a fresh install that is the
-      # bootstrapAdmin (user 1). Jitsi loads the loader script from this
-      # user's plugin assets.
+      # The plugin owner, an administrator: Jitsi loads the loader script
+      # from this user's plugin assets and the transcriber's API key is
+      # theirs. ownerEmail is the owner's address in Keycloak; on a fresh
+      # install the registration Job creates that account (user 1) before
+      # the first sign-in, which then links to it by address.
       ownerUserId: 1
+      ownerEmail: ""
       # Name of openDesk's Jitsi release (Prosody is <release>-prosody)
       jitsiRelease: "jitsi"
       # Jitsi as the participants reach it. Empty: https://<global.hosts.jitsi>.<global.domain>

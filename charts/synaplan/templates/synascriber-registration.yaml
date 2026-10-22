@@ -24,9 +24,13 @@ data:
       sleep 5
     done
     [ "$code" = 200 ] || { echo "Synaplan at $SYNAPLAN_WEB is not healthy (HTTP $code)" >&2; exit 1; }
+    if [ -n "$OWNER_EMAIL" ]; then
+      BOOTSTRAP_ADMIN_EMAIL="$OWNER_EMAIL" BOOTSTRAP_ADMIN_PASSWORD="$(php -r 'echo bin2hex(random_bytes(24));')" \
+        php bin/console app:bootstrap-admin --no-interaction
+    fi
     php bin/console app:plugin:install "$OWNER_USER_ID" synascriber --no-interaction
     php bin/console app:plugin:install-verified-users synascriber --no-interaction
-    printf '%s\n' "$API_KEY" | php /scripts/api-key.php "$OWNER_USER_ID"
+    printf '%s\n' "$API_KEY" | php /scripts/api-key.php "$OWNER_USER_ID" "$OWNER_EMAIL"
     settings=$(php -r 'echo json_encode(array_merge(json_decode($argv[1], true), ["prosody_secret" => $argv[2], "owner_user_id" => (int) $argv[3], "enabled" => true]));' "$SETTINGS" "$PROSODY_SECRET" "$OWNER_USER_ID")
     code=$(printf '%s' "$settings" | curl -s -o /tmp/settings.json -w '%{http_code}' -X PUT -H "Host: $SYNAPLAN_HOST" \
       -H "Authorization: Bearer $API_KEY" -H 'Content-Type: application/json' --data-binary @- \
@@ -36,11 +40,16 @@ data:
   api-key.php: |
     <?php
     $p = new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')), getenv('DB_USER'), getenv('DB_PASSWORD'));
-    [$owner, $key] = [(int) $argv[1], trim(stream_get_line(STDIN, 256, "\n"))];
+    [$owner, $email, $key] = [(int) $argv[1], (string) ($argv[2] ?? ''), trim(stream_get_line(STDIN, 256, "\n"))];
+    if ('' !== $email) {
+        // The account the first-admin bootstrap created is a local one, and a
+        // Keycloak sign-in refuses to link to a local account of the same address.
+        $p->prepare("UPDATE BUSER SET BPROVIDERID = 'keycloak' WHERE BID = ? AND BMAIL = ? AND BPROVIDERID IN ('', 'local')")->execute([$owner, $email]);
+    }
     $u = $p->prepare('SELECT BID FROM BUSER WHERE BID = ?');
     $u->execute([$owner]);
     if (!$u->fetch()) {
-        fwrite(STDERR, "the plugin owner, user $owner, does not exist yet. On a fresh install bootstrapAdmin creates user 1; otherwise let the owner sign in once, then run this Job again (helm upgrade).\n");
+        fwrite(STDERR, "the plugin owner, user $owner, does not exist yet. Set registration.ownerEmail to the owner's address in the identity provider, or let the owner sign in once; then run this Job again (helm upgrade).\n");
         exit(1);
     }
     $s = $p->prepare('SELECT BID, BOWNERID FROM BAPIKEYS WHERE BKEY = ?');
@@ -101,6 +110,8 @@ spec:
               value: {{ (urlParse .Values.publicUrl).host | quote }}
             - name: OWNER_USER_ID
               value: {{ $r.ownerUserId | quote }}
+            - name: OWNER_EMAIL
+              value: {{ $r.ownerEmail | quote }}
             - name: SETTINGS
               value: {{ $settings | toJson | quote }}
             - name: API_KEY

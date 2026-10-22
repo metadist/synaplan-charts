@@ -324,7 +324,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | speech.whisperServerUrl | string | `""` | Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan with the Whisper server mode; older images ignore it. Empty = off. |
 | synascriber.enabled | bool | `false` | Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan |
 | synascriber.registration.enabled | bool | `true` | Run the registration Job after install and upgrade |
-| synascriber.registration.ownerUserId | int | `1` | Synaplan user id of the plugin owner, an administrator that must exist when the Job runs (on a fresh install, bootstrapAdmin is user 1). Jitsi loads the loader script from this user's plugin assets |
+| synascriber.registration.ownerEmail | string | `""` | E-mail address of the owner in the identity provider. On a fresh install the Job creates that administrator account before its first sign-in (Synaplan's first-admin bootstrap with a throwaway password), so the transcriber's API key has an owner; the sign-in through the identity provider then links to the account by its address. Empty: the owner has to exist already |
+| synascriber.registration.ownerUserId | int | `1` | Synaplan user id of the plugin owner, an administrator that exists when the Job runs (the first account on a fresh install is 1). Jitsi loads the loader script from this user's plugin assets |
 | synascriber.registration.resources | object | `{"limits":{"memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resources of the Job |
 | synascriber.registration.settings.captions | bool | `true` | Live captions in the meeting |
 | synascriber.registration.settings.defaultLanguage | string | `"de"` | Language selected by default |

@@ -172,6 +172,7 @@ synascriber:
     commitAfterMs: {{ .commitAfterMs }}
   registration:
     ownerUserId: {{ .ownerUserId }}
+    ownerEmail: {{ .ownerEmail | quote }}
     settings:
       languages: {{ toJson .languages }}
       defaultLanguage: {{ .defaultLanguage | quote }}

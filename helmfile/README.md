@@ -340,7 +340,8 @@ technical:
   synaplan:
     synascriber:
       enabled: true
-      ownerUserId: 1        # Synaplan user id of the plugin owner, an administrator that exists (fresh install: the bootstrapAdmin)
+      ownerUserId: 1        # Synaplan user id of the plugin owner, an administrator
+      ownerEmail: ""        # the owner's address in Keycloak; a fresh install creates the account as user 1
       jitsiRelease: jitsi   # openDesk's Jitsi release (Prosody is <release>-prosody)
 customization:
   release:
@@ -359,9 +360,12 @@ in the Synaplan image. It is a plain Job next to the release (one per
 revision, gone after a day), not a Helm hook: a hook would hold the install
 until the web pod answers, and on a first install the database release only
 follows once this release is installed. The owner has to exist when the Job
-runs: on a fresh install set `technical.synaplan.bootstrapAdmin.email`, that
-administrator is user 1; otherwise the Job says so and runs again with the
-next apply.
+runs, and a fresh openDesk instance has no Synaplan account before the first
+sign-in: with `ownerEmail` (the owner's address in Keycloak) the Job creates
+that administrator account first, through Synaplan's first-admin bootstrap
+with a throwaway password, as user 1; the owner's sign-in then links to it by
+address. Without it the Job says what is missing and runs again with the next
+apply.
 
 Two more files go into openDesk's environment folder:
 
