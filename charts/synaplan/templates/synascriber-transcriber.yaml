@@ -35,7 +35,7 @@ spec:
       {{- end }}
       containers:
         - name: transcriber
-          image: "{{ $t.image.registry }}/{{ $t.image.repository }}:{{ required "synascriber.transcriber.image.tag is required" $t.image.tag }}"
+          image: "{{ $t.image.registry }}/{{ $t.image.repository }}:{{ $t.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ $t.image.pullPolicy }}
           {{- with $t.securityContext }}
           securityContext:

@@ -342,7 +342,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.transcriber.image.pullPolicy | string | `"IfNotPresent"` | Pull policy of the transcriber image |
 | synascriber.transcriber.image.registry | string | `"ghcr.io"` | Registry of the transcriber image |
 | synascriber.transcriber.image.repository | string | `"metadist/synaplan-transcriber"` | Repository of the transcriber image (metadist/synaplan, sidecars/synaplan-transcriber; it also carries mod_synascriber.lua) |
-| synascriber.transcriber.image.tag | string | `""` | Tag of the transcriber image |
+| synascriber.transcriber.image.tag | string | `""` | Tag of the transcriber image. Empty: the chart's appVersion, the transcriber is released together with Synaplan |
 | synascriber.transcriber.language | string | `"de"` | Meeting language the transcriber assumes until a session says otherwise |
 | synascriber.transcriber.nodeSelector | object | `{}` | Node selector of the transcriber |
 | synascriber.transcriber.podAnnotations | object | `{}` | Annotations on the transcriber pod |

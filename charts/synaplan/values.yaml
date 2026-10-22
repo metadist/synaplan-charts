@@ -583,7 +583,7 @@ synascriber:
       registry: ghcr.io
       # -- Repository of the transcriber image (metadist/synaplan, sidecars/synaplan-transcriber; it also carries mod_synascriber.lua)
       repository: metadist/synaplan-transcriber
-      # -- Tag of the transcriber image
+      # -- Tag of the transcriber image. Empty: the chart's appVersion, the transcriber is released together with Synaplan
       tag: ""
       # -- Pull policy of the transcriber image
       pullPolicy: IfNotPresent
