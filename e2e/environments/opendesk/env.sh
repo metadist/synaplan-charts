@@ -8,7 +8,7 @@ OPENDESK_REF=${E2E_OPENDESK_REF:-v1.19.1}
 export E2E_OPENDESK_JITSI=${E2E_OPENDESK_JITSI:-false}
 # Meeting notes (synaScriber) with Synaplan; needs Jitsi
 export E2E_OPENDESK_SYNASCRIBER=${E2E_OPENDESK_SYNASCRIBER:-false}
-[ "$E2E_OPENDESK_SYNASCRIBER" = true ] && export E2E_OPENDESK_JITSI=true
+if [ "$E2E_OPENDESK_SYNASCRIBER" = true ]; then export E2E_OPENDESK_JITSI=true; fi
 export E2E_ROOT=$ROOT
 OPENDESK=$E2E/.opendesk-$OPENDESK_REF
 # Nubus' consumer registration writes into its read-only working directory
@@ -80,7 +80,7 @@ prepare_tests() {
     E2E_JITSI_HOST=$(kubectl -n "$NAMESPACE" get ingress jitsi-web -o 'jsonpath={.spec.rules[0].host}')
     export E2E_JITSI_HOST
   fi
-  [ "$E2E_OPENDESK_SYNASCRIBER" = true ] && export E2E_SYNASCRIBER=true
+  if [ "$E2E_OPENDESK_SYNASCRIBER" = true ]; then export E2E_SYNASCRIBER=true; fi
 }
 
 run_scenario() {
