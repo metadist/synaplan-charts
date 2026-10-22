@@ -37,8 +37,10 @@ technical:
     # synascriber-client.yaml.gotmpl.
     synascriber:
       enabled: false
-      # Synaplan user id of the plugin owner, an administrator: Jitsi loads
-      # the loader script from this user's plugin assets
+      # Synaplan user id of the plugin owner, an administrator that exists
+      # when the registration Job runs: on a fresh install that is the
+      # bootstrapAdmin (user 1). Jitsi loads the loader script from this
+      # user's plugin assets.
       ownerUserId: 1
       # Name of openDesk's Jitsi release (Prosody is <release>-prosody)
       jitsiRelease: "jitsi"

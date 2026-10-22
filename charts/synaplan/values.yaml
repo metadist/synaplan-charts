@@ -632,7 +632,7 @@ synascriber:
   registration:
     # -- Run the registration Job after install and upgrade
     enabled: true
-    # -- Synaplan user id of the plugin owner, an administrator. Jitsi loads the loader script from this user's plugin assets
+    # -- Synaplan user id of the plugin owner, an administrator that must exist when the Job runs (on a fresh install, bootstrapAdmin is user 1). Jitsi loads the loader script from this user's plugin assets
     ownerUserId: 1
     # -- Resources of the Job
     resources:

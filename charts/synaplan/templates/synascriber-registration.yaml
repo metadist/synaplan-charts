@@ -1,7 +1,6 @@
 {{- if and .Values.synascriber.enabled .Values.synascriber.registration.enabled }}
 {{- $r := .Values.synascriber.registration }}
 {{- $name := printf "%s-registration" (include "synaplan.synascriber.name" .) }}
-{{- $hook := dict "helm.sh/hook" "post-install,post-upgrade" "helm.sh/hook-delete-policy" "before-hook-creation" }}
 {{- $settings := dict "languages" $r.settings.languages "default_language" $r.settings.defaultLanguage "default_folder" $r.settings.folder "timezone" $r.settings.timezone "captions" $r.settings.captions "stt_url" ($r.settings.sttUrl | default .Values.speech.whisperServerUrl) "prosody_url" $r.settings.prosodyUrl "jitsi_url" $r.settings.jitsiUrl }}
 apiVersion: v1
 kind: ConfigMap
@@ -10,9 +9,6 @@ metadata:
   labels:
     {{- include "synaplan.labels" . | nindent 4 }}
     app.kubernetes.io/component: synascriber-registration
-  annotations:
-    {{- toYaml $hook | nindent 4 }}
-    helm.sh/hook-weight: "-5"
 data:
   register.sh: |
     #!/bin/bash
@@ -41,6 +37,12 @@ data:
     <?php
     $p = new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')), getenv('DB_USER'), getenv('DB_PASSWORD'));
     [$owner, $key] = [(int) $argv[1], trim(stream_get_line(STDIN, 256, "\n"))];
+    $u = $p->prepare('SELECT BID FROM BUSER WHERE BID = ?');
+    $u->execute([$owner]);
+    if (!$u->fetch()) {
+        fwrite(STDERR, "the plugin owner, user $owner, does not exist yet. On a fresh install bootstrapAdmin creates user 1; otherwise let the owner sign in once, then run this Job again (helm upgrade).\n");
+        exit(1);
+    }
     $s = $p->prepare('SELECT BID, BOWNERID FROM BAPIKEYS WHERE BKEY = ?');
     $s->execute([$key]);
     $row = $s->fetch(PDO::FETCH_ASSOC);
@@ -52,18 +54,20 @@ data:
         echo "transcriber API key: present\n";
     }
 ---
+# A plain Job, not a Helm hook: a hook would hold the install until the web
+# pod is healthy, and on a first install the database release only follows
+# once this release is installed. One Job per revision, so every upgrade
+# registers again; finished Jobs are removed after a day.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ $name }}
+  name: {{ $name }}-{{ .Release.Revision }}
   labels:
     {{- include "synaplan.labels" . | nindent 4 }}
     app.kubernetes.io/component: synascriber-registration
-  annotations:
-    {{- toYaml $hook | nindent 4 }}
-    helm.sh/hook-weight: "0"
 spec:
   backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
   template:
     metadata:
       labels:

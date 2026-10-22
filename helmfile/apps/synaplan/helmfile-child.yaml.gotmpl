@@ -12,9 +12,6 @@ releases:
   - name: "synaplan"
     chart: "../../../charts/synaplan"
     installed: {{ .Values.apps.synaplan.enabled }}
-    # The meeting notes registration hook waits up to ten minutes for the
-    # web pod; Helm's five-minute default would cut a slow first start short.
-    timeout: 900
     {{- if .Values.apps.synaplanStt.enabled }}
     needs:
       - "synaplan-stt"

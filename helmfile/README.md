@@ -340,7 +340,7 @@ technical:
   synaplan:
     synascriber:
       enabled: true
-      ownerUserId: 1        # Synaplan user id of the plugin owner, an administrator
+      ownerUserId: 1        # Synaplan user id of the plugin owner, an administrator that exists (fresh install: the bootstrapAdmin)
       jitsiRelease: jitsi   # openDesk's Jitsi release (Prosody is <release>-prosody)
 customization:
   release:
@@ -353,9 +353,15 @@ Jitsi, `DEFAULT_USER_PLUGINS=["synascriber"]` (Synaplan installs the plugin
 for every new user), and a Job that registers the plugin after every apply:
 installs it for the owner and every verified user, stores the transcriber's
 API key and writes the plugin's settings (languages, folder, timezone,
-captions, the speech-to-text and Prosody URLs). Synaplan has no declarative
-owner and settings setup yet, so the Job runs Synaplan's console in the
-Synaplan image.
+captions, the speech-to-text, Prosody and Jitsi URLs). Synaplan has no
+declarative owner and settings setup yet, so the Job runs Synaplan's console
+in the Synaplan image. It is a plain Job next to the release (one per
+revision, gone after a day), not a Helm hook: a hook would hold the install
+until the web pod answers, and on a first install the database release only
+follows once this release is installed. The owner has to exist when the Job
+runs: on a fresh install set `technical.synaplan.bootstrapAdmin.email`, that
+administrator is user 1; otherwise the Job says so and runs again with the
+next apply.
 
 Two more files go into openDesk's environment folder:
 

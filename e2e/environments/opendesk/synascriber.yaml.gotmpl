@@ -16,6 +16,10 @@ apps:
     enabled: true
 technical:
   synaplan:
+    # The plugin owner (ownerUserId 1) has to exist when the registration
+    # Job runs; on this fresh install that is the bootstrap administrator.
+    bootstrapAdmin:
+      email: "synaplan-admin@opendesk.test"
     synascriber:
       enabled: true
 customization:
