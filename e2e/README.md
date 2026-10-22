@@ -3,14 +3,14 @@
 Deploys the [Helmfile](../helmfile/) into a throwaway k3d cluster and signs in
 with Playwright, like a user would. CI runs every environment for every pull
 request (job *Test Deployment*), and the `opendesk` environment nightly
-against openDesk's `develop` branch with Jitsi (*E2E nightly*; run it by
-hand for another ref or without Jitsi). `opendesk` needs more than the
-standard runner's 4 vCPU and runs on `ubuntu-latest-m`.
+against openDesk's `develop` branch (*E2E nightly*; run it by hand for
+another ref). `opendesk` always includes Jitsi, needs more than the standard
+runner's 4 vCPU and runs on `ubuntu-latest-m`.
 
 | Environment | Deployment | Checks |
 | --- | --- | --- |
 | `standalone` | the `standalone` example as it is, on CPU and without pulling its models ([values.yaml](environments/standalone/values.yaml)); ingress-nginx like the example | the first administrator signs in, a wrong password is refused, a new `MASTER_PASSWORD` keeps the administrator's password |
-| `opendesk` | Synaplan inside openDesk (pinned release in [env.sh](environments/opendesk/env.sh)): openDesk's Helmfile with Synaplan's apps from this checkout, Synaplan's settings and Keycloak client in openDesk's environment, as in [Inside openDesk](../helmfile/README.md#inside-opendesk). openDesk runs reduced to Nubus (Keycloak) and Collabora, plus Jitsi with `E2E_OPENDESK_JITSI=true` ([opendesk.yaml.gotmpl](environments/opendesk/opendesk.yaml.gotmpl)); haproxy-ingress, cert-manager, self-signed wildcard certificate | a Domain Admin signs in through Keycloak (setting up TOTP) and is administrator, a plain openDesk user is not; with Jitsi: two openDesk users sign in to Jitsi through Keycloak, meet in a room and receive each other's audio through the bridge (fake microphones, p2p off); with meeting notes (`E2E_OPENDESK_SYNASCRIBER=true`): one of them starts meeting notes, speaks [fixtures/speech.wav](tests/opendesk/fixtures/speech.wav) into the room, the other sees live captions, and after Stop both find the transcript with the spoken words in Synaplan's Sources › Generated |
+| `opendesk` | Synaplan inside openDesk (pinned release in [env.sh](environments/opendesk/env.sh)): openDesk's Helmfile with Synaplan's apps from this checkout, Synaplan's settings and Keycloak client in openDesk's environment, as in [Inside openDesk](../helmfile/README.md#inside-opendesk). openDesk runs reduced to Nubus (Keycloak) and Collabora, plus Jitsi (`E2E_OPENDESK_JITSI=false` leaves it out, [opendesk.yaml.gotmpl](environments/opendesk/opendesk.yaml.gotmpl)); haproxy-ingress, cert-manager, self-signed wildcard certificate | a Domain Admin signs in through Keycloak (setting up TOTP) and is administrator, a plain openDesk user is not; with Jitsi: two openDesk users sign in to Jitsi through Keycloak, meet in a room and receive each other's audio through the bridge (fake microphones, p2p off); with meeting notes (`E2E_OPENDESK_SYNASCRIBER=true`): one of them starts meeting notes, speaks [fixtures/speech.wav](tests/opendesk/fixtures/speech.wav) into the room, the other sees live captions, and after Stop both find the transcript with the spoken words in Synaplan's Sources › Generated |
 
 The suite overrides as little as possible: the cluster is built to fit the
 deployment (its ingress controller, its certificates), not the other way
@@ -43,10 +43,10 @@ The test users are created through the UDM REST API with
 without it Keycloak's userinfo for Jitsi's client lacks `opendesk_username`
 and the Keycloak adapter issues no token.
 
-Running openDesk's Helmfile by hand against the e2e cluster: export
-`E2E_OPENDESK_JITSI=true` if Jitsi is deployed. Without it the environment
-renders `apps.jitsi.enabled: false`, `helmfile apply` uninstalls Jitsi, and
-the next Keycloak bootstrap removes Jitsi's client.
+Running openDesk's Helmfile by hand against the e2e cluster: keep
+`E2E_OPENDESK_JITSI` as it was for the deployment. With `false` the
+environment renders `apps.jitsi.enabled: false`, `helmfile apply` uninstalls
+Jitsi, and the next Keycloak bootstrap removes Jitsi's client.
 
 `E2E_OPENDESK_SYNASCRIBER=true` (implies Jitsi) deploys meeting notes with
 Synaplan ([synascriber.yaml.gotmpl](environments/opendesk/synascriber.yaml.gotmpl):
@@ -67,7 +67,7 @@ Helmfile, kubectl, git, Node and pnpm.
 ```bash
 cd e2e && pnpm install && pnpm exec playwright install chromium && cd ..
 e2e/run.sh standalone          # about 4 minutes with cached images
-e2e/run.sh opendesk            # about 20 minutes; E2E_OPENDESK_REF=develop for openDesk's develop, E2E_OPENDESK_JITSI=true for Jitsi
+e2e/run.sh opendesk            # about 20 minutes; E2E_OPENDESK_REF=develop for openDesk's develop, E2E_OPENDESK_JITSI=false without Jitsi
 e2e/run.sh opendesk down       # delete the cluster
 ```
 

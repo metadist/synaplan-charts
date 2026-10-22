@@ -5,7 +5,7 @@ NAMESPACE=opendesk
 CERT_MANAGER=true
 WILDCARD_DOMAIN=opendesk.test
 OPENDESK_REF=${E2E_OPENDESK_REF:-v1.19.1}
-export E2E_OPENDESK_JITSI=${E2E_OPENDESK_JITSI:-false}
+export E2E_OPENDESK_JITSI=${E2E_OPENDESK_JITSI:-true}
 # Meeting notes (synaScriber) with Synaplan; needs Jitsi
 export E2E_OPENDESK_SYNASCRIBER=${E2E_OPENDESK_SYNASCRIBER:-false}
 if [ "$E2E_OPENDESK_SYNASCRIBER" = true ]; then export E2E_OPENDESK_JITSI=true; fi
