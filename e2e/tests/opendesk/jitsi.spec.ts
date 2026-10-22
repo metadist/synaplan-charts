@@ -45,7 +45,7 @@ test('two openDesk users meet in Jitsi and hear each other through the bridge', 
   const b = await joinRoom(browser, room, process.env.E2E_USER2_USERNAME ?? '')
 
   for (const [page, other] of [[a, 'E2E Two'], [b, 'E2E User']] as const) {
-    await expect.poll(() => conference(page), { timeout: 30_000 }).toMatchObject({ others: [other], p2p: false, ice: 'connected' })
+    await expect.poll(() => conference(page), { timeout: 30_000 }).toMatchObject({ others: [other], p2p: false, ice: expect.stringMatching(/^(connected|completed)$/) })
     await expect.poll(async () => (await conference(page)).localTracks, { timeout: 30_000 }).toContain('audio')
     await expect.poll(async () => (await conference(page)).audioPacketsReceived, { timeout: 30_000 }).toBeGreaterThan(0)
   }
