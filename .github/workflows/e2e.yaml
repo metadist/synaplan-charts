@@ -17,6 +17,11 @@ on:
         required: false
         type: boolean
         default: false
+      opendesk-synascriber:
+        description: Deploy meeting notes too and test them (opendesk environment; implies Jitsi)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -68,6 +73,7 @@ jobs:
         env:
           E2E_OPENDESK_REF: ${{ inputs.opendesk-ref }}
           E2E_OPENDESK_JITSI: ${{ inputs.opendesk-jitsi }}
+          E2E_OPENDESK_SYNASCRIBER: ${{ inputs.opendesk-synascriber }}
         run: e2e/run.sh ${{ inputs.environment }}
 
       - name: Show the cluster

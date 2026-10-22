@@ -17,6 +17,11 @@ on:
         required: false
         type: boolean
         default: true
+      synascriber:
+        description: Deploy meeting notes too and test them (needs the images ghcr.io/metadist/synascriber and synaplan-transcriber)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,3 +34,4 @@ jobs:
       environment: opendesk
       opendesk-ref: ${{ github.event_name == 'schedule' && 'develop' || inputs.opendesk-ref }}
       opendesk-jitsi: ${{ github.event_name == 'schedule' || inputs.jitsi }}
+      opendesk-synascriber: ${{ github.event_name != 'schedule' && inputs.synascriber }}
