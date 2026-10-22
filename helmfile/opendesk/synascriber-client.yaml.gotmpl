@@ -2,9 +2,12 @@
 # in silently with it (public, PKCE). Put this file (or a symlink to it) into
 # your openDesk environment folder next to synaplan-client.yaml.gotmpl.
 # The domain comes from DOMAIN, like openDesk's own global.domain; the Jitsi
-# host from JITSI_HOST (default meet).
+# host from JITSI_HOST (default meet), the Synaplan host from SYNAPLAN_HOST
+# (default synaplan). Keycloak returns to the plugin's sign-in page on
+# Synaplan, which hands the code to the Jitsi window.
 {{- $domain := env "DOMAIN" | default "opendesk.internal" }}
 {{- $jitsi := printf "https://%s.%s" (env "JITSI_HOST" | default "meet") $domain }}
+{{- $synaplan := printf "https://%s.%s" (env "SYNAPLAN_HOST" | default "synaplan") $domain }}
 {{- $claims := dict "id.token.claim" "true" "access.token.claim" "true" "userinfo.token.claim" "true" }}
 functional:
   authentication:
@@ -25,7 +28,7 @@ functional:
           rootUrl: {{ $jitsi | quote }}
           baseUrl: {{ $jitsi | quote }}
           redirectUris:
-            - {{ printf "%s/static/synascriber-silent.html" $jitsi | quote }}
+            - {{ printf "%s/api/v1/plugins/synascriber/jitsi/silent" $synaplan | quote }}
           webOrigins:
             - {{ $jitsi | quote }}
           attributes:

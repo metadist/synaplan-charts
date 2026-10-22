@@ -2,7 +2,7 @@
 {{- $r := .Values.synascriber.registration }}
 {{- $name := printf "%s-registration" (include "synaplan.synascriber.name" .) }}
 {{- $hook := dict "helm.sh/hook" "post-install,post-upgrade" "helm.sh/hook-delete-policy" "before-hook-creation" }}
-{{- $settings := dict "languages" $r.settings.languages "default_language" $r.settings.defaultLanguage "default_folder" $r.settings.folder "timezone" $r.settings.timezone "captions" $r.settings.captions "stt_url" ($r.settings.sttUrl | default .Values.speech.whisperServerUrl) "prosody_url" $r.settings.prosodyUrl }}
+{{- $settings := dict "languages" $r.settings.languages "default_language" $r.settings.defaultLanguage "default_folder" $r.settings.folder "timezone" $r.settings.timezone "captions" $r.settings.captions "stt_url" ($r.settings.sttUrl | default .Values.speech.whisperServerUrl) "prosody_url" $r.settings.prosodyUrl "jitsi_url" $r.settings.jitsiUrl }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

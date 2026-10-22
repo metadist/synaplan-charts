@@ -6,12 +6,11 @@
 #       jitsi:
 #         synascriber: "<path to this file>"
 #
-# head.html loads the plugin's loader script from Synaplan; the silent
-# sign-in page comes from synascriber-silent.html next to this file (the
-# openDesk chart fills web.extraVolumes itself, a values file can only
-# replace that list); an init container copies the Prosody module from the
-# transcriber image, which carries it; Jicofo streams each speaker's audio
-# to the transcriber. The shared secrets are derived from MASTER_PASSWORD exactly
+# head.html loads the plugin's loader script from Synaplan (the button's
+# sign-in returns to a page of the plugin on Synaplan, nothing else is served
+# here); an init container copies the Prosody module from the transcriber
+# image, which carries it; Jicofo streams each speaker's audio to the
+# transcriber. The shared secrets are derived from MASTER_PASSWORD exactly
 # as the synaplan release derives them (environments/default/secrets.yaml.gotmpl),
 # so Jitsi needs nothing from that release at start.
 #
@@ -34,8 +33,6 @@ jitsi:
       - path: /usr/share/jitsi-meet/head.html
         content: |
           <script defer src="{{ $synaplan }}/api/v1/user/{{ $owner }}/plugins/synascriber/assets/jitsi/loader.js" data-synaplan="{{ $synaplan }}" data-issuer="{{ $issuer }}" data-client-id="synascriber"></script>
-      - path: /usr/share/jitsi-meet/static/synascriber-silent.html
-        content: {{ readFile "synascriber-silent.html" | toJson }}
   prosody:
     extraInitContainers:
       - {{ merge (dict "name" "synascriber-files" "command" (list "sh" "-c" "cp /app/prosody/mod_synascriber.lua /files/") "volumeMounts" (list (dict "name" "synascriber-files" "mountPath" "/files"))) $copy | toJson }}

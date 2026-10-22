@@ -656,6 +656,8 @@ synascriber:
       sttUrl: ""
       # -- Jitsi's Prosody, e.g. http://jitsi-prosody:5280
       prosodyUrl: ""
+      # -- Jitsi as the participants reach it, e.g. https://meet.example.org: the only window the button's sign-in page hands a code to
+      jitsiUrl: ""
 
 # Additional init containers on the web, worker and scheduler Deployments
 # (same shape as the triton chart's additionalInitContainers), e.g. to seed

@@ -18,3 +18,4 @@ synascriber:
     settings:
       sttUrl: http://synaplan-stt:8080
       prosodyUrl: http://jitsi-prosody:5280
+      jitsiUrl: https://meet.opendesk.example

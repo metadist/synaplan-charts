@@ -27,8 +27,7 @@ helmfile/
 └── opendesk/                       # files for openDesk's environment
     ├── synaplan-client.yaml.gotmpl     # Synaplan's Keycloak client
     ├── synascriber-client.yaml.gotmpl  # meeting notes: the Jitsi button's Keycloak client
-    ├── synascriber-jitsi.yaml.gotmpl   # meeting notes: values for openDesk's jitsi release
-    └── synascriber-silent.html         # meeting notes: the button's silent sign-in page, for Jitsi web
+    └── synascriber-jitsi.yaml.gotmpl   # meeting notes: values for openDesk's jitsi release
 ```
 
 | Release | Installed when | Chart |
@@ -362,13 +361,13 @@ Two more files go into openDesk's environment folder:
 
 - [opendesk/synascriber-client.yaml.gotmpl](opendesk/synascriber-client.yaml.gotmpl),
   the public Keycloak client the Jitsi button signs in with (like
-  `synaplan-client.yaml.gotmpl`, with `DOMAIN` and `JITSI_HOST`).
+  `synaplan-client.yaml.gotmpl`, with `DOMAIN`, `JITSI_HOST` and
+  `SYNAPLAN_HOST`): Keycloak returns to the plugin's sign-in page on
+  Synaplan, which hands the code to the Jitsi window named in
+  `technical.synaplan.synascriber.jitsiUrl`.
 - [opendesk/synascriber-jitsi.yaml.gotmpl](opendesk/synascriber-jitsi.yaml.gotmpl)
   as a values file of openDesk's `jitsi` release (`customization.release.jitsi`):
-  `head.html` loads the loader script from Synaplan, Jitsi web serves the
-  silent sign-in page ([opendesk/synascriber-silent.html](opendesk/synascriber-silent.html),
-  a static page openDesk's chart cannot take from an image: it fills the web
-  pod's volumes itself and a values file could only replace that list), an
+  `head.html` loads the loader script from Synaplan, an
   init container puts the Prosody module into Prosody from the transcriber
   image, and Jicofo streams audio to the transcriber. Prosody's and Jicofo's
   secrets are derived from `MASTER_PASSWORD` exactly as the `synaplan`

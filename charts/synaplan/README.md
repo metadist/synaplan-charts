@@ -329,6 +329,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.registration.settings.captions | bool | `true` | Live captions in the meeting |
 | synascriber.registration.settings.defaultLanguage | string | `"de"` | Language selected by default |
 | synascriber.registration.settings.folder | string | `"Meetings"` | Folder in Sources, Generated |
+| synascriber.registration.settings.jitsiUrl | string | `""` | Jitsi as the participants reach it, e.g. https://meet.example.org: the only window the button's sign-in page hands a code to |
 | synascriber.registration.settings.languages | list | `["de","en"]` | Languages offered in the meeting (de, en, es, fr, tr) |
 | synascriber.registration.settings.prosodyUrl | string | `""` | Jitsi's Prosody, e.g. http://jitsi-prosody:5280 |
 | synascriber.registration.settings.sttUrl | string | `""` | Whisper server (whisper.cpp whisper-server). Empty: speech.whisperServerUrl |

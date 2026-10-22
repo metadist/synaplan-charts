@@ -179,6 +179,7 @@ synascriber:
       timezone: {{ .timezone | quote }}
       captions: {{ .captions }}
       prosodyUrl: {{ printf "http://%s-prosody:5280" .jitsiRelease | quote }}
+      jitsiUrl: {{ .jitsiUrl | default (printf "https://%s.%s" (dig "global" "hosts" "jitsi" "meet" $.Values) $domain) | quote }}
 {{- end }}
 {{- end }}
 {{- with $t.bootstrapAdmin.email }}

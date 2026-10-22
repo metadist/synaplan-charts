@@ -7,6 +7,9 @@ import { chromium, expect, test, type Browser, type BrowserContext, type Page } 
 // "Guten Tag zusammen. Wir besprechen heute das Projekt Synaplan. Die Mitschrift
 // wird automatisch erstellt. Das Budget beträgt zwölftausend Euro, und der
 // Liefertermin ist der dritte November."
+// Both sign in to Jitsi only (Keycloak); the button's sign-in to Synaplan
+// has to work from there, without a Synaplan session. Synaplan is opened
+// afterwards to read the transcripts.
 const jitsiHost = process.env.E2E_JITSI_HOST
 const synaplanHost = process.env.E2E_HOST ?? ''
 const password = process.env.E2E_USER_PASSWORD ?? ''
@@ -22,12 +25,18 @@ async function keycloak(page: Page, username: string) {
   await page.locator('input[name="password"]').press('Enter')
 }
 
+// With a Keycloak session from Jitsi the redirects go straight through and
+// no Keycloak page is ever shown, so this waits for the outcome, not the hop.
 async function signInSynaplan(ctx: BrowserContext, username: string) {
   const page = await ctx.newPage()
+  const signedIn = async () =>
+    new URL(page.url()).hostname === synaplanHost &&
+    (await page.evaluate(async () => (await fetch('/api/v1/auth/me')).ok).catch(() => false))
+  const form = page.locator('input[name="username"]')
   await page.goto(`https://${synaplanHost}/`)
-  await page.waitForURL((url) => url.hostname !== synaplanHost)
-  await keycloak(page, username)
-  await page.waitForURL((url) => url.hostname === synaplanHost)
+  await expect.poll(async () => (await form.count()) > 0 || (await signedIn()), { timeout: 60_000 }).toBe(true)
+  if (await form.count()) await keycloak(page, username)
+  await expect.poll(signedIn, { timeout: 60_000 }).toBe(true)
   return page
 }
 
@@ -66,8 +75,6 @@ test('meeting notes: speech in a Jitsi room becomes a transcript in Synaplan for
   const newContext = () => browser.newContext({ ignoreHTTPSErrors: true, permissions: ['microphone', 'camera'] })
   const ctxA = await newContext()
   const ctxB = await newContext()
-  const synaplanA = await signInSynaplan(ctxA, process.env.E2E_USER_USERNAME ?? '')
-  const synaplanB = await signInSynaplan(ctxB, process.env.E2E_USER2_USERNAME ?? '')
 
   const room = `e2e-notes-${Date.now()}`
   const a = await joinRoom(ctxA, room, process.env.E2E_USER_USERNAME ?? '')
@@ -84,6 +91,8 @@ test('meeting notes: speech in a Jitsi room becomes a transcript in Synaplan for
   await a.waitForTimeout(10_000)
   await loader.locator('button.danger').click()
 
+  const synaplanA = await signInSynaplan(ctxA, process.env.E2E_USER_USERNAME ?? '')
+  const synaplanB = await signInSynaplan(ctxB, process.env.E2E_USER2_USERNAME ?? '')
   const sessions = () => api(synaplanA, '/api/v1/plugins/synascriber/me/sessions').then((r) => r.sessions?.find((s: any) => s.room === room))
   await expect.poll(sessions, { timeout: 120_000 }).toMatchObject({ state: 'saved', recipients: 2, notDelivered: 0 })
   const session = await sessions()
