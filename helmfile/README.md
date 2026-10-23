@@ -224,7 +224,7 @@ new `MASTER_PASSWORD` does not change them.
 | `admin-password` | `secrets.synaplan.adminPassword`, with `technical.synaplan.bootstrapAdmin.email` | once |
 
 Meeting notes keep theirs in `synaplan-synascriber` (`prosody-secret`,
-`transcriber-token`, `api-key`, from `secrets.synascriber.*`), copied into
+`transcriber-token`, `transcriber-secret`, from `secrets.synascriber.*`), copied into
 `synaplan-synascriber-prosody` and `synaplan-synascriber-jicofo` for
 deployments that wire Jitsi by hand. Same rules: derived from
 `MASTER_PASSWORD`, else kept. `opendesk/synascriber-jitsi.yaml.gotmpl`
@@ -340,8 +340,6 @@ technical:
   synaplan:
     synascriber:
       enabled: true
-      ownerUserId: 1        # Synaplan user id of the plugin owner, an administrator
-      ownerEmail: ""        # the owner's address in Keycloak; a fresh install creates the account as user 1
       jitsiRelease: jitsi   # openDesk's Jitsi release (Prosody is <release>-prosody)
 customization:
   release:
@@ -352,20 +350,15 @@ customization:
 With that, the `synaplan` release adds the transcriber, the Secrets for
 Jitsi, `DEFAULT_USER_PLUGINS=["synascriber"]` (Synaplan installs the plugin
 for every new user), and a Job that registers the plugin after every apply:
-installs it for the owner and every verified user, stores the transcriber's
-API key and writes the plugin's settings (languages, folder, timezone,
-captions, the speech-to-text, Prosody and Jitsi URLs). Synaplan has no
-declarative owner and settings setup yet, so the Job runs Synaplan's console
-in the Synaplan image. It is a plain Job next to the release (one per
-revision, gone after a day), not a Helm hook: a hook would hold the install
-until the web pod answers, and on a first install the database release only
-follows once this release is installed. The owner has to exist when the Job
-runs, and a fresh openDesk instance has no Synaplan account before the first
-sign-in: with `ownerEmail` (the owner's address in Keycloak) the Job creates
-that administrator account first, through Synaplan's first-admin bootstrap
-with a throwaway password, as user 1; the owner's sign-in then links to it by
-address. Without it the Job says what is missing and runs again with the next
-apply.
+installs it for every verified user and writes the plugin's settings and
+secrets with the plugin's console command `synascriber:settings` (languages,
+folder, timezone, captions, the speech-to-text, Prosody and Jitsi URLs, the
+Prosody and transcriber secrets). No account is involved: the settings, the
+sessions and the loader script belong to the installation (plugin 0.4.0).
+It is a plain Job next to the release (one per revision, gone after a day),
+not a Helm hook: a hook would hold the install until the web pod answers,
+and on a first install the database release only follows once this release
+is installed.
 
 Two more files go into openDesk's environment folder:
 
@@ -383,8 +376,8 @@ Two more files go into openDesk's environment folder:
   secrets are derived from `MASTER_PASSWORD` exactly as the `synaplan`
   release derives them, so Jitsi may be deployed before Synaplan. It reads
   `MASTER_PASSWORD`, `DOMAIN`, `SYNAPLAN_TRANSCRIBER_IMAGE` (keep in step
-  with `images.synaplanTranscriber`), `SYNASCRIBER_OWNER` (`ownerUserId`),
-  `SYNAPLAN_HOST`, `KEYCLOAK_HOST`, `KEYCLOAK_REALM` and `SYNAPLAN_RELEASE`.
+  with `images.synaplanTranscriber`), `SYNAPLAN_HOST`, `KEYCLOAK_HOST`,
+  `KEYCLOAK_REALM` and `SYNAPLAN_RELEASE`.
 
 openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only
 those users can start or receive notes. The e2e suite runs all of this with

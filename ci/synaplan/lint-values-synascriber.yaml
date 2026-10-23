@@ -11,7 +11,7 @@ synascriber:
   secrets:
     prosodySecret: lint-prosody-secret
     transcriberToken: lint-transcriber-token
-    apiKey: sk_lint
+    transcriberSecret: lint-transcriber-secret
   registration:
     settings:
       sttUrl: http://synaplan-stt:8080

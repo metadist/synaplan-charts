@@ -162,7 +162,7 @@ synascriber:
   secrets:
     prosodySecret: {{ $sec.prosodySecret.value | quote }}
     transcriberToken: {{ $sec.transcriberToken.value | quote }}
-    apiKey: {{ $sec.apiKey.value | quote }}
+    transcriberSecret: {{ $sec.transcriberSecret.value | quote }}
   transcriber:
     image:
       registry: {{ $tr.registry | quote }}
@@ -172,8 +172,6 @@ synascriber:
     previewEveryMs: {{ .previewEveryMs }}
     commitAfterMs: {{ .commitAfterMs }}
   registration:
-    ownerUserId: {{ .ownerUserId }}
-    ownerEmail: {{ .ownerEmail | quote }}
     {{- if not $rwx }}
     affinity:
       {{- toYaml $withWeb | nindent 6 }}

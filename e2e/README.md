@@ -53,8 +53,9 @@ Meeting notes are deployed with Synaplan
 speech-to-text on CPU, `technical.synaplan.synascriber`, Jitsi's values and
 Keycloak client from [helmfile/opendesk](../helmfile/opendesk/)) and
 `notes.spec.ts` runs; `E2E_OPENDESK_SYNASCRIBER=false` leaves them out. They
-need a Synaplan image with the plugin under `/plugins/synascriber` (5.5.3 or
-newer) and the transcriber image (`images.synaplanTranscriber`); `E2E_TRANSCRIBER_IMAGE` points Jitsi's
+need a Synaplan image with the plugin under `/plugins/synascriber` (plugin
+0.4.0; until a release carries it, the environment pins a main build) and the
+transcriber image (`images.synaplanTranscriber`); `E2E_TRANSCRIBER_IMAGE` points Jitsi's
 init container at another transcriber image (a local build imported with
 `k3d image import`; the cluster never garbage-collects images, so an
 import survives a full disk).

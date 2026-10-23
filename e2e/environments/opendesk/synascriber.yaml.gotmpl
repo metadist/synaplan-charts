@@ -2,6 +2,16 @@
 # (E2E_OPENDESK_SYNASCRIBER=false leaves it out): speech-to-text on CPU, the
 # plugin, transcriber and Secrets through the synaplan release, and Jitsi's
 # part through helmfile/opendesk/synascriber-jitsi.yaml.gotmpl.
+#
+# The Synaplan image is the main build that dropped the plugin's owner
+# account (synaplan edea8b7, plugin 0.4.0, the commit the transcriber is
+# pinned to), until a Synaplan release carries it; then this block goes and
+# the chart's appVersion is the image.
+images:
+  synaplan:
+    registry: "ghcr.io"
+    repository: "metadist/synaplan"
+    tag: "ci-edea8b7d9db077c06b864b49afee067988770ba0-amd64"
 apps:
   synaplanStt:
     enabled: true
@@ -9,9 +19,6 @@ technical:
   synaplan:
     synascriber:
       enabled: true
-      # openDesk's Administrator: the Job creates the account (user 1) on
-      # this fresh install, the admin sign-in test links to it.
-      ownerEmail: "administrator@opendesk.test"
 customization:
   release:
     jitsi:
