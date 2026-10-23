@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.8.0](https://img.shields.io/badge/Version-0.8.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.5.3](https://img.shields.io/badge/AppVersion-5.5.3-informational?style=flat-square)
+![Version: 0.9.0](https://img.shields.io/badge/Version-0.9.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.5.3](https://img.shields.io/badge/AppVersion-5.5.3-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.8.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.9.0
 ```
 
 ### Install from local chart
@@ -325,8 +325,6 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.enabled | bool | `false` | Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan |
 | synascriber.registration.affinity | object | `{}` | Affinity of the Job's pod. With a ReadWriteOnce uploads volume, pin it to the node of the web pod like the worker and the scheduler |
 | synascriber.registration.enabled | bool | `true` | Run the registration Job after install and upgrade |
-| synascriber.registration.ownerEmail | string | `""` | E-mail address of the owner in the identity provider. On a fresh install the Job creates that administrator account before its first sign-in (Synaplan's first-admin bootstrap with a throwaway password), so the transcriber's API key has an owner; the sign-in through the identity provider then links to the account by its address. Empty: the owner has to exist already |
-| synascriber.registration.ownerUserId | int | `1` | Synaplan user id of the plugin owner, an administrator that exists when the Job runs (the first account on a fresh install is 1). Jitsi loads the loader script from this user's plugin assets |
 | synascriber.registration.resources | object | `{"limits":{"memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resources of the Job |
 | synascriber.registration.settings.captions | bool | `true` | Live captions in the meeting |
 | synascriber.registration.settings.defaultLanguage | string | `"de"` | Language selected by default |
@@ -336,8 +334,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.registration.settings.prosodyUrl | string | `""` | Jitsi's Prosody, e.g. http://jitsi-prosody:5280 |
 | synascriber.registration.settings.sttUrl | string | `""` | Whisper server (whisper.cpp whisper-server). Empty: speech.whisperServerUrl |
 | synascriber.registration.settings.timezone | string | `"Europe/Berlin"` | Times in the transcript |
-| synascriber.secrets.apiKey | string | `""` | The transcriber's Synaplan API key, owned by the plugin owner |
 | synascriber.secrets.prosodySecret | string | `""` | Shared secret between the plugin and the Prosody module (Secret synascriber-prosody, SYNASCRIBER_SECRET) |
+| synascriber.secrets.transcriberSecret | string | `""` | Shared secret between the plugin and the transcriber (plugin setting transcriber_secret, transcriber env SYNAPLAN_TRANSCRIBER_SECRET) |
 | synascriber.secrets.transcriberToken | string | `""` | Bearer token Jitsi's bridge sends to the transcriber (Secret synascriber-jicofo, SYNASCRIBER_TRANSCRIBER_TOKEN) |
 | synascriber.transcriber.affinity | object | `{}` | Affinity of the transcriber |
 | synascriber.transcriber.commitAfterMs | int | `8000` | Longest audio window (ms); windows usually end earlier, at a pause |
