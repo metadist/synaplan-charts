@@ -1,0 +1,536 @@
+suite: watchdog
+templates:
+  - deployment.yaml
+  - worker-deployment.yaml
+  - scheduler-deployment.yaml
+  - init-scripts-configmap.yaml
+  - init-scripts-aux-configmap.yaml
+  - podmonitor.yaml
+  - servicemonitor.yaml
+  - dashboard-configmap.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: is off by default and keeps the static-file probes
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_WATCHDOG
+            value: "0"
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value:
+            path: /
+            port: http
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value:
+            path: /
+            port: http
+      - notExists:
+          path: spec.template.spec.containers[0].startupProbe
+      - lengthEqual:
+          path: spec.template.spec.containers[0].ports
+          count: 1
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_NODE
+          any: true
+
+  - it: turns the watchdog off on the worker and the scheduler too
+    templates:
+      - worker-deployment.yaml
+      - scheduler-deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_WATCHDOG
+            value: "0"
+      - notExists:
+          path: spec.template.spec.containers[0].ports
+
+  - it: probes the watchdog and PHP's readiness when on
+    template: deployment.yaml
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: watchdog
+            containerPort: 8098
+            protocol: TCP
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value:
+            path: /live
+            port: watchdog
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value:
+            path: /ready
+            port: watchdog
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet
+          value:
+            path: /api/health/ready
+            port: http
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 120
+
+  - it: passes the pod's place to the web watchdog
+    template: deployment.yaml
+    release:
+      name: rel
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_WATCHDOG
+            value: "1"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_NODE
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_DEPLOYMENT
+            value: rel-synaplan
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_CONTAINER
+            value: synaplan
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_SERVER_ID
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_CPU_REQUEST
+          any: true
+
+  - it: passes declared resources as written
+    template: deployment.yaml
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          memory: 3Gi
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_CPU_REQUEST
+            value: 500m
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_MEMORY_LIMIT
+            value: 3Gi
+
+  - it: names the worker's own deployment, container and resources
+    template: worker-deployment.yaml
+    release:
+      name: rel
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+      worker:
+        resources:
+          requests:
+            cpu: "2"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: watchdog
+            containerPort: 8098
+            protocol: TCP
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_DEPLOYMENT
+            value: rel-synaplan-worker
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_CONTAINER
+            value: worker
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_CPU_REQUEST
+            value: "2"
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe
+
+  - it: names the scheduler's own deployment and container
+    template: scheduler-deployment.yaml
+    release:
+      name: rel
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_DEPLOYMENT
+            value: rel-synaplan-scheduler
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_CONTAINER
+            value: scheduler
+
+  - it: refuses the watchdog on an image without it
+    template: deployment.yaml
+    set:
+      worker:
+        enabled: false
+      scheduler:
+        enabled: false
+      watchdog:
+        enabled: true
+      image:
+        tag: 5.5.4
+    asserts:
+      - failedTemplate:
+          errorPattern: 'watchdog.enabled needs synaplan >= 5.6.0, .* effective image tag is "5.5.4"'
+
+  - it: refuses the watchdog on the chart's default image while appVersion predates it
+    template: deployment.yaml
+    set:
+      worker:
+        enabled: false
+      scheduler:
+        enabled: false
+      watchdog:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "watchdog.enabled needs synaplan >= 5.6.0"
+
+  - it: accepts a 5.6.0 prerelease
+    template: deployment.yaml
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: 5.6.0-rc.1
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_WATCHDOG
+            value: "1"
+
+  - it: refuses SYNAPLAN_WATCHDOG in env
+    template: deployment.yaml
+    set:
+      worker:
+        enabled: false
+      scheduler:
+        enabled: false
+      env:
+        - name: SYNAPLAN_WATCHDOG
+          value: "1"
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets SYNAPLAN_WATCHDOG"
+
+  - it: emits no pool settings by default
+    template: deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_WORKER_NUM
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_MAX_WAIT_TIME
+          any: true
+
+  - it: sets the worker pools on the web pod only
+    templates:
+      - deployment.yaml
+      - worker-deployment.yaml
+    set:
+      image:
+        tag: latest
+      frankenphp:
+        workers: 8
+        streamWorkers: 24
+        numThreads: 40
+        maxThreads: 64
+        maxWaitTime: 10s
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_WORKER_NUM
+            value: "8"
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_STREAM_WORKER_NUM
+            value: "24"
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_NUM_THREADS
+            value: "40"
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_MAX_THREADS
+            value: "64"
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_MAX_WAIT_TIME
+            value: 10s
+        template: deployment.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_WORKER_NUM
+          any: true
+        template: worker-deployment.yaml
+
+  - it: accepts workers alone on an older image
+    template: deployment.yaml
+    set:
+      frankenphp:
+        workers: 24
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FRANKENPHP_WORKER_NUM
+            value: "24"
+
+  - it: refuses a stream pool on an image without two pools
+    template: deployment.yaml
+    set:
+      image:
+        tag: 5.5.4
+      frankenphp:
+        streamWorkers: 24
+    asserts:
+      - failedTemplate:
+          errorPattern: "A frankenphp key other than workers needs synaplan >= 5.6.0"
+
+  - it: refuses a pool size that is not a positive number
+    template: deployment.yaml
+    set:
+      image:
+        tag: latest
+      frankenphp:
+        streamWorkers: 0
+    asserts:
+      - failedTemplate:
+          errorPattern: "frankenphp.streamWorkers must be a positive whole number"
+
+  - it: refuses a wait time without a unit
+    template: deployment.yaml
+    set:
+      image:
+        tag: latest
+      frankenphp:
+        maxWaitTime: 15
+    asserts:
+      - failedTemplate:
+          errorPattern: "frankenphp.maxWaitTime must be a duration"
+
+  - it: refuses an unknown pool key
+    template: deployment.yaml
+    set:
+      frankenphp:
+        workerCount: 8
+    asserts:
+      - failedTemplate:
+          errorPattern: "frankenphp.workerCount is not a known key"
+
+  - it: refuses a pool setting that env repeats
+    template: deployment.yaml
+    set:
+      frankenphp:
+        workers: 8
+      env:
+        - name: FRANKENPHP_WORKER_NUM
+          value: "4"
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets FRANKENPHP_WORKER_NUM, which the chart already emits from frankenphp"
+
+  - it: creates no monitor or dashboard by default
+    templates:
+      - podmonitor.yaml
+      - servicemonitor.yaml
+      - dashboard-configmap.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: scrapes every role's watchdog with a PodMonitor
+    template: podmonitor.yaml
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+      metrics:
+        podMonitor:
+          enabled: true
+          labels:
+            release: kube-prometheus-stack
+    asserts:
+      - isKind:
+          of: PodMonitor
+      - equal:
+          path: metadata.labels.release
+          value: kube-prometheus-stack
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: watchdog
+      - equal:
+          path: spec.podMetricsEndpoints[0].path
+          value: /metrics
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: synaplan
+
+  - it: refuses a PodMonitor without the watchdog
+    template: podmonitor.yaml
+    set:
+      metrics:
+        podMonitor:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "metrics.podMonitor scrapes the watchdog"
+
+  - it: scrapes through a headless metrics Service with a ServiceMonitor
+    template: servicemonitor.yaml
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+      metrics:
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Service
+        documentIndex: 0
+      - equal:
+          path: spec.clusterIP
+          value: None
+        documentIndex: 0
+      - equal:
+          path: spec.ports[0].targetPort
+          value: watchdog
+        documentIndex: 0
+      - isKind:
+          of: ServiceMonitor
+        documentIndex: 1
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: metrics
+        documentIndex: 1
+      - equal:
+          path: spec.endpoints[0].port
+          value: watchdog
+        documentIndex: 1
+
+  - it: refuses a ServiceMonitor without the watchdog
+    template: servicemonitor.yaml
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "metrics.serviceMonitor scrapes the watchdog"
+
+  - it: ships the capacity dashboard for the Grafana sidecar
+    template: dashboard-configmap.yaml
+    set:
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+      metrics:
+        dashboard:
+          enabled: true
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.labels.grafana_dashboard
+          value: "1"
+      - matchRegex:
+          path: data["synaplan-capacity.json"]
+          pattern: '"uid": "synaplan-capacity"'
+      - matchRegex:
+          path: data["synaplan-capacity.json"]
+          pattern: synaplan_stream_slots_busy_ratio
+
+  - it: refuses the dashboard without the watchdog
+    template: dashboard-configmap.yaml
+    set:
+      metrics:
+        dashboard:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "metrics.dashboard reads the watchdog"

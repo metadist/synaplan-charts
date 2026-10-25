@@ -667,3 +667,114 @@ DATABASE_WRITE_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\
 DATABASE_READ_URL=mysql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}?serverVersion=\${DB_SERVER_VERSION}&charset=utf8mb4
 EOF
 {{- end }}
+
+{{/*
+The watchdog ships with synaplan 5.6.0. Full semver only, as in
+synaplan.settingsEnv: >=5.6.0-0 rejects 5.5.4 and its prereleases and accepts
+5.6.0-rc.1. A tag that is not a complete semver skips the check.
+*/}}
+{{- define "synaplan.requireWatchdogImage" -}}
+{{- $tag := .ctx.Values.image.tag | default .ctx.Chart.AppVersion | toString | trimPrefix "v" }}
+{{- if and (regexMatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` $tag) (not (semverCompare ">=5.6.0-0" $tag)) }}
+{{- fail (printf "%s needs synaplan >= 5.6.0, the first release with the watchdog and the two PHP worker pools; effective image tag is %q. Set image.tag to 5.6.0 or newer, or leave it off." .what $tag) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Refuses an env entry for a name the chart emits itself: server-side apply
+rejects a duplicate env key. Called with (dict "ctx" $ "names" (list ...) "from" "watchdog.*").
+*/}}
+{{- define "synaplan.refuseEnvDuplicates" -}}
+{{- $names := .names }}
+{{- $from := .from }}
+{{- range .ctx.Values.env }}
+{{- if has .name $names }}
+{{- fail (printf "env sets %s, which the chart already emits from %s. Remove it from env and set the matching value." .name $from) }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Watchdog environment of one role: the switch, and when it is on, where the pod
+runs (contracts §6.1 of the architecture update). The pod name is the server id
+on its own, so SYNAPLAN_SERVER_ID stays unset. Declared resources are passed as
+written ("1", "3Gi"); the Downward API would give unitless numbers.
+Called with (dict "ctx" $ "container" <name> "deployment" <name> "resources" <role resources>).
+*/}}
+{{- define "synaplan.watchdogEnv" -}}
+{{- $ctx := .ctx }}
+{{- $resources := .resources | default dict }}
+{{- $names := list "SYNAPLAN_WATCHDOG" }}
+{{- if $ctx.Values.watchdog.enabled }}
+{{- include "synaplan.requireWatchdogImage" (dict "ctx" $ctx "what" "watchdog.enabled") }}
+{{- $names = concat $names (list "SYNAPLAN_K8S_NAMESPACE" "SYNAPLAN_K8S_NODE" "SYNAPLAN_K8S_DEPLOYMENT" "SYNAPLAN_K8S_CONTAINER" "SYNAPLAN_CPU_REQUEST" "SYNAPLAN_MEMORY_LIMIT") }}
+{{- end }}
+{{- include "synaplan.refuseEnvDuplicates" (dict "ctx" $ctx "names" $names "from" "watchdog.enabled") -}}
+# Capacity watchdog (:8098)
+- name: SYNAPLAN_WATCHDOG
+  value: {{ ternary "1" "0" (eq (toString $ctx.Values.watchdog.enabled) "true") | quote }}
+{{- if $ctx.Values.watchdog.enabled }}
+- name: SYNAPLAN_K8S_NAMESPACE
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.namespace
+- name: SYNAPLAN_K8S_NODE
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.nodeName
+- name: SYNAPLAN_K8S_DEPLOYMENT
+  value: {{ .deployment | quote }}
+- name: SYNAPLAN_K8S_CONTAINER
+  value: {{ .container | quote }}
+{{- with dig "requests" "cpu" "" $resources }}
+- name: SYNAPLAN_CPU_REQUEST
+  value: {{ . | toString | quote }}
+{{- end }}
+{{- with dig "limits" "memory" "" $resources }}
+- name: SYNAPLAN_MEMORY_LIMIT
+  value: {{ . | toString | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+PHP runtime of the web pod: worker pools and the wait before "busy".
+Unset keys keep the image defaults. Everything except `workers` is read by
+synaplan >= 5.6.0 only.
+*/}}
+{{- define "synaplan.phpRuntimeEnv" -}}
+{{- $map := dict "workers" "FRANKENPHP_WORKER_NUM" "streamWorkers" "FRANKENPHP_STREAM_WORKER_NUM" "numThreads" "FRANKENPHP_NUM_THREADS" "maxThreads" "FRANKENPHP_MAX_THREADS" "maxWaitTime" "FRANKENPHP_MAX_WAIT_TIME" }}
+{{- $values := .Values.frankenphp | default dict }}
+{{- $emit := dict }}
+{{- $needsPools := false }}
+{{- range $key := keys $values | sortAlpha }}
+{{- $value := index $values $key }}
+{{- if not (hasKey $map $key) }}
+{{- fail (printf "frankenphp.%s is not a known key. Known keys: %s" $key (keys $map | sortAlpha | join ", ")) }}
+{{- end }}
+{{- if and (not (kindIs "invalid" $value)) (ne (toString $value) "") }}
+{{- if eq $key "maxWaitTime" }}
+{{- if not (regexMatch `^[0-9]+(ms|s|m)$` (toString $value)) }}
+{{- fail (printf "frankenphp.maxWaitTime must be a duration such as 15s or 500ms, got %v" $value) }}
+{{- end }}
+{{- else if not (regexMatch `^[1-9][0-9]*$` (toString $value)) }}
+{{- fail (printf "frankenphp.%s must be a positive whole number, got %v" $key $value) }}
+{{- end }}
+{{- if ne $key "workers" }}
+{{- $needsPools = true }}
+{{- end }}
+{{- $_ := set $emit (index $map $key) (toString $value) }}
+{{- end }}
+{{- end }}
+{{- if $needsPools }}
+{{- include "synaplan.requireWatchdogImage" (dict "ctx" . "what" "A frankenphp key other than workers") }}
+{{- end }}
+{{- include "synaplan.refuseEnvDuplicates" (dict "ctx" . "names" (keys $emit) "from" "frankenphp.*") }}
+{{- if $emit -}}
+# PHP worker pools
+{{- range $name := keys $emit | sortAlpha }}
+- name: {{ $name }}
+  value: {{ index $emit $name | quote }}
+{{- end }}
+{{- end }}
+{{- end }}

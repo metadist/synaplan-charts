@@ -523,19 +523,109 @@ ingress:
   #    hosts:
   #      - synaplan.local
 
+# -- Resources of the web pod. Empty by default so the chart installs on small
+# clusters. Starting values for production (see "Capacity and probes" in the
+# README): memory request 1Gi, memory limit 3Gi, processor request 1 and no
+# processor limit, because throttling shows up as slow answers, not as a
+# visible limit. With the watchdog on, the declared processor request and
+# memory limit appear on Admin > Capacity.
 resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
   # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  #   cpu: "1"
+  #   memory: 1Gi
+  # limits:
+  #   memory: 3Gi
 
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+# The capacity watchdog (synaplan >= 5.6.0). One process per pod, started by
+# the image in every role, listening on :8098 for /live, /ready and /metrics.
+# It writes each server's load to Redis for Admin > Capacity.
+watchdog:
+  # -- Run the watchdog and let the web pod's probes follow PHP capacity:
+  # liveness asks the watchdog, readiness turns false when PHP stops answering
+  # its own probe within 2 s or Redis is down, and a startup probe gives the first
+  # boot's migrations time. Off: SYNAPLAN_WATCHDOG=0, Admin > Capacity is
+  # absent, and the web pod keeps `livenessProbe` / `readinessProbe` below.
+  # Needs synaplan >= 5.6.0; the render fails on an older semver tag.
+  enabled: false
+  # -- Web pod startup probe while the watchdog is on. PHP's own readiness
+  # endpoint; 120 x 5 s leaves ten minutes for the first boot's migrations.
+  startupProbe:
+    httpGet:
+      path: /api/health/ready
+      port: http
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 120
+  # -- Web pod liveness probe while the watchdog is on. A pod whose stream
+  # pool is full stays live; only a stopped watchdog restarts it.
+  livenessProbe:
+    httpGet:
+      path: /live
+      port: watchdog
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  # -- Web pod readiness probe while the watchdog is on. The watchdog is
+  # ready while PHP answered its readiness endpoint within 2 s at least once
+  # in the last 10 s and Redis answers. That endpoint runs in the `api` pool,
+  # so a full stream pool alone does not make the pod unready.
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: watchdog
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 2
+
+# PHP runtime of the web pod. Empty keeps the image default. Every key except
+# `workers` needs synaplan >= 5.6.0 (two worker pools); the render fails on an
+# older semver tag.
+frankenphp:
+  # -- (int) PHP workers for short requests, the `api` pool (FRANKENPHP_WORKER_NUM). Image default 16.
+  workers: null
+  # -- (int) PHP workers for AI streams, the `streams` pool (FRANKENPHP_STREAM_WORKER_NUM). Image default: the same as `workers`.
+  streamWorkers: null
+  # -- (int) PHP threads at start (FRANKENPHP_NUM_THREADS). Must exceed workers + streamWorkers.
+  numThreads: null
+  # -- (int) Most PHP threads (FRANKENPHP_MAX_THREADS).
+  maxThreads: null
+  # -- (string) How long a request waits for a free worker before the server answers
+  # "busy" with Retry-After (FRANKENPHP_MAX_WAIT_TIME). Image default 15s.
+  maxWaitTime: null
+
+# Prometheus and Grafana for the watchdog's metrics. Each needs
+# watchdog.enabled; the render fails otherwise.
+metrics:
+  podMonitor:
+    # -- Create a PodMonitor (Prometheus Operator) for :8098/metrics on every role.
+    enabled: false
+    # -- Extra labels, e.g. the `release` label your Prometheus selects on.
+    labels: {}
+    # -- Scrape interval.
+    interval: 30s
+    # -- Scrape timeout.
+    scrapeTimeout: 10s
+  serviceMonitor:
+    # -- Create a headless metrics Service and a ServiceMonitor for :8098/metrics, for a Prometheus that selects ServiceMonitors only.
+    enabled: false
+    # -- Extra labels, e.g. the `release` label your Prometheus selects on.
+    labels: {}
+    # -- Scrape interval.
+    interval: 30s
+    # -- Scrape timeout.
+    scrapeTimeout: 10s
+  dashboard:
+    # -- Ship the "Synaplan capacity" Grafana dashboard as a ConfigMap (`dashboards/synaplan-capacity.json`).
+    enabled: false
+    # -- Labels the Grafana dashboard sidecar watches for.
+    labels:
+      grafana_dashboard: "1"
+    # -- Annotations, e.g. the folder for the Grafana sidecar.
+    annotations: {}
+
+# -- Web pod liveness probe while the watchdog is off. `GET /` is a static
+# file: it never touches PHP, so a pod whose workers are all held stays live.
+# More information: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:
     path: /
@@ -543,6 +633,8 @@ livenessProbe:
   initialDelaySeconds: 120
   periodSeconds: 10
   failureThreshold: 3
+# -- Web pod readiness probe while the watchdog is off. Same static file, so
+# it cannot see a full server; turn on the watchdog for that.
 readinessProbe:
   httpGet:
     path: /
@@ -552,6 +644,8 @@ readinessProbe:
   failureThreshold: 3
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# The CPU target does not see AI streams: a server whose stream pool is full
+# uses a few percent of a processor. Scaling on held streams comes later.
 autoscaling:
   enabled: false
   minReplicas: 1

@@ -11,7 +11,7 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.7.1 | Synaplan 5.4.1, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
+| [synaplan](charts/synaplan/) | 0.8.0 | Synaplan 5.4.1, plus bundled Redis, a Messenger worker, a scheduler, and optional Piper text-to-speech |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 | [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |
 
@@ -196,11 +196,11 @@ helmfile -e my-cluster -n synaplan apply
 
 Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
 `triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
-synaplan **0.7.1**, triton **0.1.0** and stt **0.1.0**.
+synaplan **0.8.0**, triton **0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.1
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.8.0
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # This checkout, including values that are not in an older GHCR release yet
