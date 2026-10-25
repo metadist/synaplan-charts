@@ -52,7 +52,7 @@
       "id": 1,
       "type": "stat",
       "title": "Web servers reporting",
-      "description": "Web pods whose watchdog was scraped in the last five minutes.",
+      "description": "Web pods whose watchdog was scraped in the last five minutes. 0 when none reports.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -87,7 +87,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(max_over_time(synaplan_server_info{namespace=\"$namespace\",role=\"web\"}[5m]))"
+          "expr": "count(max_over_time(synaplan_server_info{namespace=\"$namespace\",role=\"web\"}[5m])) or vector(0)"
         }
       ]
     },
