@@ -212,7 +212,7 @@
       "id": 4,
       "type": "stat",
       "title": "Busy answers (503) per second",
-      "description": "Requests the server refused because no worker became free within frankenphp.maxWaitTime. Caddy counts a request once per handler, so the busiest handler per pod is taken.",
+      "description": "Requests the server refused because no worker became free within frankenphp.maxWaitTime. Caddy counts a request once per handler, so per pod and method the busiest handler is taken, then summed.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -247,7 +247,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(max by (pod) (rate(caddy_http_request_duration_seconds_count{namespace=\"$namespace\",code=\"503\"}[5m])))"
+          "expr": "sum(max by (pod, method) (rate(caddy_http_request_duration_seconds_count{namespace=\"$namespace\",code=\"503\"}[5m])))"
         }
       ]
     },
