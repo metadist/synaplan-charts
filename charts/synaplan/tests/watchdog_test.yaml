@@ -492,6 +492,23 @@ tests:
           value: watchdog
         documentIndex: 1
 
+  - it: keeps the metrics Service name within 63 characters
+    template: servicemonitor.yaml
+    set:
+      fullnameOverride: a-very-long-release-name-that-already-uses-sixty-three-chars-xx
+      watchdog:
+        enabled: true
+      image:
+        tag: latest
+      metrics:
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: a-very-long-release-name-that-already-uses-sixty-three-metrics
+        documentIndex: 0
+
   - it: refuses a ServiceMonitor without the watchdog
     template: servicemonitor.yaml
     set:
