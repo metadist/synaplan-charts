@@ -661,18 +661,13 @@ initContainers:
 
 {{/*
 A synaScriber secret value: the one from the values, else the one the Secret
-in the cluster already holds, else a new random one (first install). The
-transcriber's API key carries Synaplan's sk_ prefix: a Bearer key without
-it is not accepted on /api routes.
+in the cluster already holds, else a new random one (first install).
 */}}
 {{- define "synaplan.synascriber.secretValue" -}}
 {{- $existing := lookup "v1" "Secret" .ctx.Release.Namespace (include "synaplan.synascriber.name" .ctx) }}
-{{- $prefix := .prefix | default "" }}
-{{- if .value }}
-{{- if not (hasPrefix $prefix .value) }}{{ fail (printf "synascriber.secrets: the value for %s must start with %s" .key $prefix) }}{{ end }}
-{{- .value }}
+{{- if .value }}{{ .value }}
 {{- else if and $existing (hasKey $existing.data .key) }}{{ index $existing.data .key | b64dec }}
-{{- else }}{{ $prefix }}{{ randAlphaNum 48 }}
+{{- else }}{{ randAlphaNum 48 }}
 {{- end }}
 {{- end }}
 

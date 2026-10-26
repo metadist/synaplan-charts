@@ -16,13 +16,11 @@
 #
 # Environment: MASTER_PASSWORD, DOMAIN (openDesk's global.domain),
 # SYNAPLAN_TRANSCRIBER_IMAGE (default below, keep in step with
-# images.synaplanTranscriber), SYNASCRIBER_OWNER (Synaplan user id of the plugin owner,
-# technical.synaplan.synascriber.ownerUserId), SYNAPLAN_HOST, KEYCLOAK_HOST,
-# KEYCLOAK_REALM, SYNAPLAN_RELEASE.
+# images.synaplanTranscriber), SYNAPLAN_HOST, KEYCLOAK_HOST, KEYCLOAK_REALM,
+# SYNAPLAN_RELEASE.
 {{- $masterPassword := requiredEnv "MASTER_PASSWORD" }}
 {{- $domain := env "DOMAIN" | default "opendesk.internal" }}
-{{- $image := env "SYNAPLAN_TRANSCRIBER_IMAGE" | default "ghcr.io/metadist/synaplan-transcriber:5.5.3" }}
-{{- $owner := env "SYNASCRIBER_OWNER" | default "1" }}
+{{- $image := env "SYNAPLAN_TRANSCRIBER_IMAGE" | default "ghcr.io/metadist/synaplan-transcriber:5.5.4" }}
 {{- $synaplan := printf "https://%s.%s" (env "SYNAPLAN_HOST" | default "synaplan") $domain }}
 {{- $issuer := printf "https://%s.%s/realms/%s" (env "KEYCLOAK_HOST" | default "id") $domain (env "KEYCLOAK_REALM" | default "opendesk") }}
 {{- $release := env "SYNAPLAN_RELEASE" | default "synaplan" }}
@@ -32,7 +30,7 @@ jitsi:
     extraFiles:
       - path: /usr/share/jitsi-meet/head.html
         content: |
-          <script defer src="{{ $synaplan }}/api/v1/user/{{ $owner }}/plugins/synascriber/assets/jitsi/loader.js" data-synaplan="{{ $synaplan }}" data-issuer="{{ $issuer }}" data-client-id="synascriber"></script>
+          <script defer src="{{ $synaplan }}/api/v1/plugins/synascriber/assets/jitsi/loader.js" data-synaplan="{{ $synaplan }}" data-issuer="{{ $issuer }}" data-client-id="synascriber"></script>
   prosody:
     extraInitContainers:
       - {{ merge (dict "name" "synascriber-files" "command" (list "sh" "-c" "cp /app/prosody/mod_synascriber.lua /files/") "volumeMounts" (list (dict "name" "synascriber-files" "mountPath" "/files"))) $copy | toJson }}

@@ -19,55 +19,22 @@ data:
     for script in /docker-entrypoint.d/*.sh; do bash "$script"; done
     cd /var/www/backend
     [ -f /plugins/synascriber/manifest.json ] || { echo "this Synaplan image has no plugin under /plugins/synascriber" >&2; exit 1; }
+    php bin/console list synascriber --raw | grep -q '^synascriber:settings' || { echo "this Synaplan image's plugin has no synascriber:settings command (plugin 0.4.0, Synaplan 5.5.4)" >&2; exit 1; }
     for i in $(seq 1 120); do
       code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SYNAPLAN_HOST" "$SYNAPLAN_WEB/api/health" || true)
       [ "$code" = 200 ] && break
       sleep 5
     done
     [ "$code" = 200 ] || { echo "Synaplan at $SYNAPLAN_WEB is not healthy (HTTP $code)" >&2; exit 1; }
-    if [ -n "$OWNER_EMAIL" ]; then
-      BOOTSTRAP_ADMIN_EMAIL="$OWNER_EMAIL" BOOTSTRAP_ADMIN_PASSWORD="$(php -r 'echo bin2hex(random_bytes(24));')" \
-        php bin/console app:bootstrap-admin --no-interaction
-    fi
-    php bin/console app:plugin:install "$OWNER_USER_ID" synascriber --no-interaction
     php bin/console app:plugin:install-verified-users synascriber --no-interaction
-    printf '%s\n' "$API_KEY" | php /scripts/api-key.php "$OWNER_USER_ID" "$OWNER_EMAIL"
-    settings=$(php -r 'echo json_encode(array_merge(json_decode($argv[1], true), ["prosody_secret" => $argv[2], "owner_user_id" => (int) $argv[3], "enabled" => true]));' "$SETTINGS" "$PROSODY_SECRET" "$OWNER_USER_ID")
-    code=$(printf '%s' "$settings" | curl -s -o /tmp/settings.json -w '%{http_code}' -X PUT -H "Host: $SYNAPLAN_HOST" \
-      -H "Authorization: Bearer $API_KEY" -H 'Content-Type: application/json' --data-binary @- \
-      "$SYNAPLAN_WEB/api/v1/plugins/synascriber/admin/settings")
-    echo "settings: HTTP $code"; cat /tmp/settings.json; echo
-    [ "$code" = 200 ]
-  api-key.php: |
-    <?php
-    $p = new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')), getenv('DB_USER'), getenv('DB_PASSWORD'));
-    [$owner, $email, $key] = [(int) $argv[1], (string) ($argv[2] ?? ''), trim(stream_get_line(STDIN, 256, "\n"))];
-    if ('' !== $email) {
-        // The account the first-admin bootstrap created is a local one, and a
-        // Keycloak sign-in refuses to link to a local account of the same address.
-        $p->prepare("UPDATE BUSER SET BPROVIDERID = 'keycloak' WHERE BID = ? AND BMAIL = ? AND BPROVIDERID IN ('', 'local')")->execute([$owner, $email]);
-    }
-    $u = $p->prepare('SELECT BID FROM BUSER WHERE BID = ?');
-    $u->execute([$owner]);
-    if (!$u->fetch()) {
-        fwrite(STDERR, "the plugin owner, user $owner, does not exist yet. Set registration.ownerEmail to the owner's address in the identity provider, or let the owner sign in once; then run this Job again (helm upgrade).\n");
-        exit(1);
-    }
-    $s = $p->prepare('SELECT BID, BOWNERID FROM BAPIKEYS WHERE BKEY = ?');
-    $s->execute([$key]);
-    $row = $s->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
-        $p->prepare("INSERT INTO BAPIKEYS (BOWNERID, BKEY, BSTATUS, BLASTUSED, BSCOPES, BCREATED, BNAME) VALUES (?, ?, 'active', 0, '[]', UNIX_TIMESTAMP(), 'synascriber-transcriber')")->execute([$owner, $key]);
-        echo "transcriber API key: created\n";
-    } else {
-        $p->prepare("UPDATE BAPIKEYS SET BOWNERID = ?, BSTATUS = 'active' WHERE BID = ?")->execute([$owner, $row['BID']]);
-        echo "transcriber API key: present\n";
-    }
+    php -r 'echo json_encode(["enabled" => true, "prosody_secret" => getenv("PROSODY_SECRET"), "transcriber_secret" => getenv("TRANSCRIBER_SECRET")] + json_decode(getenv("SETTINGS"), true, 8, JSON_THROW_ON_ERROR));' \
+      | php bin/console synascriber:settings --no-interaction
 ---
 # A plain Job, not a Helm hook: a hook would hold the install until the web
-# pod is healthy, and on a first install the database release only follows
-# once this release is installed. One Job per revision, so every upgrade
-# registers again; finished Jobs are removed after a day.
+# pod is healthy (which is when the schema exists), and on a first install
+# the database release only follows once this release is installed. One Job
+# per revision, so every upgrade registers again; finished Jobs are removed
+# after a day.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -113,17 +80,13 @@ spec:
               value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}"
             - name: SYNAPLAN_HOST
               value: {{ (urlParse .Values.publicUrl).host | quote }}
-            - name: OWNER_USER_ID
-              value: {{ $r.ownerUserId | quote }}
-            - name: OWNER_EMAIL
-              value: {{ $r.ownerEmail | quote }}
             - name: SETTINGS
               value: {{ $settings | toJson | quote }}
-            - name: API_KEY
+            - name: TRANSCRIBER_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ include "synaplan.synascriber.name" . }}
-                  key: api-key
+                  key: transcriber-secret
             - name: PROSODY_SECRET
               valueFrom:
                 secretKeyRef:

@@ -575,8 +575,8 @@ synascriber:
     prosodySecret: ""
     # -- Bearer token Jitsi's bridge sends to the transcriber (Secret synascriber-jicofo, SYNASCRIBER_TRANSCRIBER_TOKEN)
     transcriberToken: ""
-    # -- The transcriber's Synaplan API key, owned by the plugin owner
-    apiKey: ""
+    # -- Shared secret between the plugin and the transcriber (plugin setting transcriber_secret, transcriber env SYNAPLAN_TRANSCRIBER_SECRET)
+    transcriberSecret: ""
   transcriber:
     image:
       # -- Registry of the transcriber image
@@ -625,17 +625,13 @@ synascriber:
     tolerations: []
     # -- Affinity of the transcriber
     affinity: {}
-  # Synaplan has no declarative plugin setup yet, so a Job after install and
-  # upgrade does what an administrator would, with Synaplan's console in the
-  # Synaplan image: it installs the plugin for the owner and every verified
-  # user, stores the transcriber's API key and writes the plugin's settings.
+  # A Job after install and upgrade does what an administrator would, with
+  # Synaplan's console in the Synaplan image: it installs the plugin for
+  # every verified user and writes the plugin's settings and secrets
+  # (synascriber:settings). Needs plugin 0.4.0 (Synaplan 5.5.4).
   registration:
     # -- Run the registration Job after install and upgrade
     enabled: true
-    # -- Synaplan user id of the plugin owner, an administrator that exists when the Job runs (the first account on a fresh install is 1). Jitsi loads the loader script from this user's plugin assets
-    ownerUserId: 1
-    # -- E-mail address of the owner in the identity provider. On a fresh install the Job creates that administrator account before its first sign-in (Synaplan's first-admin bootstrap with a throwaway password), so the transcriber's API key has an owner; the sign-in through the identity provider then links to the account by its address. Empty: the owner has to exist already
-    ownerEmail: ""
     # -- Affinity of the Job's pod. With a ReadWriteOnce uploads volume, pin it to the node of the web pod like the worker and the scheduler
     affinity: {}
     # -- Resources of the Job

@@ -55,11 +55,11 @@ spec:
               value: {{ $t.previewEveryMs | quote }}
             - name: SYNAPLAN_URL
               value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}"
-            - name: SYNAPLAN_API_KEY
+            - name: SYNAPLAN_TRANSCRIBER_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ include "synaplan.synascriber.name" . }}
-                  key: api-key
+                  key: transcriber-secret
             - name: TRANSCRIBER_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
