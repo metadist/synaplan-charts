@@ -653,9 +653,109 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-# Additional init containers on the web Deployment (same shape as the triton
-# chart's additionalInitContainers), e.g. to seed a volume declared in
-# `volumes` with model files before the app starts.
+# Meeting notes for Jitsi in openDesk (synascriber): a plugin bundled with
+# Synaplan, a transcriber Jitsi's bridge streams each speaker's audio to
+# (its image also carries the Prosody module for Jitsi), and a loader
+# script in Jitsi. Needs a Synaplan image with the plugin under
+# /plugins/synascriber. What runs in other releases (Jitsi, Keycloak) is
+# wired through their values, see helmfile/opendesk/ in the chart repository.
+synascriber:
+  # -- Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan
+  enabled: false
+  # Secrets shared with Jitsi's pods. Empty values keep what the Secret
+  # `<release>-synascriber` already holds (first install: generated).
+  secrets:
+    # -- Shared secret between the plugin and the Prosody module (Secret synascriber-prosody, SYNASCRIBER_SECRET)
+    prosodySecret: ""
+    # -- Bearer token Jitsi's bridge sends to the transcriber (Secret synascriber-jicofo, SYNASCRIBER_TRANSCRIBER_TOKEN)
+    transcriberToken: ""
+    # -- Shared secret between the plugin and the transcriber (plugin setting transcriber_secret, transcriber env SYNAPLAN_TRANSCRIBER_SECRET)
+    transcriberSecret: ""
+  transcriber:
+    image:
+      # -- Registry of the transcriber image
+      registry: ghcr.io
+      # -- Repository of the transcriber image (metadist/synaplan, sidecars/synaplan-transcriber; it also carries mod_synascriber.lua)
+      repository: metadist/synaplan-transcriber
+      # -- Tag of the transcriber image. Empty: the chart's appVersion, the transcriber is released together with Synaplan
+      tag: ""
+      # -- Pull policy of the transcriber image
+      pullPolicy: IfNotPresent
+    # -- Replicas; one serves many meetings
+    replicaCount: 1
+    # -- Meeting language the transcriber assumes until a session says otherwise
+    language: de
+    # -- Live caption preview interval per speaker while they talk (ms). 0: one caption per audio window
+    previewEveryMs: 1500
+    # -- Longest audio window (ms); windows usually end earlier, at a pause
+    commitAfterMs: 8000
+    # -- Port of the transcriber's WebSocket; Jicofo's transcription url-template points at ws://<release>-synascriber-transcriber:<port>/transcribe
+    port: 8095
+    # -- Resources of the transcriber
+    resources:
+      requests:
+        cpu: 50m
+        memory: 96Mi
+      limits:
+        memory: 512Mi
+    # -- Annotations on the transcriber pod
+    podAnnotations: {}
+    # -- Pod security context of the transcriber (the image runs as node, uid 1000)
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    # -- Container security context of the transcriber
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    # -- Node selector of the transcriber
+    nodeSelector: {}
+    # -- Tolerations of the transcriber
+    tolerations: []
+    # -- Affinity of the transcriber
+    affinity: {}
+  # A Job after install and upgrade does what an administrator would, with
+  # Synaplan's console in the Synaplan image: it installs the plugin for
+  # every verified user and writes the plugin's settings and secrets
+  # (synascriber:settings). Needs plugin 0.4.0 (Synaplan 5.5.4).
+  registration:
+    # -- Run the registration Job after install and upgrade
+    enabled: true
+    # -- Affinity of the Job's pod. With a ReadWriteOnce uploads volume, pin it to the node of the web pod like the worker and the scheduler
+    affinity: {}
+    # -- Resources of the Job
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+    settings:
+      # -- Languages offered in the meeting (de, en, es, fr, tr)
+      languages: ["de", "en"]
+      # -- Language selected by default
+      defaultLanguage: de
+      # -- Folder in Sources, Generated
+      folder: Meetings
+      # -- Times in the transcript
+      timezone: Europe/Berlin
+      # -- Live captions in the meeting
+      captions: true
+      # -- Whisper server (whisper.cpp whisper-server). Empty: speech.whisperServerUrl
+      sttUrl: ""
+      # -- Jitsi's Prosody, e.g. http://jitsi-prosody:5280
+      prosodyUrl: ""
+      # -- Jitsi as the participants reach it, e.g. https://meet.example.org: the only window the button's sign-in page hands a code to
+      jitsiUrl: ""
+
+# Additional init containers on the web, worker and scheduler Deployments
+# (same shape as the triton chart's additionalInitContainers), e.g. to seed
+# a volume declared in `volumes` with model files before the app starts.
 additionalInitContainers: []
 
 # Additional volumes on the output Deployment definition.

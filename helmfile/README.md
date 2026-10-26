@@ -24,8 +24,10 @@ helmfile/
 ├── apps/                           # each: helmfile, -defaults, -child, values-<release>
 │   ├── synaplan/                   # Synaplan, speech-to-text server, MariaDB
 │   └── services-external/          # Tika, Triton, Ollama
-└── opendesk/
-    └── synaplan-client.yaml.gotmpl # Synaplan's Keycloak client, for openDesk's environment
+└── opendesk/                       # files for openDesk's environment
+    ├── synaplan-client.yaml.gotmpl     # Synaplan's Keycloak client
+    ├── synascriber-client.yaml.gotmpl  # meeting notes: the Jitsi button's Keycloak client
+    └── synascriber-jitsi.yaml.gotmpl   # meeting notes: values for openDesk's jitsi release
 ```
 
 | Release | Installed when | Chart |
@@ -33,6 +35,7 @@ helmfile/
 | `synaplan` | `apps.synaplan.enabled` (default) | [charts/synaplan](../charts/synaplan/) |
 | `synaplan-mariadb` | `apps.synaplanMariadb.enabled` (default) | openDesk's MariaDB chart, with MariaDB 11.8 (Synaplan needs `VECTOR`) |
 | `synaplan-stt` | `apps.synaplanStt.enabled` | [charts/stt](../charts/stt/) |
+| meeting notes (in `synaplan`) | `technical.synaplan.synascriber.enabled` | [charts/synaplan](../charts/synaplan/), see [Meeting notes](#meeting-notes) |
 | `tika` | `apps.tika.enabled` (default) | Apache Tika |
 | `triton` | `apps.triton.enabled` | [charts/triton](../charts/triton/) |
 | `ollama` | `apps.ollama.enabled` | otwld/ollama-helm |
@@ -220,6 +223,13 @@ new `MASTER_PASSWORD` does not change them.
 | `database-root-password` | `secrets.synaplanMariadb.rootPassword` | once |
 | `admin-password` | `secrets.synaplan.adminPassword`, with `technical.synaplan.bootstrapAdmin.email` | once |
 
+Meeting notes keep theirs in `synaplan-synascriber` (`prosody-secret`,
+`transcriber-token`, `transcriber-secret`, from `secrets.synascriber.*`), copied into
+`synaplan-synascriber-prosody` and `synaplan-synascriber-jicofo` for
+deployments that wire Jitsi by hand. Same rules: derived from
+`MASTER_PASSWORD`, else kept. `opendesk/synascriber-jitsi.yaml.gotmpl`
+derives the same values itself.
+
 To use an OIDC client secret the provider already has, set
 `secrets.keycloak.clientSecret.synaplan.value`, or point
 `technical.synaplan.oidc.clientSecretRef` at a Secret with key
@@ -309,6 +319,69 @@ kubectl get nodes -o json | grep nvidia.com/gpu
 | Tika | the `tika` release | `technical.synaplan.tika.url` |
 | Office previews | openDesk's Collabora, when `apps.collabora.enabled` (openDesk's flag) | `technical.synaplan.office.convertUrl` |
 | Speech-to-text | whisper.cpp in the Synaplan pod, or the `synaplan-stt` release (`apps.synaplanStt.enabled`, `technical.synaplanStt.mode`) | `technical.synaplan.speech.whisperServerUrl` |
+
+## Meeting notes
+
+Meeting notes write notes of Jitsi meetings in openDesk: the `synascriber`
+plugin bundled with Synaplan, a transcriber Jitsi's bridge streams each
+speaker's audio to, a Prosody module and a loader script in Jitsi, all from
+[metadist/synaplan](https://github.com/metadist/synaplan) (`plugins/synascriber`,
+`sidecars/synaplan-transcriber`). It is part of the `synaplan` release, not
+an app of its own, and needs two images only: Synaplan itself, with the
+plugin under `/plugins/synascriber`, and the transcriber
+(`images.synaplanTranscriber`), which also carries the Prosody module.
+Nothing is cloned or downloaded at start.
+
+```yaml
+apps:
+  synaplanStt:
+    enabled: true           # or technical.synaplan.speech.whisperServerUrl
+technical:
+  synaplan:
+    synascriber:
+      enabled: true
+      jitsiRelease: jitsi   # openDesk's Jitsi release (Prosody is <release>-prosody)
+customization:
+  release:
+    jitsi:
+      synascriber: "<path>/helmfile/opendesk/synascriber-jitsi.yaml.gotmpl"
+```
+
+With that, the `synaplan` release adds the transcriber, the Secrets for
+Jitsi, `DEFAULT_USER_PLUGINS=["synascriber"]` (Synaplan installs the plugin
+for every new user), and a Job that registers the plugin after every apply:
+installs it for every verified user and writes the plugin's settings and
+secrets with the plugin's console command `synascriber:settings` (languages,
+folder, timezone, captions, the speech-to-text, Prosody and Jitsi URLs, the
+Prosody and transcriber secrets). No account is involved: the settings, the
+sessions and the loader script belong to the installation (plugin 0.4.0).
+It is a plain Job next to the release (one per revision, gone after a day),
+not a Helm hook: a hook would hold the install until the web pod answers,
+and on a first install the database release only follows once this release
+is installed.
+
+Two more files go into openDesk's environment folder:
+
+- [opendesk/synascriber-client.yaml.gotmpl](opendesk/synascriber-client.yaml.gotmpl),
+  the public Keycloak client the Jitsi button signs in with (like
+  `synaplan-client.yaml.gotmpl`, with `DOMAIN`, `JITSI_HOST` and
+  `SYNAPLAN_HOST`): Keycloak returns to the plugin's sign-in page on
+  Synaplan, which hands the code to the Jitsi window named in
+  `technical.synaplan.synascriber.jitsiUrl`.
+- [opendesk/synascriber-jitsi.yaml.gotmpl](opendesk/synascriber-jitsi.yaml.gotmpl)
+  as a values file of openDesk's `jitsi` release (`customization.release.jitsi`):
+  `head.html` loads the loader script from Synaplan, an
+  init container puts the Prosody module into Prosody from the transcriber
+  image, and Jicofo streams audio to the transcriber. Prosody's and Jicofo's
+  secrets are derived from `MASTER_PASSWORD` exactly as the `synaplan`
+  release derives them, so Jitsi may be deployed before Synaplan. It reads
+  `MASTER_PASSWORD`, `DOMAIN`, `SYNAPLAN_TRANSCRIBER_IMAGE` (keep in step
+  with `images.synaplanTranscriber`), `SYNAPLAN_HOST`, `KEYCLOAK_HOST`,
+  `KEYCLOAK_REALM` and `SYNAPLAN_RELEASE`.
+
+openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only
+those users can start or receive notes. The e2e suite runs all of this with
+`E2E_OPENDESK_SYNASCRIBER=true`, see [e2e](../e2e/).
 
 ## Certificates
 

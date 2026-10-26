@@ -71,15 +71,16 @@ persistence:
     size: {{ .Values.persistence.storages.synaplan.size | quote }}
     storageClass: {{ coalesce .Values.persistence.storages.synaplan.storageClassName (ternary (dig "persistence" "storageClassNames" "RWX" "" .Values) (dig "persistence" "storageClassNames" "RWO" "" .Values) $rwx) | default "" | quote }}
 
-{{- if not $rwx }}
-# The uploads volume is ReadWriteOnce: the worker and the scheduler run on
-# the node of the web pod (only the web pods carry no component label).
 {{- $withWeb := dict "podAffinity" (dict "requiredDuringSchedulingIgnoredDuringExecution" (list (dict
       "topologyKey" "kubernetes.io/hostname"
       "labelSelector" (dict "matchExpressions" (list
         (dict "key" "app.kubernetes.io/name" "operator" "In" "values" (list "synaplan"))
         (dict "key" "app.kubernetes.io/instance" "operator" "In" "values" (list "synaplan"))
         (dict "key" "app.kubernetes.io/component" "operator" "DoesNotExist")))))) }}
+{{- if not $rwx }}
+# The uploads volume is ReadWriteOnce: the worker, the scheduler and the
+# meeting-notes registration run on the node of the web pod (only the web
+# pods carry no component label).
 worker:
   affinity:
     {{- toYaml $withWeb | nindent 4 }}
@@ -152,6 +153,39 @@ speech:
   whisperServerUrl: {{ . | quote }}
   {{- end }}
 
+{{- with $t.synascriber }}
+{{- if .enabled }}
+{{- $tr := $.Values.images.synaplanTranscriber }}
+{{- $sec := $.Values.secrets.synascriber }}
+synascriber:
+  enabled: true
+  secrets:
+    prosodySecret: {{ $sec.prosodySecret.value | quote }}
+    transcriberToken: {{ $sec.transcriberToken.value | quote }}
+    transcriberSecret: {{ $sec.transcriberSecret.value | quote }}
+  transcriber:
+    image:
+      registry: {{ $tr.registry | quote }}
+      repository: {{ $tr.repository | quote }}
+      tag: {{ $tr.tag | quote }}
+    language: {{ .defaultLanguage | quote }}
+    previewEveryMs: {{ .previewEveryMs }}
+    commitAfterMs: {{ .commitAfterMs }}
+  registration:
+    {{- if not $rwx }}
+    affinity:
+      {{- toYaml $withWeb | nindent 6 }}
+    {{- end }}
+    settings:
+      languages: {{ toJson .languages }}
+      defaultLanguage: {{ .defaultLanguage | quote }}
+      folder: {{ .folder | quote }}
+      timezone: {{ .timezone | quote }}
+      captions: {{ .captions }}
+      prosodyUrl: {{ printf "http://%s-prosody:5280" .jitsiRelease | quote }}
+      jitsiUrl: {{ .jitsiUrl | default (printf "https://%s.%s" (dig "global" "hosts" "jitsi" "meet" $.Values) $domain) | quote }}
+{{- end }}
+{{- end }}
 {{- with $t.bootstrapAdmin.email }}
 bootstrapAdmin:
   email: {{ . | quote }}

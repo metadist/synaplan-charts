@@ -1,0 +1,120 @@
+{{- if .Values.synascriber.enabled }}
+{{- $t := .Values.synascriber.transcriber }}
+{{- $name := printf "%s-transcriber" (include "synaplan.synascriber.name" .) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: synascriber-transcriber
+spec:
+  replicas: {{ $t.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "synaplan.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: synascriber-transcriber
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: synascriber-transcriber
+      annotations:
+        {{- with $t.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/synascriber-secrets.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      {{- with $t.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: transcriber
+          image: "{{ $t.image.registry }}/{{ $t.image.repository }}:{{ $t.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ $t.image.pullPolicy }}
+          {{- with $t.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: TRANSCRIBER_MODE
+              value: jitsi
+            - name: TRANSCRIBER_PORT
+              value: {{ $t.port | quote }}
+            - name: TRANSCRIBER_LANGUAGE
+              value: {{ $t.language | quote }}
+            - name: COMMIT_AFTER_MS
+              value: {{ $t.commitAfterMs | quote }}
+            - name: PREVIEW_EVERY_MS
+              value: {{ $t.previewEveryMs | quote }}
+            - name: SYNAPLAN_URL
+              value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}"
+            - name: SYNAPLAN_TRANSCRIBER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "synaplan.synascriber.name" . }}
+                  key: transcriber-secret
+            - name: TRANSCRIBER_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "synaplan.synascriber.name" . }}
+                  key: transcriber-token
+          ports:
+            - name: ws
+              containerPort: {{ $t.port }}
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: ws
+            initialDelaySeconds: 3
+          livenessProbe:
+            tcpSocket:
+              port: ws
+            initialDelaySeconds: 10
+          {{- with $t.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with $t.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $t.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $t.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: synascriber-transcriber
+spec:
+  type: ClusterIP
+  ports:
+    - name: ws
+      port: {{ $t.port }}
+      targetPort: ws
+      protocol: TCP
+  selector:
+    {{- include "synaplan.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: synascriber-transcriber
+{{- end }}

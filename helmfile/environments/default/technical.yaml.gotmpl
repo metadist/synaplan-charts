@@ -30,6 +30,24 @@ technical:
     # admin-password in the Secret synaplan-credentials. Empty: none.
     bootstrapAdmin:
       email: ""
+    # Meeting notes for Jitsi (the synascriber plugin bundled with Synaplan):
+    # the transcriber, the Secrets for Jitsi, a Job that registers the
+    # plugin, and DEFAULT_USER_PLUGINS. Jitsi and Keycloak get their part
+    # through helmfile/opendesk/synascriber-jitsi.yaml.gotmpl and
+    # synascriber-client.yaml.gotmpl.
+    synascriber:
+      enabled: false
+      # Name of openDesk's Jitsi release (Prosody is <release>-prosody)
+      jitsiRelease: "jitsi"
+      # Jitsi as the participants reach it. Empty: https://<global.hosts.jitsi>.<global.domain>
+      jitsiUrl: ""
+      languages: ["de", "en"]
+      defaultLanguage: "de"
+      folder: "Meetings"
+      timezone: "Europe/Berlin"
+      captions: true
+      previewEveryMs: 1500
+      commitAfterMs: 8000
     oidc:
       enabled: true
       # Empty: https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>

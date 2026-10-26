@@ -1,0 +1,110 @@
+{{- if and .Values.synascriber.enabled .Values.synascriber.registration.enabled }}
+{{- if not .Values.persistence.uploads.enabled }}{{ fail "synascriber.registration needs persistence.uploads.enabled: the Job installs the plugin into the owner's uploads directory, and the web pods serve Jitsi's loader from there" }}{{ end }}
+{{- $r := .Values.synascriber.registration }}
+{{- $name := printf "%s-registration" (include "synaplan.synascriber.name" .) }}
+{{- $settings := dict "languages" $r.settings.languages "default_language" $r.settings.defaultLanguage "default_folder" $r.settings.folder "timezone" $r.settings.timezone "captions" $r.settings.captions "stt_url" ($r.settings.sttUrl | default .Values.speech.whisperServerUrl) "prosody_url" $r.settings.prosodyUrl "jitsi_url" $r.settings.jitsiUrl }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: synascriber-registration
+data:
+  register.sh: |
+    #!/bin/bash
+    # Registers the meeting-notes plugin in Synaplan, with Synaplan's own
+    # console and environment: what an administrator would do by hand.
+    set -euo pipefail
+    for script in /docker-entrypoint.d/*.sh; do bash "$script"; done
+    cd /var/www/backend
+    [ -f /plugins/synascriber/manifest.json ] || { echo "this Synaplan image has no plugin under /plugins/synascriber" >&2; exit 1; }
+    php bin/console list synascriber --raw | grep -q '^synascriber:settings' || { echo "this Synaplan image's plugin has no synascriber:settings command (plugin 0.4.0, Synaplan 5.5.4)" >&2; exit 1; }
+    for i in $(seq 1 120); do
+      code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SYNAPLAN_HOST" "$SYNAPLAN_WEB/api/health" || true)
+      [ "$code" = 200 ] && break
+      sleep 5
+    done
+    [ "$code" = 200 ] || { echo "Synaplan at $SYNAPLAN_WEB is not healthy (HTTP $code)" >&2; exit 1; }
+    php bin/console app:plugin:install-verified-users synascriber --no-interaction
+    php -r 'echo json_encode(["enabled" => true, "prosody_secret" => getenv("PROSODY_SECRET"), "transcriber_secret" => getenv("TRANSCRIBER_SECRET")] + json_decode(getenv("SETTINGS"), true, 8, JSON_THROW_ON_ERROR));' \
+      | php bin/console synascriber:settings --no-interaction
+---
+# A plain Job, not a Helm hook: a hook would hold the install until the web
+# pod is healthy (which is when the schema exists), and on a first install
+# the database release only follows once this release is installed. One Job
+# per revision, so every upgrade registers again; finished Jobs are removed
+# after a day.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-{{ .Release.Revision }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: synascriber-registration
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: synascriber-registration
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "synaplan.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $r.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: register
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command: ["bash", "/scripts/register.sh"]
+          env:
+            - name: SYNAPLAN_WEB
+              value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}"
+            - name: SYNAPLAN_HOST
+              value: {{ (urlParse .Values.publicUrl).host | quote }}
+            - name: SETTINGS
+              value: {{ $settings | toJson | quote }}
+            - name: TRANSCRIBER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "synaplan.synascriber.name" . }}
+                  key: transcriber-secret
+            - name: PROSODY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "synaplan.synascriber.name" . }}
+                  key: prosody-secret
+            {{- include "synaplan.env" . | nindent 12 }}
+          {{- with $r.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "synaplan.volumeMounts" . | nindent 12 }}
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        {{- include "synaplan.volumes" (dict "ctx" . "initScripts" (printf "%s-init-scripts-aux" (include "synaplan.fullname" .))) | nindent 8 }}
+        - name: scripts
+          configMap:
+            name: {{ $name }}
+{{- end }}

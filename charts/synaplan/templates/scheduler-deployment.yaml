@@ -42,6 +42,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- include "synaplan.initContainers" . | nindent 6 }}
       containers:
         - name: scheduler
           {{- with .Values.securityContext }}
