@@ -83,6 +83,17 @@
     },
     {
       customType: 'regex',
+      description: 'Default images in the values files for openDesk releases (helmfile/opendesk/*.yaml.gotmpl)',
+      managerFilePatterns: [
+        '/^helmfile/opendesk/.+\\.yaml\\.gotmpl$/',
+      ],
+      matchStrings: [
+        'default "(?<depName>[a-z0-9.-]+\\.[a-z]+/[^":]+):(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
       description: 'openDesk release the e2e suite deploys (e2e/environments/*/env.sh)',
       managerFilePatterns: [
         '/^e2e/environments/.+/env\\.sh$/',

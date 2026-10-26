@@ -44,7 +44,8 @@ up() {
     --k3s-arg '--disable=traefik@server:*' \
     --k3s-arg '--kubelet-arg=max-pods=250@server:*' \
     --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%@server:*' \
-    --k3s-arg '--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%@server:*'
+    --k3s-arg '--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%@server:*' \
+    --k3s-arg '--kubelet-arg=image-gc-high-threshold=100@server:*'
   "$K3D" kubeconfig get "$CLUSTER" > "$KUBECONFIG"
 
   if [ -f "$ENV_DIR/ingress-nginx.yaml" ]; then

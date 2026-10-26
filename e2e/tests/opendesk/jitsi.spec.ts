@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
+import { signInAtKeycloak } from './keycloak'
 
 const jitsiHost = process.env.E2E_JITSI_HOST
 const password = process.env.E2E_USER_PASSWORD ?? ''
@@ -13,9 +14,7 @@ async function joinRoom(browser: Browser, room: string, username: string): Promi
   const hash = encodeURIComponent('config.p2p.enabled=false')
   await page.goto(`https://${jitsiHost}/oidc/auth?path=${encodeURIComponent(`/${room}`)}&search=&hash=${hash}`)
   await page.waitForURL((url) => url.hostname !== jitsiHost)
-  await page.locator('input[name="username"]').fill(username)
-  await page.locator('input[name="password"]').fill(password)
-  await page.locator('input[name="password"]').press('Enter')
+  await signInAtKeycloak(page, username, password)
   await page.waitForURL((url) => url.hostname === jitsiHost && !url.pathname.startsWith('/static/'))
   await page.getByRole('button', { name: /^join meeting$/i }).click()
   await page.waitForFunction(() => (window as any).APP?.conference?.isJoined?.())

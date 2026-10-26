@@ -40,10 +40,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.additionalInitContainers }}
-      initContainers:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "synaplan.initContainers" . | nindent 6 }}
       containers:
         - name: {{ .Chart.Name }}
           {{- with .Values.securityContext }}

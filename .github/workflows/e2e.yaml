@@ -17,6 +17,35 @@ on:
         required: false
         type: boolean
         default: true
+      opendesk-synascriber:
+        description: Deploy meeting notes and test them (opendesk environment); false leaves them out
+        required: false
+        type: boolean
+        default: true
+  # By hand, e.g. for another openDesk ref.
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Directory in e2e/environments
+        required: true
+        type: choice
+        options: [opendesk, standalone]
+        default: opendesk
+      opendesk-ref:
+        description: openDesk tag or branch (opendesk environment). Empty = the pinned release.
+        required: false
+        type: string
+        default: ''
+      opendesk-jitsi:
+        description: Deploy Jitsi (opendesk environment); false leaves it out
+        required: false
+        type: boolean
+        default: true
+      opendesk-synascriber:
+        description: Deploy meeting notes and test them (opendesk environment); false leaves them out
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -68,6 +97,7 @@ jobs:
         env:
           E2E_OPENDESK_REF: ${{ inputs.opendesk-ref }}
           E2E_OPENDESK_JITSI: ${{ inputs.opendesk-jitsi }}
+          E2E_OPENDESK_SYNASCRIBER: ${{ inputs.opendesk-synascriber }}
         run: e2e/run.sh ${{ inputs.environment }}
 
       - name: Show the cluster
@@ -82,12 +112,22 @@ jobs:
           kubectl get pods -A --no-headers | grep -v -E ' (Running|Completed) ' | while read -r namespace pod _; do
             kubectl -n "$namespace" describe pod "$pod" | sed -n '/^Events:/,$p'
           done
+          kubectl get pods -A --no-headers | awk '$4 != "0" || $3 != "Running" && $3 != "Completed" {print $1, $2}' | while read -r namespace pod; do
+            echo "::group::logs of $namespace/$pod"
+            kubectl -n "$namespace" logs "$pod" --all-containers --tail=150 2>&1 || true
+            echo "--- previous container"
+            kubectl -n "$namespace" logs "$pod" --all-containers --previous --tail=150 2>&1 || true
+            echo "::endgroup::"
+          done
           for namespace in synaplan opendesk; do
+            echo "::group::logs of $namespace/deployment/synaplan"
             kubectl -n "$namespace" logs deployment/synaplan --all-containers --tail=200 2>/dev/null || true
+            echo "::endgroup::"
           done
 
+      # Also after a green job: a flaky test's first attempt leaves its trace here.
       - name: Upload the Playwright report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-${{ inputs.environment }}${{ inputs.opendesk-ref && format('-{0}', inputs.opendesk-ref) || '' }}
