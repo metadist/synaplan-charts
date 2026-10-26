@@ -46,6 +46,11 @@ technical:
       folder: "Meetings"
       timezone: "Europe/Berlin"
       captions: true
+      # Model name the plugin sends to the speech-to-text server (whisper.cpp
+      # ignores it, vLLM needs its --served-model-name). Empty: not sent.
+      # With secrets.synascriber.sttApiKey (SYNASCRIBER_STT_API_KEY) this
+      # needs plugin 0.4.1, a Synaplan release after 5.5.4.
+      sttModel: ""
       previewEveryMs: 1500
       commitAfterMs: 8000
     oidc:

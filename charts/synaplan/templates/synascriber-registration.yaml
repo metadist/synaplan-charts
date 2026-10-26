@@ -26,8 +26,13 @@ data:
       sleep 5
     done
     [ "$code" = 200 ] || { echo "Synaplan at $SYNAPLAN_WEB is not healthy (HTTP $code)" >&2; exit 1; }
+    if [ -n "$STT_MODEL" ] || [ -n "${STT_API_KEY:-}" ]; then
+      plugin=$(php -r 'echo json_decode(file_get_contents("/plugins/synascriber/manifest.json"), true, 8, JSON_THROW_ON_ERROR)["version"];')
+      php -r 'exit(version_compare($argv[1], "0.4.1", ">=") ? 0 : 1);' "$plugin" \
+        || { echo "synascriber.registration.settings.sttModel and synascriber.secrets.sttApiKey need plugin 0.4.1 (a Synaplan release after 5.5.4); this image carries plugin $plugin" >&2; exit 1; }
+    fi
     php bin/console app:plugin:install-verified-users synascriber --no-interaction
-    php -r 'echo json_encode(["enabled" => true, "prosody_secret" => getenv("PROSODY_SECRET"), "transcriber_secret" => getenv("TRANSCRIBER_SECRET")] + json_decode(getenv("SETTINGS"), true, 8, JSON_THROW_ON_ERROR));' \
+    php -r 'echo json_encode(["enabled" => true, "prosody_secret" => getenv("PROSODY_SECRET"), "transcriber_secret" => getenv("TRANSCRIBER_SECRET")] + array_filter(["stt_model" => getenv("STT_MODEL") ?: null, "stt_api_key" => getenv("STT_API_KEY") ?: null]) + json_decode(getenv("SETTINGS"), true, 8, JSON_THROW_ON_ERROR));' \
       | php bin/console synascriber:settings --no-interaction
 ---
 # A plain Job, not a Helm hook: a hook would hold the install until the web
@@ -82,6 +87,15 @@ spec:
               value: {{ (urlParse .Values.publicUrl).host | quote }}
             - name: SETTINGS
               value: {{ $settings | toJson | quote }}
+            - name: STT_MODEL
+              value: {{ $r.settings.sttModel | quote }}
+            {{- if .Values.synascriber.secrets.sttApiKey }}
+            - name: STT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "synaplan.synascriber.name" . }}
+                  key: stt-api-key
+            {{- end }}
             - name: TRANSCRIBER_SECRET
               valueFrom:
                 secretKeyRef:

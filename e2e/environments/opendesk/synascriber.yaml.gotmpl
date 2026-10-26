@@ -2,6 +2,17 @@
 # (E2E_OPENDESK_SYNASCRIBER=false leaves it out): speech-to-text on CPU, the
 # plugin, transcriber and Secrets through the synaplan release, and Jitsi's
 # part through helmfile/opendesk/synascriber-jitsi.yaml.gotmpl.
+#
+# The Synaplan image is a main build with plugin 0.4.1 (synaplan#2786: the
+# plugin sends `model` and an optional key to the speech-to-text server),
+# until a Synaplan release after 5.5.4 carries it; then this block goes, the
+# chart's appVersion is the image, and sttModel below stays as the proof
+# that the Job writes it.
+images:
+  synaplan:
+    registry: "ghcr.io"
+    repository: "metadist/synaplan"
+    tag: "ci-78c0db8f056b006f4a6bf30c06ab843c3c8ed29b-amd64"
 apps:
   synaplanStt:
     enabled: true
@@ -9,6 +20,7 @@ technical:
   synaplan:
     synascriber:
       enabled: true
+      sttModel: whisper
 customization:
   release:
     jitsi:

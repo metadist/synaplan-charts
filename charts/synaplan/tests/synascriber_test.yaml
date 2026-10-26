@@ -1,0 +1,60 @@
+suite: synascriber speech-to-text settings
+templates:
+  - synascriber-registration.yaml
+  - synascriber-secrets.yaml
+values:
+  - ../../../ci/synaplan/lint-values-synascriber.yaml
+tests:
+  - it: sends model and key to the Job when set
+    template: synascriber-registration.yaml
+    documentIndex: 1
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STT_MODEL
+            value: whisper
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STT_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-synaplan-synascriber
+                key: stt-api-key
+
+  - it: keeps the key in the meeting-notes Secret
+    template: synascriber-secrets.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: stringData.stt-api-key
+          value: lint-stt-api-key
+
+  - it: sends neither when unset, so an older plugin is not asked for settings it refuses
+    set:
+      synascriber:
+        secrets:
+          sttApiKey: ""
+        registration:
+          settings:
+            sttModel: ""
+    asserts:
+      - template: synascriber-registration.yaml
+        documentIndex: 1
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STT_MODEL
+            value: ""
+      - template: synascriber-registration.yaml
+        documentIndex: 1
+        notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STT_API_KEY
+          any: true
+      - template: synascriber-secrets.yaml
+        documentIndex: 0
+        notExists:
+          path: stringData.stt-api-key

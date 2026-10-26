@@ -228,7 +228,9 @@ Meeting notes keep theirs in `synaplan-synascriber` (`prosody-secret`,
 `synaplan-synascriber-prosody` and `synaplan-synascriber-jicofo` for
 deployments that wire Jitsi by hand. Same rules: derived from
 `MASTER_PASSWORD`, else kept. `opendesk/synascriber-jitsi.yaml.gotmpl`
-derives the same values itself.
+derives the same values itself. The one key that cannot be derived, the API
+key of an external speech-to-text server (`stt-api-key`), comes from
+`SYNASCRIBER_STT_API_KEY` in the environment and is absent otherwise.
 
 To use an OIDC client secret the provider already has, set
 `secrets.keycloak.clientSecret.synaplan.value`, or point
@@ -355,6 +357,15 @@ secrets with the plugin's console command `synascriber:settings` (languages,
 folder, timezone, captions, the speech-to-text, Prosody and Jitsi URLs, the
 Prosody and transcriber secrets). No account is involved: the settings, the
 sessions and the loader script belong to the installation (plugin 0.4.0).
+
+The speech-to-text server is whisper.cpp from the `stt` release by default.
+Any server with the OpenAI transcription API works
+(`technical.synaplan.speech.whisperServerUrl`); vLLM and the cloud services
+need the model name the plugin sends (`technical.synaplan.synascriber.sttModel`,
+vLLM's `--served-model-name`) and perhaps a key (`SYNASCRIBER_STT_API_KEY`).
+Both are sent only when set, and setting them needs plugin 0.4.1, a Synaplan
+release after 5.5.4: with an older image the Job stops with a message
+instead of writing settings the plugin refuses.
 It is a plain Job next to the release (one per revision, gone after a day),
 not a Helm hook: a hook would hold the install until the web pod answers,
 and on a first install the database release only follows once this release
