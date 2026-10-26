@@ -19,7 +19,7 @@ data:
     for script in /docker-entrypoint.d/*.sh; do bash "$script"; done
     cd /var/www/backend
     [ -f /plugins/synascriber/manifest.json ] || { echo "this Synaplan image has no plugin under /plugins/synascriber" >&2; exit 1; }
-    php bin/console list synascriber --raw | grep -q '^synascriber:settings' || { echo "this Synaplan image's plugin has no synascriber:settings command (plugin 0.4.0, Synaplan after 5.5.3)" >&2; exit 1; }
+    php bin/console list synascriber --raw | grep -q '^synascriber:settings' || { echo "this Synaplan image's plugin has no synascriber:settings command (plugin 0.4.0, Synaplan 5.5.4)" >&2; exit 1; }
     for i in $(seq 1 120); do
       code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $SYNAPLAN_HOST" "$SYNAPLAN_WEB/api/health" || true)
       [ "$code" = 200 ] && break

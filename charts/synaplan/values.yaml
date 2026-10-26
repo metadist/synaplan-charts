@@ -628,7 +628,7 @@ synascriber:
   # A Job after install and upgrade does what an administrator would, with
   # Synaplan's console in the Synaplan image: it installs the plugin for
   # every verified user and writes the plugin's settings and secrets
-  # (synascriber:settings). Needs plugin 0.4.0 (Synaplan after 5.5.3).
+  # (synascriber:settings). Needs plugin 0.4.0 (Synaplan 5.5.4).
   registration:
     # -- Run the registration Job after install and upgrade
     enabled: true
