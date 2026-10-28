@@ -160,6 +160,82 @@ Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
 fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
 that is not a complete semver skips that check.
 
+### Capacity and probes (synaplan >= 5.6.0)
+
+Each Synaplan pod runs a small watchdog next to PHP. It listens on port 8098
+and serves three endpoints: `/live`, `/ready` and `/metrics`. Every five
+seconds it writes the pod's load to Redis, and **Admin › Capacity** in
+Synaplan shows one card per pod from those reports.
+`watchdog.enabled` switches the watchdog on and changes the web pod's probes:
+
+| Probe | Watchdog off (default) | Watchdog on |
+| ----- | ---------------------- | ----------- |
+| startup | none | `GET /api/health/ready` on `http`, 120 × 5 s for the first boot's migrations |
+| liveness | `GET /` on `http` (a static file) | `GET /live` on `watchdog` |
+| readiness | `GET /` on `http` (a static file) | `GET /ready` on `watchdog`: PHP answered its readiness endpoint within 2 s in the last 10 s, and Redis answers |
+
+With the watchdog off, the static file answers even when every PHP worker is
+busy, so Kubernetes keeps sending traffic to a full pod. With it on, a pod
+whose AI stream pool is full stays live and ready: the readiness endpoint runs
+in the separate `api` pool, and new streams get a "busy, retrying" answer.
+The pod leaves the Service only when PHP itself stops answering.
+
+The watchdog does not exist in 5.5.x. The render fails when `image.tag`, or
+the chart `appVersion` when the tag is empty, is a complete semver below
+5.6.0. A 5.6.0 prerelease is accepted. A tag that is not a complete semver
+(`latest`, a digest) skips the check. Off sets `SYNAPLAN_WATCHDOG=0`, and
+**Admin › Capacity** is then absent.
+
+With the watchdog on, the chart passes each pod's place to it: the namespace
+and node from the Downward API, plus the Deployment and container names. It
+also passes the declared processor request and memory limit as written
+(`1`, `3Gi`). The capacity card shows them under Technical details, with the
+`kubectl logs` command for that pod. The pod name is the server id, so
+`SYNAPLAN_SERVER_ID` stays unset.
+
+```yaml
+watchdog:
+  enabled: true
+frankenphp:
+  workers: 8          # the api pool: every request that is not a stream
+  streamWorkers: 24   # the streams pool: AI answers, the gateways, dictation, TTS
+  maxWaitTime: 15s    # then "busy" with Retry-After instead of a silent wait
+metrics:
+  podMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  dashboard:
+    enabled: true     # the "Synaplan capacity" Grafana dashboard
+resources:
+  requests:
+    cpu: "1"
+    memory: 1Gi
+  limits:
+    memory: 3Gi
+```
+
+`frankenphp.*` sets the two PHP worker pools of the web pod. An empty key keeps
+the image default: 16 `api` workers, the same number of stream workers, and a
+15 s wait. Every key except `workers` needs 5.6.0. Each PHP worker holds a
+database connection while it works. Check the database's `max_connections`
+against (`workers` + `streamWorkers`) × web replicas before you raise either.
+
+`metrics.podMonitor` scrapes every role's watchdog. Web pods also pass
+FrankenPHP's own metrics through. `metrics.serviceMonitor` does the same
+through a headless `-metrics` Service, for a Prometheus that selects only
+ServiceMonitors. Both need the Prometheus Operator CRDs. `metrics.dashboard`
+ships [`dashboards/synaplan-capacity.json`](dashboards/synaplan-capacity.json)
+as a ConfigMap for the Grafana sidecar. Its panels show stream slots in use,
+busy workers per pool, waiting requests, request time, busy (503) answers,
+and memory and processor per pod. Each of the three needs the watchdog.
+
+The resources above are starting values, not measurements from your
+installation. Set no processor limit: throttling shows up as slow answers,
+not as a visible limit. `autoscaling` still scales on processor use, which
+does not see AI streams: a pod whose stream pool is full uses a few percent
+of a processor.
+
 An install with its database, Tika and a model backend, on its own or inside
 openDesk, is the [Helmfile](../../helmfile/).
 

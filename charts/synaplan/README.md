@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.9.0](https://img.shields.io/badge/Version-0.9.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.5.4](https://img.shields.io/badge/AppVersion-5.5.4-informational?style=flat-square)
+![Version: 0.10.0](https://img.shields.io/badge/Version-0.10.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.5.4](https://img.shields.io/badge/AppVersion-5.5.4-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.9.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.10.0
 ```
 
 ### Install from local chart
@@ -161,6 +161,82 @@ Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
 fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
 that is not a complete semver skips that check.
 
+### Capacity and probes (synaplan >= 5.6.0)
+
+Each Synaplan pod runs a small watchdog next to PHP. It listens on port 8098
+and serves three endpoints: `/live`, `/ready` and `/metrics`. Every five
+seconds it writes the pod's load to Redis, and **Admin › Capacity** in
+Synaplan shows one card per pod from those reports.
+`watchdog.enabled` switches the watchdog on and changes the web pod's probes:
+
+| Probe | Watchdog off (default) | Watchdog on |
+| ----- | ---------------------- | ----------- |
+| startup | none | `GET /api/health/ready` on `http`, 120 × 5 s for the first boot's migrations |
+| liveness | `GET /` on `http` (a static file) | `GET /live` on `watchdog` |
+| readiness | `GET /` on `http` (a static file) | `GET /ready` on `watchdog`: PHP answered its readiness endpoint within 2 s in the last 10 s, and Redis answers |
+
+With the watchdog off, the static file answers even when every PHP worker is
+busy, so Kubernetes keeps sending traffic to a full pod. With it on, a pod
+whose AI stream pool is full stays live and ready: the readiness endpoint runs
+in the separate `api` pool, and new streams get a "busy, retrying" answer.
+The pod leaves the Service only when PHP itself stops answering.
+
+The watchdog does not exist in 5.5.x. The render fails when `image.tag`, or
+the chart `appVersion` when the tag is empty, is a complete semver below
+5.6.0. A 5.6.0 prerelease is accepted. A tag that is not a complete semver
+(`latest`, a digest) skips the check. Off sets `SYNAPLAN_WATCHDOG=0`, and
+**Admin › Capacity** is then absent.
+
+With the watchdog on, the chart passes each pod's place to it: the namespace
+and node from the Downward API, plus the Deployment and container names. It
+also passes the declared processor request and memory limit as written
+(`1`, `3Gi`). The capacity card shows them under Technical details, with the
+`kubectl logs` command for that pod. The pod name is the server id, so
+`SYNAPLAN_SERVER_ID` stays unset.
+
+```yaml
+watchdog:
+  enabled: true
+frankenphp:
+  workers: 8          # the api pool: every request that is not a stream
+  streamWorkers: 24   # the streams pool: AI answers, the gateways, dictation, TTS
+  maxWaitTime: 15s    # then "busy" with Retry-After instead of a silent wait
+metrics:
+  podMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  dashboard:
+    enabled: true     # the "Synaplan capacity" Grafana dashboard
+resources:
+  requests:
+    cpu: "1"
+    memory: 1Gi
+  limits:
+    memory: 3Gi
+```
+
+`frankenphp.*` sets the two PHP worker pools of the web pod. An empty key keeps
+the image default: 16 `api` workers, the same number of stream workers, and a
+15 s wait. Every key except `workers` needs 5.6.0. Each PHP worker holds a
+database connection while it works. Check the database's `max_connections`
+against (`workers` + `streamWorkers`) × web replicas before you raise either.
+
+`metrics.podMonitor` scrapes every role's watchdog. Web pods also pass
+FrankenPHP's own metrics through. `metrics.serviceMonitor` does the same
+through a headless `-metrics` Service, for a Prometheus that selects only
+ServiceMonitors. Both need the Prometheus Operator CRDs. `metrics.dashboard`
+ships [`dashboards/synaplan-capacity.json`](dashboards/synaplan-capacity.json)
+as a ConfigMap for the Grafana sidecar. Its panels show stream slots in use,
+busy workers per pool, waiting requests, request time, busy (503) answers,
+and memory and processor per pod. Each of the three needs the watchdog.
+
+The resources above are starting values, not measurements from your
+installation. Set no processor limit: throttling shows up as slow answers,
+not as a visible limit. `autoscaling` still scales on processor use, which
+does not see AI streams: a pod whose stream pool is full uses a few percent
+of a processor.
+
 An install with its database, Tika and a model backend, on its own or inside
 openDesk, is the [Helmfile](../../helmfile/).
 
@@ -224,6 +300,11 @@ openDesk, is the [Helmfile](../../helmfile/).
 | features.urlFetch | bool | `nil` | FEATURE_MULTITASK_URL_FETCH_ENABLED (watched pages, fetches public URLs) |
 | features.userSearch | bool | `nil` | FEATURE_IAM_USER_SEARCH_ENABLED (find any account by name/email in the share dialog) |
 | features.workflows | bool | `nil` | FEATURE_WORKFLOWS_BUILDER_ENABLED (Saved Tasks steps + webhook trigger) |
+| frankenphp.maxThreads | int | `nil` | Most PHP threads (FRANKENPHP_MAX_THREADS). |
+| frankenphp.maxWaitTime | string | `nil` | How long a request waits for a free worker before the server answers "busy" with Retry-After (FRANKENPHP_MAX_WAIT_TIME). Image default 15s. |
+| frankenphp.numThreads | int | `nil` | PHP threads at start (FRANKENPHP_NUM_THREADS). Must exceed workers + streamWorkers. |
+| frankenphp.streamWorkers | int | `nil` | PHP workers for AI streams, the `streams` pool (FRANKENPHP_STREAM_WORKER_NUM). Image default: the same as `workers`. |
+| frankenphp.workers | int | `nil` | PHP workers for short requests, the `api` pool (FRANKENPHP_WORKER_NUM). Image default 16. |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
@@ -238,12 +319,19 @@ openDesk, is the [Helmfile](../../helmfile/).
 | ingress.hosts[0].paths[0].path | string | `"/"` |  |
 | ingress.hosts[0].paths[0].pathType | string | `"ImplementationSpecific"` |  |
 | ingress.tls | list | `[]` |  |
-| livenessProbe.failureThreshold | int | `3` |  |
-| livenessProbe.httpGet.path | string | `"/"` |  |
-| livenessProbe.httpGet.port | string | `"http"` |  |
-| livenessProbe.initialDelaySeconds | int | `120` |  |
-| livenessProbe.periodSeconds | int | `10` |  |
+| livenessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":120,"periodSeconds":10}` | Web pod liveness probe while the watchdog is off. `GET /` is a static file: it never touches PHP, so a pod whose workers are all held stays live. More information: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/ |
 | mailerDsn | string | `"null://null"` |  |
+| metrics.dashboard.annotations | object | `{}` | Annotations, e.g. the folder for the Grafana sidecar. |
+| metrics.dashboard.enabled | bool | `false` | Ship the "Synaplan capacity" Grafana dashboard as a ConfigMap (`dashboards/synaplan-capacity.json`). |
+| metrics.dashboard.labels | object | `{"grafana_dashboard":"1"}` | Labels the Grafana dashboard sidecar watches for. |
+| metrics.podMonitor.enabled | bool | `false` | Create a PodMonitor (Prometheus Operator) for :8098/metrics on every role. |
+| metrics.podMonitor.interval | string | `"30s"` | Scrape interval. |
+| metrics.podMonitor.labels | object | `{}` | Extra labels, e.g. the `release` label your Prometheus selects on. |
+| metrics.podMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout. |
+| metrics.serviceMonitor.enabled | bool | `false` | Create a headless metrics Service and a ServiceMonitor for :8098/metrics, for a Prometheus that selects ServiceMonitors only. |
+| metrics.serviceMonitor.interval | string | `"30s"` | Scrape interval. |
+| metrics.serviceMonitor.labels | object | `{}` | Extra labels, e.g. the `release` label your Prometheus selects on. |
+| metrics.serviceMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout. |
 | models.defaults.analyze | string | `""` |  |
 | models.defaults.chat | string | `""` |  |
 | models.defaults.pic2text | string | `""` |  |
@@ -294,11 +382,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | prompts.seed | bool | `true` |  |
 | publicUrl | string | `""` |  |
 | qdrant.url | string | `""` | Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333). Empty = off: the application switches memories and Qdrant search off. |
-| readinessProbe.failureThreshold | int | `3` |  |
-| readinessProbe.httpGet.path | string | `"/"` |  |
-| readinessProbe.httpGet.port | string | `"http"` |  |
-| readinessProbe.initialDelaySeconds | int | `30` |  |
-| readinessProbe.periodSeconds | int | `5` |  |
+| readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":30,"periodSeconds":5}` | Web pod readiness probe while the watchdog is off. Same static file, so it cannot see a full server; turn on the watchdog for that. |
 | redis.dsn | string | `""` | External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379). Takes precedence over the bundled Redis. Must not carry a path - the Messenger transports append their stream names to it. Plain value ends up in the pod spec; use dsnSecretRef for DSNs carrying credentials. |
 | redis.dsnSecretRef | string | `""` | Name of an existing Secret holding the external DSN under key redis-dsn. Takes precedence over dsn. |
 | redis.enabled | bool | `true` | Deploy a bundled single-node Redis. NOT persistent: queued async jobs are lost when it restarts. Disable to use an external Redis via dsn. |
@@ -307,7 +391,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | redis.image.tag | string | `"8.10-alpine"` |  |
 | redis.resources | object | `{}` |  |
 | replicaCount | int | `1` |  |
-| resources | object | `{}` |  |
+| resources | object | `{}` | Resources of the web pod. Empty by default so the chart installs on small clusters. Starting values for production (see "Capacity and probes" in the README): memory request 1Gi, memory limit 3Gi, processor request 1 and no processor limit, because throttling shows up as slow answers, not as a visible limit. With the watchdog on, the declared processor request and memory limit appear on Admin > Capacity. |
 | scheduler | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"resources":{},"tolerations":[]}` | Scheduler (SYNAPLAN_ROLE=scheduler): periodic maintenance tasks. Singleton; same uploads-volume sharing caveat as the worker. |
 | securityContext | object | `{}` |  |
 | service.port | int | `80` |  |
@@ -361,6 +445,10 @@ openDesk, is the [Helmfile](../../helmfile/).
 | tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.15-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.0@sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
+| watchdog.enabled | bool | `false` | Run the watchdog and let the web pod's probes follow PHP capacity: liveness asks the watchdog, readiness turns false when PHP stops answering its own probe within 2 s or Redis is down, and a startup probe gives the first boot's migrations time. Off: SYNAPLAN_WATCHDOG=0, Admin > Capacity is absent, and the web pod keeps `livenessProbe` / `readinessProbe` below. Needs synaplan >= 5.6.0; the render fails on an older semver tag. |
+| watchdog.livenessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/live","port":"watchdog"},"periodSeconds":10,"timeoutSeconds":2}` | Web pod liveness probe while the watchdog is on. A pod whose stream pool is full stays live; only a stopped watchdog restarts it. |
+| watchdog.readinessProbe | object | `{"failureThreshold":2,"httpGet":{"path":"/ready","port":"watchdog"},"periodSeconds":5,"timeoutSeconds":2}` | Web pod readiness probe while the watchdog is on. The watchdog is ready while PHP answered its readiness endpoint within 2 s at least once in the last 10 s and Redis answers. That endpoint runs in the `api` pool, so a full stream pool alone does not make the pod unready. |
+| watchdog.startupProbe | object | `{"failureThreshold":120,"httpGet":{"path":"/api/health/ready","port":"http"},"periodSeconds":5,"timeoutSeconds":2}` | Web pod startup probe while the watchdog is on. PHP's own readiness endpoint; 120 x 5 s leaves ten minutes for the first boot's migrations. |
 | worker | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"replicaCount":1,"resources":{},"tolerations":[],"transports":""}` | Messenger worker (SYNAPLAN_ROLE=worker): consumes the async queues (AI jobs, extraction, indexing). Required for synaplan >= 4.0 async features. Shares the uploads volume with the web pod: with a ReadWriteOnce PVC the worker must be co-scheduled with the web pod (set affinity accordingly) or the PVC switched to ReadWriteMany. |
 | worker.transports | string | `""` | Space-separated Messenger transport list; empty = image default. |
 

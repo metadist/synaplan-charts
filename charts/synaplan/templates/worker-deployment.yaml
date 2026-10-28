@@ -53,9 +53,16 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.watchdog.enabled }}
+          ports:
+            - name: watchdog
+              containerPort: 8098
+              protocol: TCP
+          {{- end }}
           env:
             - name: SYNAPLAN_ROLE
               value: "worker"
+            {{- include "synaplan.watchdogEnv" (dict "ctx" . "container" "worker" "deployment" (printf "%s-worker" (include "synaplan.fullname" .)) "resources" .Values.worker.resources) | nindent 12 }}
             # The role startup gate curls the web role's health endpoint;
             # the image default (http://backend) is the compose hostname.
             - name: SYNAPLAN_WEB_HEALTH_URL
