@@ -14,11 +14,12 @@
 # trust.secret.mount is repeated here because a later values file replaces
 # aio.extraVolumes rather than appending to it. Keep the trust entries in
 # step with helmfile/apps/nextcloud/values-nextcloud.yaml.gotmpl.
+{{- $claim := dig "technical" "synaplanOpendesk" "persistence" "claimName" "synaplan-nextcloud-app" .Values }}
 aio:
   extraVolumes:
     - name: synaplan-integration
       persistentVolumeClaim:
-        claimName: synaplan-nextcloud-app
+        claimName: {{ $claim | quote }}
     {{- if dig "trust" "secret" "mount" false .Values }}
     - name: trusted-cert-secret-volume
       secret:

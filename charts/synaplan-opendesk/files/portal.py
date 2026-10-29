@@ -89,11 +89,13 @@ def properties(include_name):
         "activated": True,
         "anonymous": False,
         "linkTarget": "newwindow",
-        "allowedGroups": [],
         "icon": ICON,
     }
     if include_name:
+        # A new tile is visible to everyone. An update leaves an administrator's
+        # group restriction alone.
         props["name"] = "synaplan"
+        props["allowedGroups"] = []
     return props
 
 
@@ -173,9 +175,14 @@ def main():
     entry = ensure_entry()
     append_dn("category", CATEGORY_DN, "entries", entry)
     append_dn("portal", PORTAL_DN, "centralNavigation", entry)
-    restart("statefulsets", "ums-portal-consumer")
-    restart("deployments", "ums-portal-server")
-    restart("deployments", "ums-portal-frontend")
+    restarts = json.loads(
+        os.environ.get("PORTAL_RESTARTS")
+        or '[{"api":"statefulsets","name":"ums-portal-consumer"},'
+        '{"api":"deployments","name":"ums-portal-server"},'
+        '{"api":"deployments","name":"ums-portal-frontend"}]'
+    )
+    for item in restarts:
+        restart(item["api"], item["name"])
     print("portal tile is in place")
 
 

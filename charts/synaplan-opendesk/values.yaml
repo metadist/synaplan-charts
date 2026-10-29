@@ -50,6 +50,15 @@ portal:
   # -- Image of the registration Job
   image: "python:3.12-alpine"
   pullPolicy: IfNotPresent
+  # Workloads restarted after the tile changes. Names are the caller's portal,
+  # not a fixed product. The hook's permissions cover only this list.
+  restarts:
+    - api: statefulsets
+      name: ums-portal-consumer
+    - api: deployments
+      name: ums-portal-server
+    - api: deployments
+      name: ums-portal-frontend
 
 persistence:
   # -- Create the volume. Turn this off when the volume already exists.
@@ -83,4 +92,25 @@ opencloud:
   port: 9106
   # -- Optional shared API key Secret. Leave the name empty to use token exchange or to configure the key later.
   apiKeySecret: ""
+  # -- Key in apiKeySecret
   apiKeySecretKey: api-key
+  # The OpenCloud installation itself is not deployed here. Point its proxy at
+  # this Service and mount the image's /web/apps/synaplan into OpenCloud web.
+  # These values are the plugin's own settings, passed through when set.
+  # -- OpenCloud CS3 gateway (OC_REVA_GATEWAY). Empty leaves it unset.
+  revaGateway: ""
+  # -- Secret holding the OpenCloud JWT (OC_JWT_SECRET). Empty leaves it unset.
+  jwtSecretSecret: ""
+  # -- Key in jwtSecretSecret
+  jwtSecretKey: jwt-secret
+  oidc:
+    # -- Keycloak token endpoint for token exchange. Empty leaves it unset.
+    tokenEndpoint: ""
+    # -- Confidential client id for token exchange. Empty leaves it unset.
+    exchangeClientId: ""
+    # -- Secret holding the exchange client secret. Empty leaves it unset.
+    exchangeSecretSecret: ""
+    # -- Key in exchangeSecretSecret
+    exchangeSecretKey: client-secret
+    # -- Audience of the exchanged token, usually the Synaplan client id. Empty leaves it unset.
+    targetAudience: ""

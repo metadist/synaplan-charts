@@ -98,7 +98,7 @@ spec:
         app.kubernetes.io/component: portal
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ include "synaplan-opendesk.fullname" . }}
+      serviceAccountName: {{ include "synaplan-opendesk.fullname" . }}-portal
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -113,6 +113,8 @@ spec:
           env:
             - name: PYTHONDONTWRITEBYTECODE
               value: "1"
+            - name: PORTAL_RESTARTS
+              value: {{ .Values.portal.restarts | toJson | quote }}
             - name: UDM_URL
               value: {{ .Values.portal.udmUrl | quote }}
             - name: LDAP_BASE

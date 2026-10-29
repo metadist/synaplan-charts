@@ -58,6 +58,9 @@ appSecretRef: {{ .Values.secrets.synaplan.appSecret.secretRef | quote }}
 appSecret: {{ .Values.secrets.synaplan.appSecret.value | quote }}
 {{- end }}
 
+{{- if and .Values.apps.synaplanMariadb.enabled (dig "databases" "synaplan" "password" "secretRef" "" .Values) }}
+{{- fail "databases.synaplan.password.secretRef cannot be combined with apps.synaplanMariadb.enabled: the MariaDB job reads key password from synaplan-credentials. Turn the MariaDB release off to keep an existing password." }}
+{{- end }}
 database:
   host: {{ .Values.databases.synaplan.host | quote }}
   port: {{ .Values.databases.synaplan.port | quote }}

@@ -5,6 +5,7 @@ on:
     branches: [main]
     tags:
       - 'synaplan-v*.*.*'
+      - 'synaplan-opendesk-v*.*.*'
       - 'triton-v*.*.*'
       - 'stt-v*.*.*'
   # Every pull request, whichever branch it targets. A pull request into a

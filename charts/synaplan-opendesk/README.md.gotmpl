@@ -22,7 +22,17 @@ namespace of an openDesk that already has Nextcloud and the portal:
   Keycloak; the app does not ship an API key.
 
 Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
-values, not this chart. Collabora is openDesk's Collabora; the `synaplan`
-chart uses it when `apps.collabora.enabled` is true.
+values, not this chart. Collabora, when the cluster already runs it, is set
+on the `synaplan` chart with `office.convertUrl` or `apps.collabora.enabled`.
+
+The Nextcloud job sets the Synaplan address and enables the app. Connecting
+accounts — each person, or one shared key — is done in that app's settings.
+This chart does not create API keys.
+
+`files: opencloud` runs the plugin Service. The OpenCloud installation points
+its proxy at that Service and serves the web extension from the image
+(`/web/apps/synaplan`). Gateway, JWT and token-exchange settings are values
+on this chart when the plugin should use them. This chart does not edit the
+OpenCloud release.
 
 {{ template "chart.valuesSection" . }}

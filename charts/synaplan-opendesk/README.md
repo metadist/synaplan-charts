@@ -22,8 +22,18 @@ namespace of an openDesk that already has Nextcloud and the portal:
   Keycloak; the app does not ship an API key.
 
 Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
-values, not this chart. Collabora is openDesk's Collabora; the `synaplan`
-chart uses it when `apps.collabora.enabled` is true.
+values, not this chart. Collabora, when the cluster already runs it, is set
+on the `synaplan` chart with `office.convertUrl` or `apps.collabora.enabled`.
+
+The Nextcloud job sets the Synaplan address and enables the app. Connecting
+accounts — each person, or one shared key — is done in that app's settings.
+This chart does not create API keys.
+
+`files: opencloud` runs the plugin Service. The OpenCloud installation points
+its proxy at that Service and serves the web extension from the image
+(`/web/apps/synaplan`). Gateway, JWT and token-exchange settings are values
+on this chart when the plugin should use them. This chart does not edit the
+OpenCloud release.
 
 ## Values
 
@@ -41,11 +51,19 @@ chart uses it when `apps.collabora.enabled` is true.
 | nextcloud.seedImage | string | `"alpine:3.22"` | Image of the pod that writes the volume. It has wget, tar and sha256sum. |
 | nextcloud.version | string | `"1.7.0"` | Version written into the volume. A volume that already has this version is left as it is. |
 | opencloud.apiKeySecret | string | `""` | Optional shared API key Secret. Leave the name empty to use token exchange or to configure the key later. |
-| opencloud.apiKeySecretKey | string | `"api-key"` |  |
+| opencloud.apiKeySecretKey | string | `"api-key"` | Key in apiKeySecret |
 | opencloud.image.pullPolicy | string | `"IfNotPresent"` | Pull policy |
 | opencloud.image.repository | string | `"ghcr.io/metadist/synaplan-opencloud"` | Image of the OpenCloud plugin |
 | opencloud.image.tag | string | `"latest@sha256:3789bf9a7c5b39e64e9797638eeb124d28e8fa97693bb408ead2648fd117510f"` | Tag of the OpenCloud plugin image |
+| opencloud.jwtSecretKey | string | `"jwt-secret"` | Key in jwtSecretSecret |
+| opencloud.jwtSecretSecret | string | `""` | Secret holding the OpenCloud JWT (OC_JWT_SECRET). Empty leaves it unset. |
+| opencloud.oidc.exchangeClientId | string | `""` | Confidential client id for token exchange. Empty leaves it unset. |
+| opencloud.oidc.exchangeSecretKey | string | `"client-secret"` | Key in exchangeSecretSecret |
+| opencloud.oidc.exchangeSecretSecret | string | `""` | Secret holding the exchange client secret. Empty leaves it unset. |
+| opencloud.oidc.targetAudience | string | `""` | Audience of the exchanged token, usually the Synaplan client id. Empty leaves it unset. |
+| opencloud.oidc.tokenEndpoint | string | `""` | Keycloak token endpoint for token exchange. Empty leaves it unset. |
 | opencloud.port | int | `9106` | Container port. The Service uses the same port. |
+| opencloud.revaGateway | string | `""` | OpenCloud CS3 gateway (OC_REVA_GATEWAY). Empty leaves it unset. |
 | persistence.accessMode | string | `"ReadWriteOnce"` |  |
 | persistence.claimName | string | `"synaplan-nextcloud-app"` | Name of the volume. openDesk's Nextcloud mounts this name; do not change it on an existing install. |
 | persistence.create | bool | `true` | Create the volume. Turn this off when the volume already exists. |
@@ -58,6 +76,12 @@ chart uses it when `apps.collabora.enabled` is true.
 | portal.image | string | `"python:3.12-alpine"` | Image of the registration Job |
 | portal.ldapBase | string | `"dc=swp-ldap,dc=internal"` | LDAP base of this openDesk (Nubus default) |
 | portal.pullPolicy | string | `"IfNotPresent"` |  |
+| portal.restarts[0].api | string | `"statefulsets"` |  |
+| portal.restarts[0].name | string | `"ums-portal-consumer"` |  |
+| portal.restarts[1].api | string | `"deployments"` |  |
+| portal.restarts[1].name | string | `"ums-portal-server"` |  |
+| portal.restarts[2].api | string | `"deployments"` |  |
+| portal.restarts[2].name | string | `"ums-portal-frontend"` |  |
 | portal.udmUrl | string | `"http://ums-udm-rest-api:9979/univention/udm"` | UDM REST API inside the namespace |
 | resources.limits.memory | string | `"256Mi"` |  |
 | resources.requests.cpu | string | `"20m"` |  |

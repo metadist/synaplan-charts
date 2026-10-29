@@ -58,6 +58,36 @@ spec:
                   name: {{ .Values.opencloud.apiKeySecret | quote }}
                   key: {{ .Values.opencloud.apiKeySecretKey | quote }}
             {{- end }}
+            {{- with .Values.opencloud.revaGateway }}
+            - name: OC_REVA_GATEWAY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.opencloud.jwtSecretSecret }}
+            - name: OC_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.jwtSecretSecret | quote }}
+                  key: {{ .Values.opencloud.jwtSecretKey | quote }}
+            {{- end }}
+            {{- with .Values.opencloud.oidc.tokenEndpoint }}
+            - name: SYNAPLAN_OIDC_TOKEN_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.opencloud.oidc.exchangeClientId }}
+            - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_ID
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.opencloud.oidc.exchangeSecretSecret }}
+            - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.oidc.exchangeSecretSecret | quote }}
+                  key: {{ .Values.opencloud.oidc.exchangeSecretKey | quote }}
+            {{- end }}
+            {{- with .Values.opencloud.oidc.targetAudience }}
+            - name: SYNAPLAN_OIDC_TARGET_AUDIENCE
+              value: {{ . | quote }}
+            {{- end }}
           readinessProbe:
             tcpSocket:
               port: http

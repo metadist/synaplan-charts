@@ -1,8 +1,9 @@
 {{- if .Values.enabled }}
-{{- $_ := include "synaplan-opendesk.files" . }}
+{{- $files := include "synaplan-opendesk.files" . }}
 {{- if not .Values.synaplanUrl }}
 {{- fail "synaplanUrl is required when the synaplan-opendesk chart is enabled" }}
 {{- end }}
+{{- if eq $files "nextcloud" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -10,9 +11,11 @@ metadata:
   labels:
     {{- include "synaplan-opendesk.labels" . | nindent 4 }}
 ---
-# occ runs inside Nextcloud. The app volume is owned by root and mounted into
-# a read-only image, so a version change is written by a separate pod, and
-# occ is reached with pods/exec. The portal tile is a restart annotation.
+# occ runs inside the file service. The app volume is owned by root and mounted
+# into a read-only image, so a version change is written by a separate pod and
+# occ is reached with pods/exec. Pod names are assigned at runtime, so exec
+# cannot be limited to one name. Scale and rollout are limited to the
+# configured deployment.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -28,13 +31,25 @@ rules:
     verbs: ["get"]
   - apiGroups: [""]
     resources: ["pods/exec"]
-    verbs: ["create", "get"]
+    verbs: ["create"]
   - apiGroups: ["apps"]
-    resources: ["deployments", "deployments/scale", "statefulsets"]
+    resources: ["deployments"]
+    resourceNames: [{{ .Values.nextcloud.deployment | quote }}]
     verbs: ["get", "patch", "update"]
+  # list and watch cannot be limited by name. rollout status needs them.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    resourceNames: [{{ .Values.nextcloud.deployment | quote }}]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["batch"]
     resources: ["cronjobs"]
-    verbs: ["get", "list", "patch", "update"]
+    verbs: ["get", "list", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -50,7 +65,66 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "synaplan-opendesk.fullname" . }}
     namespace: {{ .Release.Namespace }}
-{{- if and .Values.persistence.create (eq (include "synaplan-opendesk.files" .) "nextcloud") }}
+{{- end }}
+{{- if .Values.portal.enabled }}
+{{- $deployments := list }}
+{{- $statefulsets := list }}
+{{- range .Values.portal.restarts }}
+{{- if eq .api "deployments" }}
+{{- $deployments = append $deployments .name }}
+{{- else if eq .api "statefulsets" }}
+{{- $statefulsets = append $statefulsets .name }}
+{{- else }}
+{{- fail (printf "portal.restarts api must be deployments or statefulsets, got %q" .api) }}
+{{- end }}
+{{- end }}
+{{- if and (not $deployments) (not $statefulsets) }}
+{{- fail "portal.restarts must name at least one deployment or statefulset" }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}-portal
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}-portal
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+rules:
+  {{- if $deployments }}
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: {{ $deployments | toJson }}
+    verbs: ["get", "patch"]
+  {{- end }}
+  {{- if $statefulsets }}
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    resourceNames: {{ $statefulsets | toJson }}
+    verbs: ["get", "patch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}-portal
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "synaplan-opendesk.fullname" . }}-portal
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "synaplan-opendesk.fullname" . }}-portal
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- if and .Values.persistence.create (eq $files "nextcloud") }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -58,6 +132,11 @@ metadata:
   name: {{ include "synaplan-opendesk.claim" . }}
   labels:
     {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+  annotations:
+    # Nextcloud mounts this volume from its own release. Removing this chart
+    # must not delete the app files. Delete the claim by hand when the app
+    # itself is going away.
+    helm.sh/resource-policy: keep
 spec:
   accessModes:
     - {{ .Values.persistence.accessMode }}

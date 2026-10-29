@@ -237,7 +237,7 @@ tests:
       - failedTemplate:
           errorPattern: 'watchdog.enabled needs synaplan >= 5.6.0, .* effective image tag is "5.5.4"'
 
-  - it: refuses the watchdog on the chart's default image while appVersion predates it
+  - it: accepts the watchdog on the chart default image
     template: deployment.yaml
     set:
       worker:
@@ -247,8 +247,11 @@ tests:
       watchdog:
         enabled: true
     asserts:
-      - failedTemplate:
-          errorPattern: "watchdog.enabled needs synaplan >= 5.6.0"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_WATCHDOG
+            value: "1"
 
   - it: accepts a 5.6.0 prerelease
     template: deployment.yaml
