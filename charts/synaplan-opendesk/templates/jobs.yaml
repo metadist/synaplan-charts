@@ -1,0 +1,157 @@
+{{- if and .Values.enabled (eq (include "synaplan-opendesk.files" .) "nextcloud") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}-nextcloud
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan-opendesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nextcloud-app
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "synaplan-opendesk.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nextcloud
+          image: {{ .Values.nextcloud.kubectlImage | quote }}
+          imagePullPolicy: {{ .Values.nextcloud.pullPolicy }}
+          command: ["bash", "/scripts/nextcloud.sh"]
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NEXTCLOUD_DEPLOYMENT
+              value: {{ .Values.nextcloud.deployment | quote }}
+            - name: NEXTCLOUD_CONTAINER
+              value: {{ .Values.nextcloud.container | quote }}
+            - name: NEXTCLOUD_APP_ID
+              value: {{ .Values.nextcloud.appId | quote }}
+            - name: NEXTCLOUD_APP_VERSION
+              value: {{ .Values.nextcloud.version | quote }}
+            - name: ARCHIVE_URL
+              value: {{ .Values.nextcloud.archiveUrl | quote }}
+            - name: ARCHIVE_SHA256
+              value: {{ .Values.nextcloud.archiveSha256 | quote }}
+            - name: CLAIM_NAME
+              value: {{ include "synaplan-opendesk.claim" . | quote }}
+            - name: SEED_IMAGE
+              value: {{ .Values.nextcloud.seedImage | quote }}
+            - name: SYNAPLAN_URL
+              value: {{ .Values.synaplanUrl | quote }}
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "synaplan-opendesk.fullname" . }}-nextcloud
+            defaultMode: 0555
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+{{- if and .Values.enabled .Values.portal.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}-portal
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan-opendesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: portal
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "synaplan-opendesk.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: portal
+          image: {{ .Values.portal.image | quote }}
+          imagePullPolicy: {{ .Values.portal.pullPolicy }}
+          command: ["python3", "/scripts/portal.py"]
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: UDM_URL
+              value: {{ .Values.portal.udmUrl | quote }}
+            - name: LDAP_BASE
+              value: {{ .Values.portal.ldapBase | quote }}
+            - name: LDAP_ADMIN_DN
+              value: {{ .Values.portal.adminDn | quote }}
+            - name: SYNAPLAN_URL
+              value: {{ .Values.synaplanUrl | quote }}
+            - name: LDAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.portal.adminSecret | quote }}
+                  key: {{ .Values.portal.adminSecretKey | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: icon
+              mountPath: /icon
+              readOnly: true
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "synaplan-opendesk.fullname" . }}-portal
+            items:
+              - key: portal.py
+                path: portal.py
+            defaultMode: 0555
+        - name: icon
+          configMap:
+            name: {{ include "synaplan-opendesk.fullname" . }}-portal
+            items:
+              - key: bird.svg
+                path: bird.svg
+{{- end }}

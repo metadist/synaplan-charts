@@ -1,0 +1,28 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.description" . }}
+
+## What it does
+
+`files` chooses the plugin. `nextcloud` is the openDesk community edition.
+`opencloud` is an OpenCloud target. Only the selected plugin is installed.
+
+With `files: nextcloud`, two Jobs run after install and upgrade, in the
+namespace of an openDesk that already has Nextcloud and the portal:
+
+- **Nextcloud.** The release tarball of
+  [synaplan-nextcloud](https://github.com/metadist/synaplan-nextcloud) is
+  written to the volume `synaplan-nextcloud-app` and `occ app:enable` turns
+  it on. The volume is mounted by openDesk's Nextcloud through
+  [helmfile/opendesk/nextcloud-app.yaml.gotmpl](../../helmfile/opendesk/nextcloud-app.yaml.gotmpl).
+  A volume that already holds the same version is not rewritten. `archiveUrl`
+  can point at a mirror.
+- **Portal.** A tile named Synaplan, with the Synaplan bird, is added to the
+  applications category and the central navigation. Signing in is openDesk's
+  Keycloak; the app does not ship an API key.
+
+Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
+values, not this chart. Collabora is openDesk's Collabora; the `synaplan`
+chart uses it when `apps.collabora.enabled` is true.
+
+{{ template "chart.valuesSection" . }}

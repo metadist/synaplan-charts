@@ -1,0 +1,71 @@
+{{- if .Values.enabled }}
+{{- $_ := include "synaplan-opendesk.files" . }}
+{{- if not .Values.synaplanUrl }}
+{{- fail "synaplanUrl is required when the synaplan-opendesk chart is enabled" }}
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+---
+# occ runs inside Nextcloud. The app volume is owned by root and mounted into
+# a read-only image, so a version change is written by a separate pod, and
+# occ is reached with pods/exec. The portal tile is a restart annotation.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create", "get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale", "statefulsets"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs"]
+    verbs: ["get", "list", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "synaplan-opendesk.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "synaplan-opendesk.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+{{- if and .Values.persistence.create (eq (include "synaplan-opendesk.files" .) "nextcloud") }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "synaplan-opendesk.claim" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

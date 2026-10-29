@@ -51,16 +51,33 @@ imagePullSecrets:
   {{- end }}
 {{- end }}
 
+{{- if dig "secrets" "synaplan" "appSecret" "secretRef" "" .Values }}
+# An install that already keeps the kernel secret in its own Secret.
+appSecretRef: {{ .Values.secrets.synaplan.appSecret.secretRef | quote }}
+{{- else }}
 appSecret: {{ .Values.secrets.synaplan.appSecret.value | quote }}
+{{- end }}
 
 database:
   host: {{ .Values.databases.synaplan.host | quote }}
   port: {{ .Values.databases.synaplan.port | quote }}
   name: {{ .Values.databases.synaplan.name | quote }}
   user: {{ .Values.databases.synaplan.username | quote }}
+  {{- if dig "databases" "synaplan" "password" "secretRef" "" .Values }}
+  # An install whose database password is already set. The MariaDB release
+  # is what would rewrite it; leaving the release off keeps the password.
+  passwordSecretRef: {{ .Values.databases.synaplan.password.secretRef | quote }}
+  {{- else }}
   password: {{ .Values.databases.synaplan.password.value | quote }}
+  {{- end }}
+  {{- with dig "databases" "synaplan" "serverVersion" "" .Values }}
+  serverVersion: {{ . | quote }}
+  {{- else }}
   {{- if .Values.apps.synaplanMariadb.enabled }}
   serverVersion: "{{ regexFind "^[0-9]+\\.[0-9]+" .Values.images.synaplanMariadb.tag }}.0-MariaDB"
+  {{- end }}
+  {{- end }}
+  {{- if .Values.apps.synaplanMariadb.enabled }}
   rootPassword: {{ .Values.secrets.synaplanMariadb.rootPassword.value | quote }}
   {{- end }}
 

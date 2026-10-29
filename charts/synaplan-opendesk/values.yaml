@@ -1,0 +1,86 @@
+# File plugin and portal tile for Synaplan next to openDesk or OpenCloud.
+# The transcriber (meeting notes) stays in the synaplan chart.
+# This chart does not deploy Nextcloud, OpenCloud, or the portal.
+
+# -- Install the plugin selected by files. The Helmfile turns this on with apps.synaplanOpendesk.
+enabled: false
+
+# Synaplan as users open it. Both file plugins and the portal tile use it.
+synaplanUrl: ""
+
+# -- File service that receives the plugin: nextcloud (openDesk community edition) or opencloud.
+# Exactly one plugin is installed.
+files: nextcloud
+
+nextcloud:
+  # -- Deployment that serves Nextcloud (openDesk: opendesk-nextcloud-aio)
+  deployment: opendesk-nextcloud-aio
+  # -- Container occ runs in
+  container: aio
+  # -- App id occ enables
+  appId: synaplan_integration
+  # -- Version written into the volume. A volume that already has this version is left as it is.
+  version: "1.7.0"
+  # -- Release tarball. Point this at a mirror for an install that cannot reach GitHub.
+  # The tarball's top directory is synaplan_integration/, which is what the
+  # Nextcloud volume mounts (subPath).
+  archiveUrl: "https://github.com/metadist/synaplan-nextcloud/releases/download/v1.7.0-rc.1/synaplan_integration.tar.gz"
+  # -- sha256 of archiveUrl
+  archiveSha256: "8969a9e9d76ba8e00af8aa4d50c1f36e460ec0f69732a9f13185784ec2190b0d"
+  # -- Image of the pod that writes the volume. It has wget, tar and sha256sum.
+  seedImage: "alpine:3.22"
+  # -- Image of the Job. It only talks to the Kubernetes API.
+  # bitnami/kubectl moved to bitnamilegacy; the old repository 404s.
+  kubectlImage: "docker.io/bitnamilegacy/kubectl:1.33.4"
+  # -- Pull policy of both images
+  pullPolicy: IfNotPresent
+
+portal:
+  # -- Register the Synaplan tile (bird icon) in openDesk's portal
+  enabled: true
+  # -- UDM REST API inside the namespace
+  udmUrl: "http://ums-udm-rest-api:9979/univention/udm"
+  # -- LDAP base of this openDesk (Nubus default)
+  ldapBase: "dc=swp-ldap,dc=internal"
+  # -- Secret with the LDAP administrator password, key password (ums-ldap-server-admin)
+  adminSecret: ums-ldap-server-admin
+  adminSecretKey: password
+  # -- Bind DN for that password
+  adminDn: "cn=admin"
+  # -- Image of the registration Job
+  image: "python:3.12-alpine"
+  pullPolicy: IfNotPresent
+
+persistence:
+  # -- Create the volume. Turn this off when the volume already exists.
+  create: true
+  # -- Name of the volume. openDesk's Nextcloud mounts this name; do not change it on an existing install.
+  claimName: synaplan-nextcloud-app
+  size: 1Gi
+  # -- Empty uses the cluster default
+  storageClass: ""
+  accessMode: ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# Used only when files is opencloud. The image carries the OpenCloud web
+# extension and the Go service. Pin a release tag for a tested install;
+# latest is the feature test.
+opencloud:
+  image:
+    # -- Image of the OpenCloud plugin
+    repository: ghcr.io/metadist/synaplan-opencloud
+    # -- Tag of the OpenCloud plugin image
+    tag: "latest@sha256:3789bf9a7c5b39e64e9797638eeb124d28e8fa97693bb408ead2648fd117510f"
+    # -- Pull policy
+    pullPolicy: IfNotPresent
+  # -- Container port. The Service uses the same port.
+  port: 9106
+  # -- Optional shared API key Secret. Leave the name empty to use token exchange or to configure the key later.
+  apiKeySecret: ""
+  apiKeySecretKey: api-key

@@ -1,0 +1,8 @@
+# The other file target: the OpenCloud plugin, no Nextcloud Job and no portal.
+enabled: true
+synaplanUrl: https://synaplan.example.org
+files: opencloud
+portal:
+  enabled: false
+persistence:
+  create: false
