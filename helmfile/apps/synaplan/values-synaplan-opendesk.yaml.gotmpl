@@ -1,0 +1,22 @@
+{{- $domain := dig "global" "domain" "" .Values | required "global.domain is required" }}
+{{- $host := dig "global" "hosts" "synaplan" "synaplan" .Values }}
+{{- $extra := dig "technical" "synaplanOpendesk" (dict) .Values }}
+enabled: {{ dig "apps" "synaplanOpendesk" "enabled" false .Values }}
+synaplanUrl: {{ printf "https://%s.%s" $host $domain | quote }}
+# Last choice: which file plugin this target installs.
+{{- $files := dig "files" "nextcloud" $extra }}
+files: {{ $files | quote }}
+# A portal tile needs the identity portal (openDesk). An OpenCloud-only target
+# leaves it off unless the environment asks for it.
+portal:
+  enabled: {{ dig "portal" "enabled" (ne $files "opencloud") $extra }}
+  {{- with dig "ldapBase" "" $extra }}
+  ldapBase: {{ . | quote }}
+  {{- end }}
+persistence:
+  # false: the volume already exists (an upgrade). true: this release creates it.
+  create: {{ dig "persistence" "create" true $extra }}
+  claimName: {{ dig "persistence" "claimName" "synaplan-nextcloud-app" $extra | quote }}
+  {{- with dig "persistence" "storageClass" "" $extra }}
+  storageClass: {{ . | quote }}
+  {{- end }}

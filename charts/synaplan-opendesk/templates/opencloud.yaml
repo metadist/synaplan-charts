@@ -1,0 +1,106 @@
+{{- if and .Values.enabled (eq (include "synaplan-opendesk.files" .) "opencloud") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "synaplan-opendesk.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: opencloud
+  ports:
+    - name: http
+      port: {{ .Values.opencloud.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "synaplan-opendesk.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opencloud
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan-opendesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: opencloud
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: synaplan-opencloud
+          image: "{{ .Values.opencloud.image.repository }}:{{ .Values.opencloud.image.tag }}"
+          imagePullPolicy: {{ .Values.opencloud.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.opencloud.port }}
+          env:
+            - name: SYNAPLAN_URL
+              value: {{ .Values.synaplanUrl | quote }}
+            - name: SYNAPLAN_HTTP_ADDR
+              value: {{ printf ":%v" .Values.opencloud.port | quote }}
+            {{- if .Values.opencloud.apiKeySecret }}
+            - name: SYNAPLAN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.apiKeySecret | quote }}
+                  key: {{ .Values.opencloud.apiKeySecretKey | quote }}
+            {{- end }}
+            {{- with .Values.opencloud.revaGateway }}
+            - name: OC_REVA_GATEWAY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.opencloud.jwtSecretSecret }}
+            - name: OC_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.jwtSecretSecret | quote }}
+                  key: {{ .Values.opencloud.jwtSecretKey | quote }}
+            {{- end }}
+            {{- with .Values.opencloud.oidc.tokenEndpoint }}
+            - name: SYNAPLAN_OIDC_TOKEN_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.opencloud.oidc.exchangeClientId }}
+            - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_ID
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.opencloud.oidc.exchangeSecretSecret }}
+            - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opencloud.oidc.exchangeSecretSecret | quote }}
+                  key: {{ .Values.opencloud.oidc.exchangeSecretKey | quote }}
+            {{- end }}
+            {{- with .Values.opencloud.oidc.targetAudience }}
+            - name: SYNAPLAN_OIDC_TARGET_AUDIENCE
+              value: {{ . | quote }}
+            {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{- end }}

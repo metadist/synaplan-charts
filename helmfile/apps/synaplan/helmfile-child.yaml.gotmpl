@@ -22,6 +22,19 @@ releases:
       - {{ . }}
       {{- end }}
 
+  # Nextcloud app and the portal tile. Needs openDesk's Nextcloud and portal,
+  # which this Helmfile does not install; the Jobs wait for them.
+  - name: "synaplan-opendesk"
+    chart: "../../../charts/synaplan-opendesk"
+    installed: {{ dig "apps" "synaplanOpendesk" "enabled" false .Values }}
+    needs:
+      - "synaplan"
+    values:
+      - "values-synaplan-opendesk.yaml.gotmpl"
+      {{- range .Values.customization.release.synaplanOpendesk }}
+      - {{ . }}
+      {{- end }}
+
   - name: "synaplan-stt"
     chart: "../../../charts/stt"
     installed: {{ .Values.apps.synaplanStt.enabled }}

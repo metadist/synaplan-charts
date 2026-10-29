@@ -11,7 +11,8 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.10.0 | Synaplan 5.5.4, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
+| [synaplan](charts/synaplan/) | 0.10.0 | Synaplan 5.6.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
+| [synaplan-opendesk](charts/synaplan-opendesk/) | 0.1.0 | File plugin for an openDesk or OpenCloud target: the Nextcloud app or the OpenCloud plugin, plus the openDesk portal tile |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 | [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |
 
@@ -180,6 +181,41 @@ in the cluster unless you allow cloud providers, and runs in three ways:
 | In a cluster of its own (example environment `standalone`) | local accounts, first administrator from the deployment | [Standalone](helmfile/README.md#standalone) |
 | Next to a running openDesk (example environment `opendesk`) | openDesk's Keycloak | [Next to openDesk](helmfile/README.md#next-to-opendesk) |
 | As an app of openDesk's own Helmfile | openDesk's Keycloak | [Inside openDesk](helmfile/README.md#inside-opendesk) |
+
+## Working with openDesk
+
+We test this deployment on Kubernetes against the community edition of
+openDesk. That edition keeps files in Nextcloud and meetings in Jitsi, and
+both plugins talk to Synaplan **5.6.2**, the current release.
+
+- The **Synaplan Nextcloud plugin** adds the AI actions on files: summaries,
+  translations, and chat about a document.
+- The **synascriber plugin** transcribes Jitsi meetings and writes the notes
+  into Synaplan.
+
+Set the file target at the end of the environment. openDesk community edition
+is `nextcloud`. A target that serves files from OpenCloud is `opencloud`.
+Only the plugin for that target is installed. Meeting notes stay on, because
+Jitsi is part of the openDesk test either way. Collabora, when openDesk runs
+it, is the Office engine Synaplan uses for document previews.
+
+```yaml
+apps:
+  synaplanOpendesk:
+    enabled: true
+technical:
+  synaplan:
+    synascriber:
+      enabled: true
+  synaplanOpendesk:
+    files: nextcloud   # or opencloud
+```
+
+This checkout is the feature test: the chart, the Nextcloud plugin, and the
+Jitsi plugin on a community openDesk. The following run is the tested release,
+with the OpenCloud image pinned to a version tag instead of the test digest.
+Details of the Helmfile wiring are in
+[Nextcloud and the portal](helmfile/README.md#nextcloud-and-the-portal).
 
 ```bash
 cp -r helmfile/environments/standalone helmfile/environments/my-cluster

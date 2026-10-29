@@ -1,0 +1,39 @@
+# Mount the Synaplan Nextcloud app into openDesk's Nextcloud.
+# Reference this file from the openDesk environment:
+#
+#   customization:
+#     release:
+#       opendeskNextcloud:
+#         synaplan: "<synaplan-charts>/helmfile/opendesk/nextcloud-app.yaml.gotmpl"
+#
+# The volume is synaplan-nextcloud-app, created by the synaplan-opendesk chart
+# (or already present). Its synaplan_integration directory is the app. The
+# chart's Job writes that directory; this file only mounts it. Nextcloud's
+# image is read-only, so the app cannot live in the image.
+#
+# trust.secret.mount is repeated here because a later values file replaces
+# aio.extraVolumes rather than appending to it. Keep the trust entries in
+# step with helmfile/apps/nextcloud/values-nextcloud.yaml.gotmpl.
+{{- $claim := dig "technical" "synaplanOpendesk" "persistence" "claimName" "synaplan-nextcloud-app" .Values }}
+aio:
+  extraVolumes:
+    - name: synaplan-integration
+      persistentVolumeClaim:
+        claimName: {{ $claim | quote }}
+    {{- if dig "trust" "secret" "mount" false .Values }}
+    - name: trusted-cert-secret-volume
+      secret:
+        secretName: {{ .Values.trust.secret.name | quote }}
+        items:
+          - key: ca.crt
+            path: ca-certificates.crt
+    {{- end }}
+  extraVolumeMounts:
+    - name: synaplan-integration
+      mountPath: /var/www/html/apps/synaplan_integration
+      subPath: synaplan_integration
+    {{- if dig "trust" "secret" "mount" false .Values }}
+    - name: trusted-cert-secret-volume
+      mountPath: /etc/ssl/certs/ca-certificates.crt
+      subPath: ca-certificates.crt
+    {{- end }}

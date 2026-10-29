@@ -27,7 +27,8 @@ helmfile/
 └── opendesk/                       # files for openDesk's environment
     ├── synaplan-client.yaml.gotmpl     # Synaplan's Keycloak client
     ├── synascriber-client.yaml.gotmpl  # meeting notes: the Jitsi button's Keycloak client
-    └── synascriber-jitsi.yaml.gotmpl   # meeting notes: values for openDesk's jitsi release
+    ├── synascriber-jitsi.yaml.gotmpl   # meeting notes: values for openDesk's jitsi release
+    └── nextcloud-app.yaml.gotmpl       # Nextcloud: mount the Synaplan app
 ```
 
 | Release | Installed when | Chart |
@@ -36,6 +37,7 @@ helmfile/
 | `synaplan-mariadb` | `apps.synaplanMariadb.enabled` (default) | openDesk's MariaDB chart, with MariaDB 11.8 (Synaplan needs `VECTOR`) |
 | `synaplan-stt` | `apps.synaplanStt.enabled` | [charts/stt](../charts/stt/) |
 | meeting notes (in `synaplan`) | `technical.synaplan.synascriber.enabled` | [charts/synaplan](../charts/synaplan/), see [Meeting notes](#meeting-notes) |
+| Nextcloud app and portal tile | `apps.synaplanOpendesk.enabled` | [charts/synaplan-opendesk](../charts/synaplan-opendesk/), see [Nextcloud and the portal](#nextcloud-and-the-portal) |
 | `tika` | `apps.tika.enabled` (default) | Apache Tika |
 | `triton` | `apps.triton.enabled` | [charts/triton](../charts/triton/) |
 | `ollama` | `apps.ollama.enabled` | otwld/ollama-helm |
@@ -382,6 +384,53 @@ Two more files go into openDesk's environment folder:
 openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only
 those users can start or receive notes. The e2e suite runs all of this with
 `E2E_OPENDESK_SYNASCRIBER=true`, see [e2e](../e2e/).
+
+## Nextcloud and the portal
+
+The combination openDesk publishes with Synaplan is Synaplan itself, the
+Nextcloud app, the portal tile and meeting notes. Meeting notes are
+[above](#meeting-notes). The Nextcloud app and the tile are the release
+`synaplan-opendesk` ([charts/synaplan-opendesk](../charts/synaplan-opendesk/)):
+
+```yaml
+apps:
+  collabora:
+    enabled: true          # openDesk's Collabora; Synaplan uses it for Office files
+  synaplanOpendesk:
+    enabled: true
+technical:
+  synaplan:
+    synascriber:
+      enabled: true
+  # Last choice. nextcloud is the openDesk community edition.
+  # opencloud installs the OpenCloud plugin instead of the Nextcloud app.
+  synaplanOpendesk:
+    files: nextcloud
+customization:
+  release:
+    opendeskNextcloud:
+      synaplan: '<synaplan-charts>/helmfile/opendesk/nextcloud-app.yaml.gotmpl'
+    jitsi:
+      synascriber: '<synaplan-charts>/helmfile/opendesk/synascriber-jitsi.yaml.gotmpl'
+```
+
+`technical.synaplanOpendesk.files` is `nextcloud` or `opencloud`. The
+Nextcloud value is what the community edition of openDesk uses. `opencloud`
+skips that app and runs the OpenCloud plugin instead. The mount file below
+is only for `nextcloud`.
+
+`nextcloud-app.yaml.gotmpl` mounts the volume `synaplan-nextcloud-app` into
+Nextcloud. The Job writes the current
+[synaplan-nextcloud](https://github.com/metadist/synaplan-nextcloud) release
+onto that volume and enables it; people connect their own Synaplan account.
+The same Job adds the Synaplan bird to the portal's central navigation.
+`archiveUrl` on the chart points the tarball at a mirror when the cluster
+cannot reach GitHub. An install that already has the client secret sets
+`SYNAPLAN_OIDC_EXISTING_SECRET` to that Secret's name before openDesk's
+Keycloak bootstrap, and `technical.synaplan.oidc.clientSecretRef` to the same
+Secret. A database that already exists stays in place with
+`apps.synaplanMariadb.enabled: false` and
+`databases.synaplan.password.secretRef`.
 
 ## Certificates
 

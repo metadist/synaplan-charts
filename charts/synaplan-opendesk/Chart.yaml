@@ -1,0 +1,18 @@
+apiVersion: v2
+name: synaplan-opendesk
+description: Nextcloud app and portal tile for Synaplan on openDesk
+type: application
+version: 0.1.0
+appVersion: "1.7.0"
+keywords:
+  - synaplan
+  - opendesk
+  - nextcloud
+  - portal
+maintainers:
+  - name: metadist
+    email: info@metadist.de
+    url: https://github.com/metadist
+sources:
+  - https://github.com/metadist/synaplan-charts
+  - https://github.com/metadist/synaplan-nextcloud

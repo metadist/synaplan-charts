@@ -9,6 +9,10 @@ technical:
   synaplan:
     synascriber:
       enabled: true
+      # The e2e speech server is whisper.cpp on CPU. A live preview every
+      # 1.5s queues more audio than that server finishes before the caption
+      # wait ends, so the test commits one window instead.
+      previewEveryMs: 0
 customization:
   release:
     jitsi:
