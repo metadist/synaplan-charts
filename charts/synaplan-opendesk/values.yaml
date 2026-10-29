@@ -28,7 +28,7 @@ nextcloud:
   # -- sha256 of archiveUrl
   archiveSha256: "8969a9e9d76ba8e00af8aa4d50c1f36e460ec0f69732a9f13185784ec2190b0d"
   # -- Image of the pod that writes the volume. It has wget, tar and sha256sum.
-  seedImage: "alpine:3.22"
+  seedImage: "alpine:3.24"
   # -- Image of the Job. It only talks to the Kubernetes API.
   # bitnami/kubectl moved to bitnamilegacy; the old repository 404s.
   kubectlImage: "docker.io/bitnamilegacy/kubectl:1.33.4"
