@@ -163,6 +163,9 @@ synascriber:
     prosodySecret: {{ $sec.prosodySecret.value | quote }}
     transcriberToken: {{ $sec.transcriberToken.value | quote }}
     transcriberSecret: {{ $sec.transcriberSecret.value | quote }}
+    {{- with $sec.sttApiKey.value }}
+    sttApiKey: {{ . | quote }}
+    {{- end }}
   transcriber:
     image:
       registry: {{ $tr.registry | quote }}
@@ -182,6 +185,9 @@ synascriber:
       folder: {{ .folder | quote }}
       timezone: {{ .timezone | quote }}
       captions: {{ .captions }}
+      {{- with .sttModel }}
+      sttModel: {{ . | quote }}
+      {{- end }}
       prosodyUrl: {{ printf "http://%s-prosody:5280" .jitsiRelease | quote }}
       jitsiUrl: {{ .jitsiUrl | default (printf "https://%s.%s" (dig "global" "hosts" "jitsi" "meet" $.Values) $domain) | quote }}
 {{- end }}

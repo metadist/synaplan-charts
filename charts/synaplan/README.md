@@ -416,9 +416,11 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.registration.settings.jitsiUrl | string | `""` | Jitsi as the participants reach it, e.g. https://meet.example.org: the only window the button's sign-in page hands a code to |
 | synascriber.registration.settings.languages | list | `["de","en"]` | Languages offered in the meeting (de, en, es, fr, tr) |
 | synascriber.registration.settings.prosodyUrl | string | `""` | Jitsi's Prosody, e.g. http://jitsi-prosody:5280 |
-| synascriber.registration.settings.sttUrl | string | `""` | Whisper server (whisper.cpp whisper-server). Empty: speech.whisperServerUrl |
+| synascriber.registration.settings.sttModel | string | `""` |  |
+| synascriber.registration.settings.sttUrl | string | `""` | Speech-to-text server with the OpenAI transcription API (whisper.cpp whisper-server, vLLM, a cloud service). Empty: speech.whisperServerUrl |
 | synascriber.registration.settings.timezone | string | `"Europe/Berlin"` | Times in the transcript |
 | synascriber.secrets.prosodySecret | string | `""` | Shared secret between the plugin and the Prosody module (Secret synascriber-prosody, SYNASCRIBER_SECRET) |
+| synascriber.secrets.sttApiKey | string | `""` |  |
 | synascriber.secrets.transcriberSecret | string | `""` | Shared secret between the plugin and the transcriber (plugin setting transcriber_secret, transcriber env SYNAPLAN_TRANSCRIBER_SECRET) |
 | synascriber.secrets.transcriberToken | string | `""` | Bearer token Jitsi's bridge sends to the transcriber (Secret synascriber-jicofo, SYNASCRIBER_TRANSCRIBER_TOKEN) |
 | synascriber.transcriber.affinity | object | `{}` | Affinity of the transcriber |

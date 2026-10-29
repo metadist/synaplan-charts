@@ -12,8 +12,10 @@ synascriber:
     prosodySecret: lint-prosody-secret
     transcriberToken: lint-transcriber-token
     transcriberSecret: lint-transcriber-secret
+    sttApiKey: lint-stt-api-key
   registration:
     settings:
       sttUrl: http://synaplan-stt:8080
+      sttModel: whisper
       prosodyUrl: http://jitsi-prosody:5280
       jitsiUrl: https://meet.opendesk.example
