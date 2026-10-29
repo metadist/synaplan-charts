@@ -48,7 +48,7 @@ portal:
   # -- Bind DN for that password
   adminDn: "cn=admin"
   # -- Image of the registration Job
-  image: "python:3.12-alpine"
+  image: "python:3.15-alpine"
   pullPolicy: IfNotPresent
   # Workloads restarted after the tile changes. Names are the caller's portal,
   # not a fixed product. The hook's permissions cover only this list.
