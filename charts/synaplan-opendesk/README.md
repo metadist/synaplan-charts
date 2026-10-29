@@ -73,7 +73,7 @@ OpenCloud release.
 | portal.adminSecret | string | `"ums-ldap-server-admin"` | Secret with the LDAP administrator password, key password (ums-ldap-server-admin) |
 | portal.adminSecretKey | string | `"password"` |  |
 | portal.enabled | bool | `true` | Register the Synaplan tile (bird icon) in openDesk's portal |
-| portal.image | string | `"python:3.12-alpine"` | Image of the registration Job |
+| portal.image | string | `"python:3.15-alpine"` | Image of the registration Job |
 | portal.ldapBase | string | `"dc=swp-ldap,dc=internal"` | LDAP base of this openDesk (Nubus default) |
 | portal.pullPolicy | string | `"IfNotPresent"` |  |
 | portal.restarts[0].api | string | `"statefulsets"` |  |
