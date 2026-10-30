@@ -54,7 +54,7 @@ OpenCloud release.
 | opencloud.apiKeySecretKey | string | `"api-key"` | Key in apiKeySecret |
 | opencloud.image.pullPolicy | string | `"IfNotPresent"` | Pull policy |
 | opencloud.image.repository | string | `"ghcr.io/metadist/synaplan-opencloud"` | Image of the OpenCloud plugin |
-| opencloud.image.tag | string | `"latest@sha256:3789bf9a7c5b39e64e9797638eeb124d28e8fa97693bb408ead2648fd117510f"` | Tag of the OpenCloud plugin image |
+| opencloud.image.tag | string | `"latest@sha256:31fc2f83450a12adf947332a726c334a907cbf870526b81addf090aa4e3e3c93"` | Tag of the OpenCloud plugin image |
 | opencloud.jwtSecretKey | string | `"jwt-secret"` | Key in jwtSecretSecret |
 | opencloud.jwtSecretSecret | string | `""` | Secret holding the OpenCloud JWT (OC_JWT_SECRET). Empty leaves it unset. |
 | opencloud.oidc.exchangeClientId | string | `""` | Confidential client id for token exchange. Empty leaves it unset. |
