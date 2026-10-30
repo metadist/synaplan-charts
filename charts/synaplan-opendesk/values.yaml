@@ -85,7 +85,7 @@ opencloud:
     # -- Image of the OpenCloud plugin
     repository: ghcr.io/metadist/synaplan-opencloud
     # -- Tag of the OpenCloud plugin image
-    tag: "latest@sha256:3789bf9a7c5b39e64e9797638eeb124d28e8fa97693bb408ead2648fd117510f"
+    tag: "latest@sha256:31fc2f83450a12adf947332a726c334a907cbf870526b81addf090aa4e3e3c93"
     # -- Pull policy
     pullPolicy: IfNotPresent
   # -- Container port. The Service uses the same port.
