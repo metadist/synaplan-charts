@@ -20,7 +20,7 @@
 # SYNAPLAN_RELEASE.
 {{- $masterPassword := requiredEnv "MASTER_PASSWORD" }}
 {{- $domain := env "DOMAIN" | default "opendesk.internal" }}
-{{- $image := env "SYNAPLAN_TRANSCRIBER_IMAGE" | default "ghcr.io/metadist/synaplan-transcriber:5.6.2" }}
+{{- $image := env "SYNAPLAN_TRANSCRIBER_IMAGE" | default "ghcr.io/metadist/synaplan-transcriber:5.6.4" }}
 {{- $synaplan := printf "https://%s.%s" (env "SYNAPLAN_HOST" | default "synaplan") $domain }}
 {{- $issuer := printf "https://%s.%s/realms/%s" (env "KEYCLOAK_HOST" | default "id") $domain (env "KEYCLOAK_REALM" | default "opendesk") }}
 {{- $release := env "SYNAPLAN_RELEASE" | default "synaplan" }}
