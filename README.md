@@ -11,7 +11,7 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.10.0 | Synaplan 5.6.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
+| [synaplan](charts/synaplan/) | 0.10.1 | Synaplan 5.6.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
 | [synaplan-opendesk](charts/synaplan-opendesk/) | 0.1.0 | File plugin for an openDesk or OpenCloud target: the Nextcloud app or the OpenCloud plugin, plus the openDesk portal tile |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 | [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |
@@ -47,7 +47,8 @@ Word, Excel, and PowerPoint thumbnails, PDF export, preview, and combine need
 chart does not deploy Collabora. Set `office.convertUrl` to CODE you already
 run (openDesk, Nextcloud, OpenCloud, another namespace). The chart emits
 `OFFICE_CONVERT_URL` and `OFFICE_CONVERT_TIMEOUT_MS` on the web, worker, and
-scheduler pods.
+scheduler pods. The editor stays off until `office.publicUrl` and
+`office.wopiUrl` are both set.
 
 Convert-to is server-to-server. Collabora does not see Synaplan users.
 
@@ -71,6 +72,7 @@ An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 | `triton.url` | `""` |
 | `qdrant.url` | `""` (memories and Qdrant search stay off; the chart does not deploy Qdrant) |
 | `office.convertUrl` | `""` |
+| `office.publicUrl` and `office.wopiUrl` | either is `""` (the editor needs both) |
 | `compute.url` plus `compute.tokenSecretRef` | URL empty, or the token Secret is absent |
 | `tika.enabled` | `false` |
 | `tts.enabled` | `false` |
@@ -232,11 +234,11 @@ helmfile -e my-cluster -n synaplan apply
 
 Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
 `triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
-synaplan **0.10.0**, triton **0.1.0** and stt **0.1.0**.
+synaplan **0.10.1**, triton **0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.10.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.10.1
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # This checkout, including values that are not in an older GHCR release yet

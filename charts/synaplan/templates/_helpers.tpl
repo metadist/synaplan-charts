@@ -358,6 +358,21 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 - name: OFFICE_CONVERT_TIMEOUT_MS
   value: {{ $.Values.office.convertTimeoutMs | int | toString | quote }}
 {{- end }}
+{{- $officePublic := .Values.office.publicUrl | default "" | toString | trim }}
+{{- $officeWopi := .Values.office.wopiUrl | default "" | toString | trim }}
+{{- if and (eq $officePublic "") (ne $officeWopi "") }}
+{{- fail "office.wopiUrl is set without office.publicUrl. Set both, or neither. The editor stays off until both are set." }}
+{{- end }}
+{{- if and (ne $officePublic "") (eq $officeWopi "") }}
+{{- fail "office.publicUrl is set without office.wopiUrl. Set both, or neither. The editor stays off until both are set." }}
+{{- end }}
+{{- if and (ne $officePublic "") (ne $officeWopi "") }}
+# Office editor (WOPI). Collabora loads publicUrl; it calls Synaplan at wopiUrl.
+- name: OFFICE_PUBLIC_URL
+  value: {{ $officePublic | quote }}
+- name: OFFICE_WOPI_URL
+  value: {{ $officeWopi | quote }}
+{{- end }}
 {{- with .Values.compute.url }}
 # Secure compute sidecar
 - name: COMPUTE_URL

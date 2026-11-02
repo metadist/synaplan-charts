@@ -44,7 +44,7 @@ without CODE.
 | Analyse `.doc` / `.xls` / `.ppt` / `.rtf` / ODF / Apple iWork | Yes (convert, then Tika) |
 | Combine several files into one PDF | Yes when any input is Office |
 | Structured spreadsheet / slide text for the model | No |
-| “Open in editor” (WOPI iframe) | Later plan — not this document |
+| “Open in editor” (WOPI iframe) | Yes, and only when `OFFICE_PUBLIC_URL` and `OFFICE_WOPI_URL` are both set. The chart keys are `office.publicUrl` and `office.wopiUrl`. |
 
 Empty or `disabled` `OFFICE_CONVERT_URL` keeps today’s behaviour. Failures return
 null / 503; they must not take the API or `/api/health` down.
@@ -76,9 +76,17 @@ You do **not**:
 
 `aliasgroup1` and a public editor hostname matter for **WOPI**, not for convert-to.
 
-When the editor ships, Synaplan will be the WOPI host: `CheckFileInfo` will send
+The chart emits `OFFICE_PUBLIC_URL` and `OFFICE_WOPI_URL` when `office.publicUrl`
+and `office.wopiUrl` are both set. Leave either empty and the editor stays off;
+previews keep working from `office.convertUrl` alone. On openDesk, `publicUrl`
+is the browser hostname (`https://office.<domain>`) and `wopiUrl` is the
+in-cluster Synaplan Service Collabora can call (`http://synaplan:80`). That
+host has to be allowed on openDesk's Collabora. The chart does not change
+openDesk's Collabora.
+
+When the editor is on, Synaplan is the WOPI host: `CheckFileInfo` sends
 `OwnerId`, `UserId`, `UserFriendlyName`, and a short-lived token scoped to **one
-file and one user**. Collabora still will not own those accounts.
+file and one user**. Collabora still does not own those accounts.
 
 ---
 

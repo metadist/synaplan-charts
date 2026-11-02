@@ -27,6 +27,39 @@ tests:
             name: OFFICE_CONVERT_URL
           any: true
           count: 1
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OFFICE_PUBLIC_URL
+
+  - it: emits the editor URLs only as a pair
+    template: deployment.yaml
+    set:
+      office:
+        publicUrl: https://office.example.org
+        wopiUrl: http://synaplan:80
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OFFICE_PUBLIC_URL
+            value: https://office.example.org
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OFFICE_WOPI_URL
+            value: http://synaplan:80
+          count: 1
+
+  - it: refuses a public editor URL without the callback URL
+    template: deployment.yaml
+    set:
+      office:
+        publicUrl: https://office.example.org
+    asserts:
+      - failedTemplate:
+          errorPattern: "office.publicUrl is set without office.wopiUrl"
 
   - it: refuses a name that a chart value already emits
     template: deployment.yaml

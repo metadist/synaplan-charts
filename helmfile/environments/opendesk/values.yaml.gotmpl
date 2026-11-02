@@ -31,7 +31,10 @@ apps:
     enabled: true
   triton:
     enabled: false
-  # openDesk runs Collabora; Synaplan uses it for Office previews
+  # openDesk runs Collabora; Synaplan uses it for Office previews.
+  # The editor stays off. To turn it on, set technical.synaplan.office
+  # publicUrl (https://office.<domain>) and wopiUrl (http://synaplan:80),
+  # and allow that WOPI host on openDesk's Collabora.
   collabora:
     enabled: true
 
