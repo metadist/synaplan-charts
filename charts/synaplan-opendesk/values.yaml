@@ -84,12 +84,31 @@ opencloud:
   image:
     # -- Image of the OpenCloud plugin
     repository: ghcr.io/metadist/synaplan-opencloud
-    # -- Tag of the OpenCloud plugin image
-    tag: "latest@sha256:3789bf9a7c5b39e64e9797638eeb124d28e8fa97693bb408ead2648fd117510f"
+    # -- Tag of the OpenCloud plugin image, a release with its digest
+    tag: "1.0.0@sha256:362f4da6e889129c8f4d28195eb70da041a8e16da549783e3b35217fb064a36c"
     # -- Pull policy
     pullPolicy: IfNotPresent
   # -- Container port. The Service uses the same port.
   port: 9106
+  # -- Log level of the plugin service (SYNAPLAN_LOG_LEVEL): debug, info, warn or error
+  logLevel: info
+  # -- (bool) Skip TLS verification towards OpenCloud (OC_INSECURE), for an install with
+  # self-signed certificates. null leaves it unset.
+  insecure: null
+  # A private PKI: the CA the plugin trusts when it calls Keycloak, Synaplan
+  # and OpenCloud over TLS.
+  customRootCA:
+    # -- Name of an existing Secret holding the CA certificate. It is mounted and set as
+    # SSL_CERT_FILE. Empty = the image's system CAs.
+    secretRef: ""
+    # -- Key of the certificate in secretRef
+    key: ca.crt
+  # -- Extra environment variables of the plugin container
+  extraEnv: []
+  # -- Extra volumes of the plugin pod
+  extraVolumes: []
+  # -- Extra volume mounts of the plugin container
+  extraVolumeMounts: []
   # -- Optional shared API key Secret. Leave the name empty to use token exchange or to configure the key later.
   apiKeySecret: ""
   # -- Key in apiKeySecret

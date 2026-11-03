@@ -51,6 +51,16 @@ spec:
               value: {{ .Values.synaplanUrl | quote }}
             - name: SYNAPLAN_HTTP_ADDR
               value: {{ printf ":%v" .Values.opencloud.port | quote }}
+            - name: SYNAPLAN_LOG_LEVEL
+              value: {{ .Values.opencloud.logLevel | quote }}
+            {{- if kindIs "bool" .Values.opencloud.insecure }}
+            - name: OC_INSECURE
+              value: {{ .Values.opencloud.insecure | toString | quote }}
+            {{- end }}
+            {{- if .Values.opencloud.customRootCA.secretRef }}
+            - name: SSL_CERT_FILE
+              value: /etc/synaplan-opencloud/ca/ca.crt
+            {{- end }}
             {{- if .Values.opencloud.apiKeySecret }}
             - name: SYNAPLAN_API_KEY
               valueFrom:
@@ -88,6 +98,20 @@ spec:
             - name: SYNAPLAN_OIDC_TARGET_AUDIENCE
               value: {{ . | quote }}
             {{- end }}
+            {{- with .Values.opencloud.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if or .Values.opencloud.customRootCA.secretRef .Values.opencloud.extraVolumeMounts }}
+          volumeMounts:
+            {{- if .Values.opencloud.customRootCA.secretRef }}
+            - name: ca
+              mountPath: /etc/synaplan-opencloud/ca
+              readOnly: true
+            {{- end }}
+            {{- with .Values.opencloud.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
           readinessProbe:
             tcpSocket:
               port: http
@@ -103,4 +127,18 @@ spec:
               drop: ["ALL"]
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if or .Values.opencloud.customRootCA.secretRef .Values.opencloud.extraVolumes }}
+      volumes:
+        {{- if .Values.opencloud.customRootCA.secretRef }}
+        - name: ca
+          secret:
+            secretName: {{ .Values.opencloud.customRootCA.secretRef | quote }}
+            items:
+              - key: {{ .Values.opencloud.customRootCA.key | quote }}
+                path: ca.crt
+        {{- end }}
+        {{- with .Values.opencloud.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
 {{- end }}

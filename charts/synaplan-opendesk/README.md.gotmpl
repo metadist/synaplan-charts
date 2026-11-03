@@ -35,4 +35,10 @@ its proxy at that Service and serves the web extension from the image
 on this chart when the plugin should use them. This chart does not edit the
 OpenCloud release.
 
+An install with its own PKI names the Secret with the CA in
+`opencloud.customRootCA.secretRef`: the plugin then trusts it for Keycloak,
+Synaplan and OpenCloud (`SSL_CERT_FILE`); `opencloud.insecure` skips the
+check towards OpenCloud instead. `opencloud.extraEnv`, `extraVolumes` and
+`extraVolumeMounts` carry anything else the service needs.
+
 {{ template "chart.valuesSection" . }}
