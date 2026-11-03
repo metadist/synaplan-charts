@@ -35,6 +35,12 @@ its proxy at that Service and serves the web extension from the image
 on this chart when the plugin should use them. This chart does not edit the
 OpenCloud release.
 
+An install with its own PKI names the Secret with the CA in
+`opencloud.customRootCA.secretRef`: the plugin then trusts it for Keycloak,
+Synaplan and OpenCloud (`SSL_CERT_FILE`); `opencloud.insecure` skips the
+check towards OpenCloud instead. `opencloud.extraEnv`, `extraVolumes` and
+`extraVolumeMounts` carry anything else the service needs.
+
 ## Values
 
 | Key | Type | Default | Description |
@@ -52,11 +58,18 @@ OpenCloud release.
 | nextcloud.version | string | `"1.7.0"` | Version written into the volume. A volume that already has this version is left as it is. |
 | opencloud.apiKeySecret | string | `""` | Optional shared API key Secret. Leave the name empty to use token exchange or to configure the key later. |
 | opencloud.apiKeySecretKey | string | `"api-key"` | Key in apiKeySecret |
+| opencloud.customRootCA.key | string | `"ca.crt"` | Key of the certificate in secretRef |
+| opencloud.customRootCA.secretRef | string | `""` | Name of an existing Secret holding the CA certificate. It is mounted and set as SSL_CERT_FILE. Empty = the image's system CAs. |
+| opencloud.extraEnv | list | `[]` | Extra environment variables of the plugin container |
+| opencloud.extraVolumeMounts | list | `[]` | Extra volume mounts of the plugin container |
+| opencloud.extraVolumes | list | `[]` | Extra volumes of the plugin pod |
 | opencloud.image.pullPolicy | string | `"IfNotPresent"` | Pull policy |
 | opencloud.image.repository | string | `"ghcr.io/metadist/synaplan-opencloud"` | Image of the OpenCloud plugin |
-| opencloud.image.tag | string | `"latest@sha256:3789bf9a7c5b39e64e9797638eeb124d28e8fa97693bb408ead2648fd117510f"` | Tag of the OpenCloud plugin image |
+| opencloud.image.tag | string | `"1.0.0@sha256:362f4da6e889129c8f4d28195eb70da041a8e16da549783e3b35217fb064a36c"` | Tag of the OpenCloud plugin image, a release with its digest |
+| opencloud.insecure | bool | `nil` | Skip TLS verification towards OpenCloud (OC_INSECURE), for an install with self-signed certificates. null leaves it unset. |
 | opencloud.jwtSecretKey | string | `"jwt-secret"` | Key in jwtSecretSecret |
 | opencloud.jwtSecretSecret | string | `""` | Secret holding the OpenCloud JWT (OC_JWT_SECRET). Empty leaves it unset. |
+| opencloud.logLevel | string | `"info"` | Log level of the plugin service (SYNAPLAN_LOG_LEVEL): debug, info, warn or error |
 | opencloud.oidc.exchangeClientId | string | `""` | Confidential client id for token exchange. Empty leaves it unset. |
 | opencloud.oidc.exchangeSecretKey | string | `"client-secret"` | Key in exchangeSecretSecret |
 | opencloud.oidc.exchangeSecretSecret | string | `""` | Secret holding the exchange client secret. Empty leaves it unset. |

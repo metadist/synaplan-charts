@@ -6,3 +6,18 @@ portal:
   enabled: false
 persistence:
   create: false
+opencloud:
+  logLevel: debug
+  insecure: true
+  customRootCA:
+    secretRef: cluster-ca
+  revaGateway: "kubernetes://opencloud-gateway:9142"
+  jwtSecretSecret: rolling-secrets
+  oidc:
+    tokenEndpoint: https://id.example.org/realms/opendesk/protocol/openid-connect/token
+    exchangeClientId: synaplan-opencloud
+    exchangeSecretSecret: synaplan-opencloud-oidc
+    targetAudience: synaplan
+  extraEnv:
+    - name: EXAMPLE
+      value: "1"
