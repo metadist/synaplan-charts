@@ -320,6 +320,7 @@ kubectl get nodes -o json | grep nvidia.com/gpu
 | --- | --- | --- |
 | Tika | the `tika` release | `technical.synaplan.tika.url` |
 | Office previews | openDesk's Collabora, when `apps.collabora.enabled` (openDesk's flag) | `technical.synaplan.office.convertUrl` |
+| Office editor | off | `technical.synaplan.office.publicUrl` and `wopiUrl`, both set. openDesk's Collabora must allow `wopiUrl` as a WOPI host |
 | Speech-to-text | whisper.cpp in the Synaplan pod, or the `synaplan-stt` release (`apps.synaplanStt.enabled`, `technical.synaplanStt.mode`) | `technical.synaplan.speech.whisperServerUrl` |
 
 ## Meeting notes

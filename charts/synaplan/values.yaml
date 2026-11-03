@@ -140,10 +140,16 @@ qdrant:
 # See docs/collabora-office-engine.md.
 office:
   # -- Convert-to base URL (e.g. http://collabora.office.svc.cluster.local:9980).
-  # Empty = off.
+  # Empty = off. Previews and PDF export do not need the editor URLs.
   convertUrl: ""
   # -- Convert timeout in milliseconds. Only emitted when convertUrl is set.
   convertTimeoutMs: 60000
+  # -- Browser URL of Collabora (OFFICE_PUBLIC_URL). Empty = editor off.
+  # Set together with wopiUrl. openDesk's Collabora must allow wopiUrl as a WOPI host.
+  publicUrl: ""
+  # -- URL Collabora uses to call Synaplan (OFFICE_WOPI_URL), e.g. http://synaplan:80.
+  # Set together with publicUrl. Empty = editor off.
+  wopiUrl: ""
 
 # Secure compute sidecar (short Python / Node file work in chat). The chart
 # does not deploy the sidecar. Both values are needed; features.compute can

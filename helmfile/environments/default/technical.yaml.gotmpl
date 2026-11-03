@@ -15,9 +15,12 @@ technical:
     tika:
       url: ""
     # Collabora for Office previews. Empty: openDesk's Collabora in the same
-    # namespace (apps.collabora), else none.
+    # namespace (apps.collabora), else none. publicUrl and wopiUrl together
+    # turn on the editor; leave both empty to keep previews only.
     office:
       convertUrl: ""
+      publicUrl: ""
+      wopiUrl: ""
     # A speech-to-text server this deployment does not install. Empty: the
     # synaplan-stt release (apps.synaplanStt), else whisper.cpp in the
     # Synaplan pod.
