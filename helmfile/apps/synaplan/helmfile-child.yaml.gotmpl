@@ -35,6 +35,20 @@ releases:
       - {{ . }}
       {{- end }}
 
+  # OpenCloud plugin: the token-exchange service and the web extension, for
+  # an OpenCloud next to Synaplan. OpenCloud's proxy route and web-extension
+  # mount are set on the OpenCloud release, not here.
+  - name: "synaplan-opencloud"
+    chart: "../../../charts/synaplan-opencloud"
+    installed: {{ dig "apps" "synaplanOpencloud" "enabled" false .Values }}
+    needs:
+      - "synaplan"
+    values:
+      - "values-synaplan-opencloud.yaml.gotmpl"
+      {{- range .Values.customization.release.synaplanOpencloud }}
+      - {{ . }}
+      {{- end }}
+
   - name: "synaplan-stt"
     chart: "../../../charts/stt"
     installed: {{ .Values.apps.synaplanStt.enabled }}

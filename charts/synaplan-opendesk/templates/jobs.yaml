@@ -1,4 +1,4 @@
-{{- if and .Values.enabled (eq (include "synaplan-opendesk.files" .) "nextcloud") }}
+{{- if .Values.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:

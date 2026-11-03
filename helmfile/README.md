@@ -38,6 +38,7 @@ helmfile/
 | `synaplan-stt` | `apps.synaplanStt.enabled` | [charts/stt](../charts/stt/) |
 | meeting notes (in `synaplan`) | `technical.synaplan.synascriber.enabled` | [charts/synaplan](../charts/synaplan/), see [Meeting notes](#meeting-notes) |
 | Nextcloud app and portal tile | `apps.synaplanOpendesk.enabled` | [charts/synaplan-opendesk](../charts/synaplan-opendesk/), see [Nextcloud and the portal](#nextcloud-and-the-portal) |
+| OpenCloud plugin | `apps.synaplanOpencloud.enabled` | [charts/synaplan-opencloud](../charts/synaplan-opencloud/), see [OpenCloud plugin](#opencloud-plugin) |
 | `tika` | `apps.tika.enabled` (default) | Apache Tika |
 | `triton` | `apps.triton.enabled` | [charts/triton](../charts/triton/) |
 | `ollama` | `apps.ollama.enabled` | otwld/ollama-helm |
@@ -402,10 +403,6 @@ technical:
   synaplan:
     synascriber:
       enabled: true
-  # Last choice. nextcloud is the openDesk community edition.
-  # opencloud installs the OpenCloud plugin instead of the Nextcloud app.
-  synaplanOpendesk:
-    files: nextcloud
 customization:
   release:
     opendeskNextcloud:
@@ -413,11 +410,6 @@ customization:
     jitsi:
       synascriber: '<synaplan-charts>/helmfile/opendesk/synascriber-jitsi.yaml.gotmpl'
 ```
-
-`technical.synaplanOpendesk.files` is `nextcloud` or `opencloud`. The
-Nextcloud value is what the community edition of openDesk uses. `opencloud`
-skips that app and runs the OpenCloud plugin instead. The mount file below
-is only for `nextcloud`.
 
 `nextcloud-app.yaml.gotmpl` mounts the volume `synaplan-nextcloud-app` into
 Nextcloud. The Job writes the current
@@ -431,6 +423,32 @@ Keycloak bootstrap, and `technical.synaplan.oidc.clientSecretRef` to the same
 Secret. A database that already exists stays in place with
 `apps.synaplanMariadb.enabled: false` and
 `databases.synaplan.password.secretRef`.
+
+## OpenCloud plugin
+
+An OpenCloud next to Synaplan gets the plugin from the release
+`synaplan-opencloud` ([charts/synaplan-opencloud](../charts/synaplan-opencloud/)):
+the token-exchange service, and the web extension OpenCloud serves from the
+same image. The OpenCloud release itself is configured elsewhere (its proxy
+route to the Service and the extension mount). The plugin's settings are
+passed through from `technical.synaplanOpencloud` as they are; with
+`certificate.selfSigned` the chart's `customRootCA.secretRef` points at the
+certificate Secret.
+
+```yaml
+apps:
+  synaplanOpencloud:
+    enabled: true
+technical:
+  synaplanOpencloud:
+    revaGateway: "kubernetes://opencloud-gateway:9142"
+    jwtSecretSecret: rolling-secrets
+    oidc:
+      tokenEndpoint: "https://id.example.org/realms/opendesk/protocol/openid-connect/token"
+      exchangeClientId: synaplan-opencloud
+      exchangeSecretSecret: synaplan-opencloud-oidc
+      targetAudience: synaplan
+```
 
 ## Certificates
 

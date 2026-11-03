@@ -4,11 +4,8 @@ Nextcloud app and portal tile for Synaplan on openDesk
 
 ## What it does
 
-`files` chooses the plugin. `nextcloud` is the openDesk community edition.
-`opencloud` is an OpenCloud target. Only the selected plugin is installed.
-
-With `files: nextcloud`, two Jobs run after install and upgrade, in the
-namespace of an openDesk that already has Nextcloud and the portal:
+Two Jobs run after install and upgrade, in the namespace of an openDesk that
+already has Nextcloud and the portal:
 
 - **Nextcloud.** The release tarball of
   [synaplan-nextcloud](https://github.com/metadist/synaplan-nextcloud) is
@@ -22,31 +19,19 @@ namespace of an openDesk that already has Nextcloud and the portal:
   Keycloak; the app does not ship an API key.
 
 Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
-values, not this chart. Collabora, when the cluster already runs it, is set
-on the `synaplan` chart with `office.convertUrl` or `apps.collabora.enabled`.
+values, not this chart. The OpenCloud plugin is the `synaplan-opencloud`
+chart. Collabora, when the cluster already runs it, is set on the `synaplan`
+chart with `office.convertUrl` or `apps.collabora.enabled`.
 
 The Nextcloud job sets the Synaplan address and enables the app. Connecting
 accounts — each person, or one shared key — is done in that app's settings.
 This chart does not create API keys.
 
-`files: opencloud` runs the plugin Service. The OpenCloud installation points
-its proxy at that Service and serves the web extension from the image
-(`/web/apps/synaplan`). Gateway, JWT and token-exchange settings are values
-on this chart when the plugin should use them. This chart does not edit the
-OpenCloud release.
-
-An install with its own PKI names the Secret with the CA in
-`opencloud.customRootCA.secretRef`: the plugin then trusts it for Keycloak,
-Synaplan and OpenCloud (`SSL_CERT_FILE`); `opencloud.insecure` skips the
-check towards OpenCloud instead. `opencloud.extraEnv`, `extraVolumes` and
-`extraVolumeMounts` carry anything else the service needs.
-
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| enabled | bool | `false` | Install the plugin selected by files. The Helmfile turns this on with apps.synaplanOpendesk. |
-| files | string | `"nextcloud"` | File service that receives the plugin: nextcloud (openDesk community edition) or opencloud. Exactly one plugin is installed. |
+| enabled | bool | `false` | Install the app and the tile. The Helmfile turns this on with apps.synaplanOpendesk. |
 | nextcloud.appId | string | `"synaplan_integration"` | App id occ enables |
 | nextcloud.archiveSha256 | string | `"8969a9e9d76ba8e00af8aa4d50c1f36e460ec0f69732a9f13185784ec2190b0d"` | sha256 of archiveUrl |
 | nextcloud.archiveUrl | string | `"https://github.com/metadist/synaplan-nextcloud/releases/download/v1.7.0-rc.1/synaplan_integration.tar.gz"` | Release tarball. Point this at a mirror for an install that cannot reach GitHub. The tarball's top directory is synaplan_integration/, which is what the Nextcloud volume mounts (subPath). |
@@ -56,27 +41,6 @@ check towards OpenCloud instead. `opencloud.extraEnv`, `extraVolumes` and
 | nextcloud.pullPolicy | string | `"IfNotPresent"` | Pull policy of both images |
 | nextcloud.seedImage | string | `"alpine:3.22"` | Image of the pod that writes the volume. It has wget, tar and sha256sum. |
 | nextcloud.version | string | `"1.7.0"` | Version written into the volume. A volume that already has this version is left as it is. |
-| opencloud.apiKeySecret | string | `""` | Optional shared API key Secret. Leave the name empty to use token exchange or to configure the key later. |
-| opencloud.apiKeySecretKey | string | `"api-key"` | Key in apiKeySecret |
-| opencloud.customRootCA.key | string | `"ca.crt"` | Key of the certificate in secretRef |
-| opencloud.customRootCA.secretRef | string | `""` | Name of an existing Secret holding the CA certificate. It is mounted and set as SSL_CERT_FILE. Empty = the image's system CAs. |
-| opencloud.extraEnv | list | `[]` | Extra environment variables of the plugin container |
-| opencloud.extraVolumeMounts | list | `[]` | Extra volume mounts of the plugin container |
-| opencloud.extraVolumes | list | `[]` | Extra volumes of the plugin pod |
-| opencloud.image.pullPolicy | string | `"IfNotPresent"` | Pull policy |
-| opencloud.image.repository | string | `"ghcr.io/metadist/synaplan-opencloud"` | Image of the OpenCloud plugin |
-| opencloud.image.tag | string | `"1.0.0@sha256:362f4da6e889129c8f4d28195eb70da041a8e16da549783e3b35217fb064a36c"` | Tag of the OpenCloud plugin image, a release with its digest |
-| opencloud.insecure | bool | `nil` | Skip TLS verification towards OpenCloud (OC_INSECURE), for an install with self-signed certificates. null leaves it unset. |
-| opencloud.jwtSecretKey | string | `"jwt-secret"` | Key in jwtSecretSecret |
-| opencloud.jwtSecretSecret | string | `""` | Secret holding the OpenCloud JWT (OC_JWT_SECRET). Empty leaves it unset. |
-| opencloud.logLevel | string | `"info"` | Log level of the plugin service (SYNAPLAN_LOG_LEVEL): debug, info, warn or error |
-| opencloud.oidc.exchangeClientId | string | `""` | Confidential client id for token exchange. Empty leaves it unset. |
-| opencloud.oidc.exchangeSecretKey | string | `"client-secret"` | Key in exchangeSecretSecret |
-| opencloud.oidc.exchangeSecretSecret | string | `""` | Secret holding the exchange client secret. Empty leaves it unset. |
-| opencloud.oidc.targetAudience | string | `""` | Audience of the exchanged token, usually the Synaplan client id. Empty leaves it unset. |
-| opencloud.oidc.tokenEndpoint | string | `""` | Keycloak token endpoint for token exchange. Empty leaves it unset. |
-| opencloud.port | int | `9106` | Container port. The Service uses the same port. |
-| opencloud.revaGateway | string | `""` | OpenCloud CS3 gateway (OC_REVA_GATEWAY). Empty leaves it unset. |
 | persistence.accessMode | string | `"ReadWriteOnce"` |  |
 | persistence.claimName | string | `"synaplan-nextcloud-app"` | Name of the volume. openDesk's Nextcloud mounts this name; do not change it on an existing install. |
 | persistence.create | bool | `true` | Create the volume. Turn this off when the volume already exists. |
@@ -99,4 +63,4 @@ check towards OpenCloud instead. `opencloud.extraEnv`, `extraVolumes` and
 | resources.limits.memory | string | `"256Mi"` |  |
 | resources.requests.cpu | string | `"20m"` |  |
 | resources.requests.memory | string | `"64Mi"` |  |
-| synaplanUrl | string | `""` |  |
+| synaplanUrl | string | `""` | Synaplan as users open it. The app and the portal tile use it. |

@@ -37,15 +37,3 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "synaplan-opendesk.claim" -}}
 {{- .Values.persistence.claimName }}
 {{- end }}
-
-{{/*
-File service that receives the Synaplan plugin. openDesk community edition
-uses Nextcloud. An OpenCloud target uses the OpenCloud plugin instead.
-*/}}
-{{- define "synaplan-opendesk.files" -}}
-{{- $files := .Values.files | default "nextcloud" }}
-{{- if not (has $files (list "nextcloud" "opencloud")) }}
-{{- fail (printf "files must be nextcloud or opencloud, got %q" $files) }}
-{{- end }}
-{{- $files }}
-{{- end }}

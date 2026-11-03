@@ -1,0 +1,26 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.description" . }}
+
+## What it does
+
+The [synaplan-opencloud](https://github.com/metadist/synaplan-opencloud)
+image carries two things: the service that exchanges a person's OpenCloud
+token for calls to Synaplan (or attaches one shared API key), and the web
+extension OpenCloud serves at `/web/apps/synaplan`. This chart runs the
+service and nothing else. The OpenCloud installation points its proxy at
+the Service and mounts the extension from the image; this chart does not
+edit the OpenCloud release.
+
+Gateway, JWT and token-exchange settings are the plugin's own values, passed
+through when set. An install with its own PKI names the Secret with the CA
+in `customRootCA.secretRef`: the service then trusts it for Keycloak,
+Synaplan and OpenCloud (`SSL_CERT_FILE`); `insecure` skips the check towards
+OpenCloud instead. `extraEnv`, `extraVolumes` and `extraVolumeMounts` carry
+anything else the service needs.
+
+Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
+values. The Nextcloud app and the openDesk portal tile are the
+`synaplan-opendesk` chart.
+
+{{ template "chart.valuesSection" . }}

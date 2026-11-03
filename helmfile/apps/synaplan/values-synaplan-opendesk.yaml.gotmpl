@@ -3,13 +3,8 @@
 {{- $extra := dig "technical" "synaplanOpendesk" (dict) .Values }}
 enabled: {{ dig "apps" "synaplanOpendesk" "enabled" false .Values }}
 synaplanUrl: {{ printf "https://%s.%s" $host $domain | quote }}
-# Last choice: which file plugin this target installs.
-{{- $files := dig "files" "nextcloud" $extra }}
-files: {{ $files | quote }}
-# A portal tile needs the identity portal (openDesk). An OpenCloud-only target
-# leaves it off unless the environment asks for it.
 portal:
-  enabled: {{ dig "portal" "enabled" (ne $files "opencloud") $extra }}
+  enabled: {{ dig "portal" "enabled" true $extra }}
   {{- with dig "ldapBase" "" $extra }}
   ldapBase: {{ . | quote }}
   {{- end }}

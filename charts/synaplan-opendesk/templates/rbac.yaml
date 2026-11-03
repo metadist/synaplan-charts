@@ -1,9 +1,7 @@
 {{- if .Values.enabled }}
-{{- $files := include "synaplan-opendesk.files" . }}
 {{- if not .Values.synaplanUrl }}
 {{- fail "synaplanUrl is required when the synaplan-opendesk chart is enabled" }}
 {{- end }}
-{{- if eq $files "nextcloud" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -65,7 +63,6 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "synaplan-opendesk.fullname" . }}
     namespace: {{ .Release.Namespace }}
-{{- end }}
 {{- if .Values.portal.enabled }}
 {{- $deployments := list }}
 {{- $statefulsets := list }}
@@ -124,7 +121,7 @@ subjects:
     name: {{ include "synaplan-opendesk.fullname" . }}-portal
     namespace: {{ .Release.Namespace }}
 {{- end }}
-{{- if and .Values.persistence.create (eq $files "nextcloud") }}
+{{- if .Values.persistence.create }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
