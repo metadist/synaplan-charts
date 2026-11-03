@@ -33,7 +33,3 @@ app.kubernetes.io/part-of: synaplan
 app.kubernetes.io/name: {{ include "synaplan-opendesk.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
-
-{{- define "synaplan-opendesk.claim" -}}
-{{- .Values.persistence.claimName }}
-{{- end }}

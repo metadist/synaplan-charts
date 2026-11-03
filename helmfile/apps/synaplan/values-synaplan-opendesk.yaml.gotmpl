@@ -1,17 +1,7 @@
 {{- $domain := dig "global" "domain" "" .Values | required "global.domain is required" }}
 {{- $host := dig "global" "hosts" "synaplan" "synaplan" .Values }}
-{{- $extra := dig "technical" "synaplanOpendesk" (dict) .Values }}
-enabled: {{ dig "apps" "synaplanOpendesk" "enabled" false .Values }}
 synaplanUrl: {{ printf "https://%s.%s" $host $domain | quote }}
-portal:
-  enabled: {{ dig "portal" "enabled" true $extra }}
-  {{- with dig "ldapBase" "" $extra }}
-  ldapBase: {{ . | quote }}
-  {{- end }}
-persistence:
-  # false: the volume already exists (an upgrade). true: this release creates it.
-  create: {{ dig "persistence" "create" true $extra }}
-  claimName: {{ dig "persistence" "claimName" "synaplan-nextcloud-app" $extra | quote }}
-  {{- with dig "persistence" "storageClass" "" $extra }}
-  storageClass: {{ . | quote }}
-  {{- end }}
+# ldapBase, restarts and the rest, as the environment sets them
+{{- with dig "technical" "synaplanOpendesk" dict .Values }}
+{{ toYaml . }}
+{{- end }}

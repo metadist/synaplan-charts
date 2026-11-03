@@ -37,7 +37,8 @@ helmfile/
 | `synaplan-mariadb` | `apps.synaplanMariadb.enabled` (default) | openDesk's MariaDB chart, with MariaDB 11.8 (Synaplan needs `VECTOR`) |
 | `synaplan-stt` | `apps.synaplanStt.enabled` | [charts/stt](../charts/stt/) |
 | meeting notes (in `synaplan`) | `technical.synaplan.synascriber.enabled` | [charts/synaplan](../charts/synaplan/), see [Meeting notes](#meeting-notes) |
-| Nextcloud app and portal tile | `apps.synaplanOpendesk.enabled` | [charts/synaplan-opendesk](../charts/synaplan-opendesk/), see [Nextcloud and the portal](#nextcloud-and-the-portal) |
+| Nextcloud app | `apps.synaplanNextcloud.enabled` | [charts/synaplan-nextcloud](../charts/synaplan-nextcloud/), see [Nextcloud and the portal](#nextcloud-and-the-portal) |
+| openDesk portal tile | `apps.synaplanOpendesk.enabled` | [charts/synaplan-opendesk](../charts/synaplan-opendesk/), see [Nextcloud and the portal](#nextcloud-and-the-portal) |
 | OpenCloud plugin | `apps.synaplanOpencloud.enabled` | [charts/synaplan-opencloud](../charts/synaplan-opencloud/), see [OpenCloud plugin](#opencloud-plugin) |
 | `tika` | `apps.tika.enabled` (default) | Apache Tika |
 | `triton` | `apps.triton.enabled` | [charts/triton](../charts/triton/) |
@@ -390,13 +391,16 @@ those users can start or receive notes. The e2e suite runs all of this with
 
 The combination openDesk publishes with Synaplan is Synaplan itself, the
 Nextcloud app, the portal tile and meeting notes. Meeting notes are
-[above](#meeting-notes). The Nextcloud app and the tile are the release
-`synaplan-opendesk` ([charts/synaplan-opendesk](../charts/synaplan-opendesk/)):
+[above](#meeting-notes). The Nextcloud app is the release `synaplan-nextcloud`
+([charts/synaplan-nextcloud](../charts/synaplan-nextcloud/)), the tile the
+release `synaplan-opendesk` ([charts/synaplan-opendesk](../charts/synaplan-opendesk/)):
 
 ```yaml
 apps:
   collabora:
     enabled: true          # openDesk's Collabora; Synaplan uses it for Office files
+  synaplanNextcloud:
+    enabled: true
   synaplanOpendesk:
     enabled: true
 technical:

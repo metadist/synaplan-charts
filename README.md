@@ -12,7 +12,8 @@ The value reference for the application chart is
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
 | [synaplan](charts/synaplan/) | 0.10.0 | Synaplan 5.6.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
-| [synaplan-opendesk](charts/synaplan-opendesk/) | 0.3.0 | Nextcloud app and portal tile for Synaplan on openDesk |
+| [synaplan-nextcloud](charts/synaplan-nextcloud/) | 0.1.0 | Nextcloud app for Synaplan, installed into a Nextcloud in the same namespace ([app](https://github.com/metadist/synaplan-nextcloud)) |
+| [synaplan-opendesk](charts/synaplan-opendesk/) | 0.3.0 | Portal tile for Synaplan on openDesk |
 | [synaplan-opencloud](charts/synaplan-opencloud/) | 0.1.0 | OpenCloud plugin for Synaplan: the token-exchange service and the web extension ([image](https://github.com/metadist/synaplan-opencloud)) |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 | [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |

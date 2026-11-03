@@ -7,6 +7,7 @@ on:
       - 'synaplan-v*.*.*'
       - 'synaplan-opendesk-v*.*.*'
       - 'synaplan-opencloud-v*.*.*'
+      - 'synaplan-nextcloud-v*.*.*'
       - 'triton-v*.*.*'
       - 'stt-v*.*.*'
   # Every pull request, whichever branch it targets. A pull request into a

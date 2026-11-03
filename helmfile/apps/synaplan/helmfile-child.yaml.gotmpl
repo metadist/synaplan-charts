@@ -22,8 +22,21 @@ releases:
       - {{ . }}
       {{- end }}
 
-  # Nextcloud app and the portal tile. Needs openDesk's Nextcloud and portal,
-  # which this Helmfile does not install; the Jobs wait for them.
+  # Nextcloud app. Needs a Nextcloud in the namespace (openDesk's), which
+  # this Helmfile does not install; the Job waits for it.
+  - name: "synaplan-nextcloud"
+    chart: "../../../charts/synaplan-nextcloud"
+    installed: {{ dig "apps" "synaplanNextcloud" "enabled" false .Values }}
+    needs:
+      - "synaplan"
+    values:
+      - "values-synaplan-nextcloud.yaml.gotmpl"
+      {{- range .Values.customization.release.synaplanNextcloud }}
+      - {{ . }}
+      {{- end }}
+
+  # Portal tile. Needs openDesk's portal, which this Helmfile does not
+  # install; the Job waits for it.
   - name: "synaplan-opendesk"
     chart: "../../../charts/synaplan-opendesk"
     installed: {{ dig "apps" "synaplanOpendesk" "enabled" false .Values }}

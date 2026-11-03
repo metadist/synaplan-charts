@@ -1,6 +1,2 @@
-# Render the Jobs. synaplanUrl is required once the chart is turned on.
-enabled: true
+# Render the Job. synaplanUrl is required.
 synaplanUrl: https://synaplan.example.org
-
-persistence:
-  storageClass: local-path

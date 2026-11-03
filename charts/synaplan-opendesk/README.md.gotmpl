@@ -4,27 +4,16 @@
 
 ## What it does
 
-Two Jobs run after install and upgrade, in the namespace of an openDesk that
-already has Nextcloud and the portal:
+A Job runs after install and upgrade, in the namespace of an openDesk that
+already has the portal: a tile named Synaplan, with the Synaplan bird, is
+added to the applications category and the central navigation (UDM REST
+API), and the portal workloads in `restarts` are restarted. Signing in is
+openDesk's Keycloak; the tile does not ship an API key.
 
-- **Nextcloud.** The release tarball of
-  [synaplan-nextcloud](https://github.com/metadist/synaplan-nextcloud) is
-  written to the volume `synaplan-nextcloud-app` and `occ app:enable` turns
-  it on. The volume is mounted by openDesk's Nextcloud through
-  [helmfile/opendesk/nextcloud-app.yaml.gotmpl](../../helmfile/opendesk/nextcloud-app.yaml.gotmpl).
-  A volume that already holds the same version is not rewritten. `archiveUrl`
-  can point at a mirror.
-- **Portal.** A tile named Synaplan, with the Synaplan bird, is added to the
-  applications category and the central navigation. Signing in is openDesk's
-  Keycloak; the app does not ship an API key.
-
-Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
-values, not this chart. The OpenCloud plugin is the `synaplan-opencloud`
-chart. Collabora, when the cluster already runs it, is set on the `synaplan`
-chart with `office.convertUrl` or `apps.collabora.enabled`.
-
-The Nextcloud job sets the Synaplan address and enables the app. Connecting
-accounts — each person, or one shared key — is done in that app's settings.
-This chart does not create API keys.
+The Nextcloud app is the `synaplan-nextcloud` chart, the OpenCloud plugin
+the `synaplan-opencloud` chart, meeting notes (the transcriber) the
+`synaplan` chart's `synascriber` values. Collabora, when the cluster already
+runs it, is set on the `synaplan` chart with `office.convertUrl` or
+`apps.collabora.enabled`.
 
 {{ template "chart.valuesSection" . }}
