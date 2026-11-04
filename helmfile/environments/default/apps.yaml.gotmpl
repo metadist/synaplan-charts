@@ -1,8 +1,14 @@
 apps:
   synaplan:
     enabled: true
-  # Nextcloud app and portal tile. Off until the release runs inside openDesk.
+  # Nextcloud app (charts/synaplan-nextcloud). Off until a Nextcloud is in the namespace.
+  synaplanNextcloud:
+    enabled: false
+  # openDesk portal tile (charts/synaplan-opendesk). Off until the release runs inside openDesk.
   synaplanOpendesk:
+    enabled: false
+  # OpenCloud plugin (charts/synaplan-opencloud). Off until an OpenCloud is wired to it.
+  synaplanOpencloud:
     enabled: false
   # Speech-to-text server (charts/stt); off: Synaplan runs whisper.cpp in its pod
   synaplanStt:

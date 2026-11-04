@@ -22,8 +22,21 @@ releases:
       - {{ . }}
       {{- end }}
 
-  # Nextcloud app and the portal tile. Needs openDesk's Nextcloud and portal,
-  # which this Helmfile does not install; the Jobs wait for them.
+  # Nextcloud app. Needs a Nextcloud in the namespace (openDesk's), which
+  # this Helmfile does not install; the Job waits for it.
+  - name: "synaplan-nextcloud"
+    chart: "../../../charts/synaplan-nextcloud"
+    installed: {{ dig "apps" "synaplanNextcloud" "enabled" false .Values }}
+    needs:
+      - "synaplan"
+    values:
+      - "values-synaplan-nextcloud.yaml.gotmpl"
+      {{- range .Values.customization.release.synaplanNextcloud }}
+      - {{ . }}
+      {{- end }}
+
+  # Portal tile. Needs openDesk's portal, which this Helmfile does not
+  # install; the Job waits for it.
   - name: "synaplan-opendesk"
     chart: "../../../charts/synaplan-opendesk"
     installed: {{ dig "apps" "synaplanOpendesk" "enabled" false .Values }}
@@ -32,6 +45,20 @@ releases:
     values:
       - "values-synaplan-opendesk.yaml.gotmpl"
       {{- range .Values.customization.release.synaplanOpendesk }}
+      - {{ . }}
+      {{- end }}
+
+  # OpenCloud plugin: the token-exchange service and the web extension, for
+  # an OpenCloud next to Synaplan. OpenCloud's proxy route and web-extension
+  # mount are set on the OpenCloud release, not here.
+  - name: "synaplan-opencloud"
+    chart: "../../../charts/synaplan-opencloud"
+    installed: {{ dig "apps" "synaplanOpencloud" "enabled" false .Values }}
+    needs:
+      - "synaplan"
+    values:
+      - "values-synaplan-opencloud.yaml.gotmpl"
+      {{- range .Values.customization.release.synaplanOpencloud }}
       - {{ . }}
       {{- end }}
 

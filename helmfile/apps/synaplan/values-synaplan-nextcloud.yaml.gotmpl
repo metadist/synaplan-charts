@@ -1,0 +1,8 @@
+{{- $domain := dig "global" "domain" "" .Values | required "global.domain is required" }}
+{{- $host := dig "global" "hosts" "synaplan" "synaplan" .Values }}
+synaplanUrl: {{ printf "https://%s.%s" $host $domain | quote }}
+# nextcloud.*, persistence.* and the rest, as the environment sets them
+# (persistence.create: false on an upgrade whose volume already exists)
+{{- with dig "technical" "synaplanNextcloud" dict .Values }}
+{{ toYaml . }}
+{{- end }}
