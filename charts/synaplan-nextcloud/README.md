@@ -35,7 +35,7 @@ plugin the `synaplan-opencloud` chart, meeting notes (the transcriber) the
 | nextcloud.deployment | string | `"opendesk-nextcloud-aio"` | Deployment that serves Nextcloud (openDesk: opendesk-nextcloud-aio) |
 | nextcloud.kubectlImage | string | `"docker.io/bitnamilegacy/kubectl:1.33.4"` | Image of the Job. It only talks to the Kubernetes API. bitnami/kubectl moved to bitnamilegacy; the old repository 404s. |
 | nextcloud.pullPolicy | string | `"IfNotPresent"` | Pull policy of both images |
-| nextcloud.seedImage | string | `"alpine:3.22"` | Image of the pod that writes the volume. It has wget, tar and sha256sum. |
+| nextcloud.seedImage | string | `"alpine:3.24"` | Image of the pod that writes the volume. It has wget, tar and sha256sum. |
 | nextcloud.version | string | `"1.7.0"` | Version written into the volume. A volume that already has this version is left as it is. |
 | persistence.accessMode | string | `"ReadWriteOnce"` |  |
 | persistence.claimName | string | `"synaplan-nextcloud-app"` | Name of the volume. openDesk's Nextcloud mounts this name; do not change it on an existing install. |
