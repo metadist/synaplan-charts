@@ -1,26 +1,15 @@
 suite: c2pa signer guards
 templates:
-  - c2pa-signer-deployment.yaml
+  - c2pa-token-secret.yaml
 set:
   appSecret: test
   database:
     password: test
 tests:
-  - it: refuses to enable the signer without an image
-    set:
-      c2paSigner:
-        enabled: true
-        keySecretRef: signer-key
-        certSecretRef: signer-cert
-    asserts:
-      - failedTemplate:
-          errorPattern: "needs c2paSigner.image"
-
   - it: refuses to enable the signer without the key secret
     set:
       c2paSigner:
         enabled: true
-        image: ghcr.io/example/synaplan-c2pa-signer:1
         certSecretRef: signer-cert
     asserts:
       - failedTemplate:
@@ -30,7 +19,6 @@ tests:
     set:
       c2paSigner:
         enabled: true
-        image: ghcr.io/example/synaplan-c2pa-signer:1
         keySecretRef: signer-key
         certSecretRef: signer-cert
         alg: none
@@ -42,7 +30,6 @@ tests:
     set:
       c2paSigner:
         enabled: true
-        image: ghcr.io/example/synaplan-c2pa-signer:1
         keySecretRef: signer-key
         certSecretRef: signer-cert
         port: 70000
