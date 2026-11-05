@@ -1,19 +1,19 @@
 {{- if .Values.c2paSigner.enabled }}
+{{- include "synaplan.c2paSigner.validate" . }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "synaplan.fullname" . }}-c2pa-signer
+  name: {{ include "synaplan.c2paSigner.fullname" . }}
   labels:
     {{- include "synaplan.labels" . | nindent 4 }}
     app.kubernetes.io/component: c2pa-signer
 spec:
   type: ClusterIP
   ports:
-    - port: {{ .Values.c2paSigner.port }}
+    - port: {{ int .Values.c2paSigner.port }}
       targetPort: http
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{ include "synaplan.name" . }}-c2pa-signer
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "synaplan.c2paSigner.selectorLabels" . | nindent 4 }}
 {{- end }}

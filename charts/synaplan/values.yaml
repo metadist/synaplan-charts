@@ -389,14 +389,15 @@ c2paSigner:
   pullPolicy: IfNotPresent
   # -- Container port. The Service is ClusterIP.
   port: 8787
-  # -- Name of an existing Secret. The key material is the data key key.pem.
+  # -- Name of an existing Secret. The key material is the data key key.pem. May be the same Secret as certSecretRef.
   keySecretRef: ""
-  # -- Name of an existing Secret. The certificate is the data key cert.pem.
+  # -- Name of an existing Secret. The certificate is the data key cert.pem. May be the same Secret as keySecretRef.
   certSecretRef: ""
   # -- C2PA_ALG. ps256 for an RSA key, es256 for an EC key.
   alg: ps256
   # -- The signer binary is linux amd64 only
   nodeSelector:
+    kubernetes.io/os: linux
     kubernetes.io/arch: amd64
   tolerations: []
   resources:

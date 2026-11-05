@@ -35,6 +35,12 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: does not create a network policy while off
+    template: c2pa-signer-networkpolicy.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: refuses a signer url set by hand
     template: deployment.yaml
     set:
@@ -80,10 +86,17 @@ tests:
         equal:
           path: spec.template.spec.nodeSelector
           value:
+            kubernetes.io/os: linux
             kubernetes.io/arch: amd64
       - template: c2pa-signer-deployment.yaml
         notExists:
           path: spec.template.spec.containers[0].ports[0].hostPort
+      - template: c2pa-signer-deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_ADDR
+            value: ":8787"
       - template: c2pa-signer-deployment.yaml
         contains:
           path: spec.template.spec.containers[0].env
@@ -112,7 +125,47 @@ tests:
           value: []
       - template: c2pa-signer-networkpolicy.yaml
         equal:
-          path: spec.ingress[0].from[0].podSelector.matchLabels
+          path: spec.ingress[0].from
           value:
-            app.kubernetes.io/name: synaplan
-            app.kubernetes.io/instance: RELEASE-NAME
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: synaplan
+                  app.kubernetes.io/instance: RELEASE-NAME
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: DoesNotExist
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: synaplan
+                  app.kubernetes.io/instance: RELEASE-NAME
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - worker
+                      - scheduler
+
+  - it: bounds long release names to the 63-character DNS label limit
+    release:
+      name: a-very-long-release-name-within-fifty-three-chars
+    set:
+      c2paSigner:
+        enabled: true
+        image: ghcr.io/example/synaplan-c2pa-signer:1
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+    asserts:
+      - template: c2pa-signer-deployment.yaml
+        equal:
+          path: metadata.name
+          value: a-very-long-release-name-within-fifty-three-chars-s-c2pa-signer
+      - template: c2pa-signer-service.yaml
+        equal:
+          path: metadata.name
+          value: a-very-long-release-name-within-fifty-three-chars-s-c2pa-signer
+      - template: deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_URL
+            value: http://a-very-long-release-name-within-fifty-three-chars-s-c2pa-signer:8787
