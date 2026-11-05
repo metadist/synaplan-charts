@@ -1,0 +1,99 @@
+{{- if .Values.c2paSigner.enabled }}
+{{- if not .Values.c2paSigner.image }}
+{{- fail "c2paSigner.enabled needs c2paSigner.image. No signer image is published yet." }}
+{{- end }}
+{{- if or (not .Values.c2paSigner.keySecretRef) (not .Values.c2paSigner.certSecretRef) }}
+{{- fail "c2paSigner.enabled needs keySecretRef and certSecretRef. The chart does not create a key." }}
+{{- end }}
+{{- $alg := .Values.c2paSigner.alg | default "ps256" }}
+{{- if not (has $alg (list "es256" "ps256" "ps384" "ps512" "ed25519")) }}
+{{- fail "c2paSigner.alg must be es256, ps256, ps384, ps512 or ed25519" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synaplan.fullname" . }}-c2pa-signer
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: c2pa-signer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "synaplan.name" . }}-c2pa-signer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "synaplan.name" . }}-c2pa-signer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: c2pa-signer
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: c2pa-signer
+          image: {{ .Values.c2paSigner.image | quote }}
+          imagePullPolicy: {{ .Values.c2paSigner.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.c2paSigner.port }}
+              protocol: TCP
+          env:
+            - name: C2PA_ALG
+              value: {{ $alg | quote }}
+            - name: C2PA_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.c2paSigner.keySecretRef | quote }}
+                  key: key.pem
+            - name: C2PA_SIGN_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.c2paSigner.certSecretRef | quote }}
+                  key: cert.pem
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          {{- with .Values.c2paSigner.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.c2paSigner.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.c2paSigner.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

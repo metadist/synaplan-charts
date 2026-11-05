@@ -1,0 +1,26 @@
+{{- if .Values.c2paSigner.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "synaplan.fullname" . }}-c2pa-signer
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: c2pa-signer
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "synaplan.name" . }}-c2pa-signer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "synaplan.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: http
+          protocol: TCP
+  egress: []
+{{- end }}

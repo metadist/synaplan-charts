@@ -255,14 +255,17 @@ role deployments add SYNAPLAN_ROLE on top.
 - name: SYNAPLAN_TTS_URL
   value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
 {{- end }}
+# Content credentials. Empty unless c2paSigner.enabled deploys the sidecar.
+- name: C2PA_SIGNER_URL
+  value: {{ ternary (printf "http://%s-c2pa-signer:%d" (include "synaplan.fullname" .) (int .Values.c2paSigner.port)) "" .Values.c2paSigner.enabled | quote }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list "TIKA_BASE_URL" }}
+{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from tika.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which the chart already emits from tika.*, c2paSigner.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply)." .name) }}
 {{- end }}
 {{- end }}
 {{- $switchEnv }}

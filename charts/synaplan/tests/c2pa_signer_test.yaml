@@ -1,0 +1,118 @@
+suite: c2pa signer
+templates:
+  - deployment.yaml
+  - init-scripts-configmap.yaml
+  - c2pa-signer-deployment.yaml
+  - c2pa-signer-service.yaml
+  - c2pa-signer-networkpolicy.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: stays off and leaves the signer url empty
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_URL
+            value: ""
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_PRIVATE_KEY
+
+  - it: does not deploy the sidecar while off
+    template: c2pa-signer-deployment.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: does not publish a service while off
+    template: c2pa-signer-service.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: refuses a signer url set by hand
+    template: deployment.yaml
+    set:
+      env:
+        - name: C2PA_SIGNER_URL
+          value: http://elsewhere:8787
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets C2PA_SIGNER_URL"
+
+  - it: points the app at the signer and keeps the key on the sidecar
+    set:
+      c2paSigner:
+        enabled: true
+        image: ghcr.io/example/synaplan-c2pa-signer:1
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+    asserts:
+      - template: deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_URL
+            value: http://RELEASE-NAME-synaplan-c2pa-signer:8787
+      - template: deployment.yaml
+        notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_PRIVATE_KEY
+      - template: c2pa-signer-deployment.yaml
+        equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 65532
+      - template: c2pa-signer-deployment.yaml
+        equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - template: c2pa-signer-deployment.yaml
+        equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - template: c2pa-signer-deployment.yaml
+        equal:
+          path: spec.template.spec.nodeSelector
+          value:
+            kubernetes.io/arch: amd64
+      - template: c2pa-signer-deployment.yaml
+        notExists:
+          path: spec.template.spec.containers[0].ports[0].hostPort
+      - template: c2pa-signer-deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_PRIVATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: signer-key
+                key: key.pem
+      - template: c2pa-signer-service.yaml
+        equal:
+          path: spec.type
+          value: ClusterIP
+      - template: c2pa-signer-service.yaml
+        notExists:
+          path: spec.ports[0].nodePort
+      - template: c2pa-signer-networkpolicy.yaml
+        equal:
+          path: spec.policyTypes
+          value:
+            - Ingress
+            - Egress
+      - template: c2pa-signer-networkpolicy.yaml
+        equal:
+          path: spec.egress
+          value: []
+      - template: c2pa-signer-networkpolicy.yaml
+        equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: synaplan
+            app.kubernetes.io/instance: RELEASE-NAME

@@ -376,6 +376,36 @@ models:
     vectorize: ""
     analyze: ""
 
+# Content credentials sidecar. It signs generated images, audio and video.
+# Off by default: C2PA_SIGNER_URL stays empty and nothing is deployed. The
+# chart does not create a key, does not publish a host port, and does not
+# add an Ingress. No signer image is published yet.
+c2paSigner:
+  # -- Deploy the signer and point C2PA_SIGNER_URL at it
+  enabled: false
+  # -- Image reference, tag included. Enabling with an empty image fails the render.
+  image: ""
+  # -- Pull policy for c2paSigner.image
+  pullPolicy: IfNotPresent
+  # -- Container port. The Service is ClusterIP.
+  port: 8787
+  # -- Name of an existing Secret. The key material is the data key key.pem.
+  keySecretRef: ""
+  # -- Name of an existing Secret. The certificate is the data key cert.pem.
+  certSecretRef: ""
+  # -- C2PA_ALG. ps256 for an RSA key, es256 for an EC key.
+  alg: ps256
+  # -- The signer binary is linux amd64 only
+  nodeSelector:
+    kubernetes.io/arch: amd64
+  tolerations: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+
 # -- TTS (text-to-speech) sub-deployment using Piper voices
 tts:
   enabled: false

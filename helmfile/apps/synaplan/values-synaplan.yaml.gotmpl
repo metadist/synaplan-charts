@@ -130,6 +130,11 @@ office:
   convertUrl: {{ . | quote }}
 {{- end }}
 
+{{- with $t.c2paSigner }}
+c2paSigner:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+
 tts:
   {{- toYaml $t.tts | nindent 2 }}
 
