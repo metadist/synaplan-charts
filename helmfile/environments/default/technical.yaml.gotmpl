@@ -61,6 +61,13 @@ technical:
       # scopes, roleClaims, roleMapping, providerLabel, bearerAudience and
       # accessPolicy are passed to the chart's oidc values as they are
       accessPolicy: {}
+    # Content credentials sidecar. Off until an image is published and a
+    # key Secret exists. The chart does not create the key.
+    c2paSigner:
+      enabled: false
+      image: ""
+      keySecretRef: ""
+      certSecretRef: ""
     # Passed to the chart's tts values
     tts:
       enabled: true

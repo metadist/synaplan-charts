@@ -1,0 +1,31 @@
+# Renders the signer so kubeconform sees the Deployment, Service and NetworkPolicy.
+
+persistence:
+  enabled: true
+
+appSecret: lint
+
+database:
+  password: lint
+
+image:
+  repository: ghcr.io/metadist/synaplan
+  tag: latest
+
+c2paSigner:
+  enabled: true
+  image: ghcr.io/example/synaplan-c2pa-signer:1
+  keySecretRef: signer-key
+  certSecretRef: signer-cert
+
+env:
+  - name: APP_URL
+    value: "http://localhost"
+  - name: DB_HOST
+    value: "mariadb"
+  - name: DB_NAME
+    value: "synaplan"
+  - name: DB_USER
+    value: "synaplan"
+  - name: DB_PASSWORD
+    value: "password"

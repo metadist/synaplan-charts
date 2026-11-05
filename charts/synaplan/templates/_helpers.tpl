@@ -255,14 +255,20 @@ role deployments add SYNAPLAN_ROLE on top.
 - name: SYNAPLAN_TTS_URL
   value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
 {{- end }}
+# Content credentials. Empty unless c2paSigner.enabled deploys the sidecar.
+{{- if .Values.c2paSigner.enabled }}
+{{- include "synaplan.c2paSigner.validate" . }}
+{{- end }}
+- name: C2PA_SIGNER_URL
+  value: {{ ternary (printf "http://%s:%d" (include "synaplan.c2paSigner.fullname" .) (int .Values.c2paSigner.port)) "" .Values.c2paSigner.enabled | quote }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list "TIKA_BASE_URL" }}
+{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from tika.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which the chart already emits from tika.*, c2paSigner.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply)." .name) }}
 {{- end }}
 {{- end }}
 {{- $switchEnv }}
@@ -657,6 +663,39 @@ initContainers:
 
 {{- define "synaplan.synascriber.name" -}}
 {{- printf "%s-synascriber" (include "synaplan.fullname" .) }}
+{{- end }}
+
+{{- define "synaplan.c2paSigner.name" -}}
+{{- printf "%s-c2pa-signer" (include "synaplan.name" . | trunc 51 | trimSuffix "-") }}
+{{- end }}
+
+{{- define "synaplan.c2paSigner.fullname" -}}
+{{- printf "%s-c2pa-signer" (include "synaplan.fullname" . | trunc 51 | trimSuffix "-") }}
+{{- end }}
+
+{{- define "synaplan.c2paSigner.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "synaplan.c2paSigner.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Validate c2paSigner.* values when c2paSigner.enabled is true.
+*/}}
+{{- define "synaplan.c2paSigner.validate" -}}
+{{- if not (.Values.c2paSigner.image | default "" | toString | trim) }}
+{{- fail "c2paSigner.enabled needs c2paSigner.image. No signer image is published yet." }}
+{{- end }}
+{{- if or (not (.Values.c2paSigner.keySecretRef | default "" | toString | trim)) (not (.Values.c2paSigner.certSecretRef | default "" | toString | trim)) }}
+{{- fail "c2paSigner.enabled needs keySecretRef and certSecretRef. The chart does not create a key." }}
+{{- end }}
+{{- $alg := .Values.c2paSigner.alg | default "ps256" | toString | trim | lower }}
+{{- if not (has $alg (list "es256" "ps256" "ps384" "ps512" "ed25519")) }}
+{{- fail "c2paSigner.alg must be es256, ps256, ps384, ps512 or ed25519" }}
+{{- end }}
+{{- $port := int (.Values.c2paSigner.port | default 0) }}
+{{- if or (lt $port 1) (gt $port 65535) }}
+{{- fail (printf "c2paSigner.port must be between 1 and 65535, got %v" .Values.c2paSigner.port) }}
+{{- end }}
 {{- end }}
 
 {{/*

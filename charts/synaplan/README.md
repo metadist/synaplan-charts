@@ -98,7 +98,8 @@ office:
 
 Neighbour services are switched on by their URL and off by leaving it empty:
 `ollama.baseUrl`, `triton.url`, `qdrant.url`, `office.convertUrl`,
-`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`.
+`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`,
+`c2paSigner.enabled`.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`
@@ -112,6 +113,43 @@ Any other flag the application pins from the environment goes into
 `featurePins`, keyed by its BCONFIG name (`COMPUTE.EGRESS_ENABLED`,
 `MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
 `FEATURE_*` variable the same way the application does.
+
+### Content credentials
+
+`c2paSigner.enabled` deploys a sidecar that signs generated images, audio and
+video. It stays off until you set an image and the Secret name(s) for the
+private key and certificate. The chart does not create a key, does not publish
+a host port, and does not add an Ingress. No signer image is published yet.
+
+The key Secret's data key is `key.pem`. The certificate Secret's data key is
+`cert.pem` (`keySecretRef` and `certSecretRef` may point to the same Secret or
+two separate Secrets). Both are passed to the sidecar as `C2PA_PRIVATE_KEY`
+and `C2PA_SIGN_CERT`. They are not written into the manifest and they are not
+given to the Synaplan container. The process runs as uid 65532. A
+NetworkPolicy allows only the Synaplan web, worker and scheduler pods to
+connect, and the sidecar has no egress. The binary in the image is linux
+amd64, so the pod selects `kubernetes.io/os: linux` and
+`kubernetes.io/arch: amd64`.
+
+`C2PA_SIGNER_URL` is empty while the signer is off. Do not set it in `env`.
+
+```bash
+kubectl create secret generic c2pa-signer \
+  --from-file=key.pem=/path/to/key.pem \
+  --from-file=cert.pem=/path/to/cert.pem
+```
+
+```yaml
+c2paSigner:
+  enabled: true
+  image: ghcr.io/example/synaplan-c2pa-signer:1.0.0
+  keySecretRef: c2pa-signer
+  certSecretRef: c2pa-signer
+  alg: ps256
+```
+
+Use `alg: es256` for an EC key. The sidecar must read the key from those two
+environment variables and must not require a writable key file.
 
 Identity needs no clicks either: `oidc.accessPolicy` (synaplan >= 5.3.1)
 decides who may use the instance at all (organization, roles, permissions,
@@ -263,6 +301,18 @@ openDesk, is the [Helmfile](../../helmfile/).
 | bootstrapAdmin.forcePasswordChange | bool | `nil` | BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default. |
 | bootstrapAdmin.password | string | `""` | Password of the first administrator, kept in the Secret <fullname>-credentials. Written once: Synaplan creates the administrator only while it has none, so a later value does not change it. |
 | bootstrapAdmin.secretRef | string | `""` | Name of an existing Secret with keys email and password (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off. |
+| c2paSigner.alg | string | `"ps256"` | C2PA_ALG. ps256 for an RSA key, es256 for an EC key. |
+| c2paSigner.certSecretRef | string | `""` | Name of an existing Secret. The certificate is the data key cert.pem. May be the same Secret as keySecretRef. |
+| c2paSigner.enabled | bool | `false` | Deploy the signer and point C2PA_SIGNER_URL at it |
+| c2paSigner.image | string | `""` | Image reference, tag included. Enabling with an empty image fails the render. |
+| c2paSigner.keySecretRef | string | `""` | Name of an existing Secret. The key material is the data key key.pem. May be the same Secret as certSecretRef. |
+| c2paSigner.nodeSelector | object | `{"kubernetes.io/arch":"amd64","kubernetes.io/os":"linux"}` | The signer binary is linux amd64 only |
+| c2paSigner.port | int | `8787` | Container port. The Service is ClusterIP. |
+| c2paSigner.pullPolicy | string | `"IfNotPresent"` | Pull policy for c2paSigner.image |
+| c2paSigner.resources.limits.memory | string | `"1Gi"` |  |
+| c2paSigner.resources.requests.cpu | string | `"50m"` |  |
+| c2paSigner.resources.requests.memory | string | `"128Mi"` |  |
+| c2paSigner.tolerations | list | `[]` |  |
 | compute.tokenSecretRef | string | `""` | Name of an existing Secret holding the token under key compute-token. |
 | compute.url | string | `""` | Compute sidecar URL. Empty = off. |
 | customRootCA.crt | string | `""` | Option 1: inline PEM certificate (the chart creates a Secret from it) |

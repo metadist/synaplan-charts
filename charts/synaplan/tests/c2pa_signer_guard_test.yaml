@@ -1,0 +1,51 @@
+suite: c2pa signer guards
+templates:
+  - c2pa-signer-deployment.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: refuses to enable the signer without an image
+    set:
+      c2paSigner:
+        enabled: true
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+    asserts:
+      - failedTemplate:
+          errorPattern: "needs c2paSigner.image"
+
+  - it: refuses to enable the signer without the key secret
+    set:
+      c2paSigner:
+        enabled: true
+        image: ghcr.io/example/synaplan-c2pa-signer:1
+        certSecretRef: signer-cert
+    asserts:
+      - failedTemplate:
+          errorPattern: "does not create a key"
+
+  - it: refuses an unknown signature algorithm
+    set:
+      c2paSigner:
+        enabled: true
+        image: ghcr.io/example/synaplan-c2pa-signer:1
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+        alg: none
+    asserts:
+      - failedTemplate:
+          errorPattern: "c2paSigner.alg must be"
+
+  - it: refuses an invalid port
+    set:
+      c2paSigner:
+        enabled: true
+        image: ghcr.io/example/synaplan-c2pa-signer:1
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+        port: 70000
+    asserts:
+      - failedTemplate:
+          errorPattern: "c2paSigner.port must be between 1 and 65535"
