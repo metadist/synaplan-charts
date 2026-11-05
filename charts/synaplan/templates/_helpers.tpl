@@ -255,14 +255,23 @@ role deployments add SYNAPLAN_ROLE on top.
 - name: SYNAPLAN_TTS_URL
   value: "http://{{ include "synaplan.fullname" . }}-tts:{{ .Values.tts.port }}"
 {{- end }}
-# Content credentials. Empty unless c2paSigner.enabled deploys the sidecar.
+# Content credentials. Empty unless c2paSigner.enabled starts the in-process signer.
 {{- if .Values.c2paSigner.enabled }}
 {{- include "synaplan.c2paSigner.validate" . }}
 {{- end }}
 - name: C2PA_SIGNER_URL
-  value: {{ ternary (printf "http://%s:%d" (include "synaplan.c2paSigner.fullname" .) (int .Values.c2paSigner.port)) "" .Values.c2paSigner.enabled | quote }}
+  value: {{ if .Values.c2paSigner.enabled }}{{ printf "http://127.0.0.1:%d" (int .Values.c2paSigner.port) | quote }}{{ else }}""{{ end }}
+{{- if .Values.c2paSigner.enabled }}
+- name: C2PA_SIGNER_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "synaplan.c2paSigner.tokenSecretName" . | quote }}
+      key: token
+- name: C2PA_ALG
+  value: {{ .Values.c2paSigner.alg | default "ps256" | toString | trim | lower | quote }}
+{{- end }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" }}
+{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" "C2PA_SIGNER_TOKEN" "C2PA_ALG" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
@@ -614,6 +623,11 @@ volumeMounts shared by every synaplan role (uploads, custom CA, init-scripts)
 - name: init-scripts
   mountPath: /docker-entrypoint.d
   readOnly: true
+{{- if and .Values.c2paSigner.enabled (not (contains "synascriber-registration" .Template.Name)) }}
+- name: c2pa-certs
+  mountPath: /certs
+  readOnly: true
+{{- end }}
 {{- with .Values.volumeMounts }}
 {{- toYaml . | nindent 0 }}
 {{- end }}
@@ -645,19 +659,66 @@ worker/scheduler pods the role-neutral aux subset.
   configMap:
     name: {{ .initScripts }}
     defaultMode: 0755
+{{- if and $ctx.Values.c2paSigner.enabled .certs }}
+- name: c2pa-certs
+  emptyDir: {}
+- name: c2pa-key
+  secret:
+    secretName: {{ $ctx.Values.c2paSigner.keySecretRef | trim | quote }}
+    items:
+      - key: key.pem
+        path: key.pem
+- name: c2pa-cert
+  secret:
+    secretName: {{ $ctx.Values.c2paSigner.certSecretRef | trim | quote }}
+    items:
+      - key: cert.pem
+        path: cert.pem
+{{- end }}
 {{- with $ctx.Values.volumes }}
 {{- toYaml . | nindent 0 }}
 {{- end }}
 {{- end }}
 
 {{/*
-initContainers of every synaplan role (additionalInitContainers). Renders
-nothing when there are none.
+initContainers of every synaplan role. One initContainers key for operator
+inits and, on web/worker/scheduler, the content-credentials cert copy.
+Renders nothing when there are none.
 */}}
 {{- define "synaplan.initContainers" -}}
-{{- with .Values.additionalInitContainers }}
+{{- $c2pa := and .Values.c2paSigner.enabled (not (contains "synascriber-registration" .Template.Name)) }}
+{{- if or .Values.additionalInitContainers $c2pa }}
 initContainers:
+{{- with .Values.additionalInitContainers }}
   {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- if $c2pa }}
+  - name: c2pa-certs
+    image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+    imagePullPolicy: {{ .Values.image.pullPolicy }}
+    command: ["/bin/sh", "-c"]
+    args:
+      - |
+        set -eu
+        cp /c2pa-key/key.pem /certs/key.pem
+        cp /c2pa-cert/cert.pem /certs/cert.pem
+        chown 65532:65532 /certs/key.pem /certs/cert.pem
+        chmod 0400 /certs/key.pem /certs/cert.pem
+    securityContext:
+      runAsUser: 0
+      runAsNonRoot: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+    volumeMounts:
+      - name: c2pa-key
+        mountPath: /c2pa-key
+        readOnly: true
+      - name: c2pa-cert
+        mountPath: /c2pa-cert
+        readOnly: true
+      - name: c2pa-certs
+        mountPath: /certs
+{{- end }}
 {{- end }}
 {{- end }}
 
@@ -665,26 +726,32 @@ initContainers:
 {{- printf "%s-synascriber" (include "synaplan.fullname" .) }}
 {{- end }}
 
-{{- define "synaplan.c2paSigner.name" -}}
-{{- printf "%s-c2pa-signer" (include "synaplan.name" . | trunc 51 | trimSuffix "-") }}
+{{- define "synaplan.c2paSigner.tokenSecretName" -}}
+{{- if .Values.c2paSigner.tokenSecretRef | default "" | toString | trim }}
+{{- .Values.c2paSigner.tokenSecretRef | toString | trim }}
+{{- else }}
+{{- printf "%s-c2pa-token" (include "synaplan.fullname" .) }}
+{{- end }}
 {{- end }}
 
-{{- define "synaplan.c2paSigner.fullname" -}}
-{{- printf "%s-c2pa-signer" (include "synaplan.fullname" . | trunc 51 | trimSuffix "-") }}
+{{/*
+Bearer token. Reuse the Secret already in the cluster so an upgrade does not
+rotate it. A first install gets a new random value. Never a committed token.
+*/}}
+{{- define "synaplan.c2paSigner.token" -}}
+{{- $name := printf "%s-c2pa-token" (include "synaplan.fullname" .) }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $name }}
+{{- if and $existing (hasKey $existing.data "token") }}
+{{- index $existing.data "token" | b64dec }}
+{{- else }}
+{{- randAlphaNum 48 }}
 {{- end }}
-
-{{- define "synaplan.c2paSigner.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "synaplan.c2paSigner.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Validate c2paSigner.* values when c2paSigner.enabled is true.
 */}}
 {{- define "synaplan.c2paSigner.validate" -}}
-{{- if not (.Values.c2paSigner.image | default "" | toString | trim) }}
-{{- fail "c2paSigner.enabled needs c2paSigner.image. No signer image is published yet." }}
-{{- end }}
 {{- if or (not (.Values.c2paSigner.keySecretRef | default "" | toString | trim)) (not (.Values.c2paSigner.certSecretRef | default "" | toString | trim)) }}
 {{- fail "c2paSigner.enabled needs keySecretRef and certSecretRef. The chart does not create a key." }}
 {{- end }}

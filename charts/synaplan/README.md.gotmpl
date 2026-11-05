@@ -115,22 +115,22 @@ Any other flag the application pins from the environment goes into
 
 ### Content credentials
 
-`c2paSigner.enabled` deploys a sidecar that signs generated images, audio and
-video. It stays off until you set an image and the Secret name(s) for the
-private key and certificate. The chart does not create a key, does not publish
-a host port, and does not add an Ingress. No signer image is published yet.
+`c2paSigner.enabled` turns on the signer that already ships in the Synaplan
+image. It listens on `127.0.0.1` inside the web, worker and scheduler pods.
+There is no second Deployment, no Service, no host port and no Ingress.
 
-The key Secret's data key is `key.pem`. The certificate Secret's data key is
-`cert.pem` (`keySecretRef` and `certSecretRef` may point to the same Secret or
-two separate Secrets). Both are passed to the sidecar as `C2PA_PRIVATE_KEY`
-and `C2PA_SIGN_CERT`. They are not written into the manifest and they are not
-given to the Synaplan container. The process runs as uid 65532. A
-NetworkPolicy allows only the Synaplan web, worker and scheduler pods to
-connect, and the sidecar has no egress. The binary in the image is linux
-amd64, so the pod selects `kubernetes.io/os: linux` and
-`kubernetes.io/arch: amd64`.
+The chart does not create a signing key. Create a Secret whose data keys are
+`key.pem` and `cert.pem`. An init container copies them to `/certs`, mode
+`0400`, owner uid 65532. The website user cannot read them. They are not
+environment variables.
 
-`C2PA_SIGNER_URL` is empty while the signer is off. Do not set it in `env`.
+The binary is linux amd64 only. An arm64 pod does not sign. PNG and JPEG
+still get the XMP note.
+
+`C2PA_SIGNER_URL`, `C2PA_SIGNER_TOKEN` and `C2PA_ALG` are empty or unset
+while the signer is off. Do not set them in `env`. Leave `tokenSecretRef`
+empty to let the chart create the bearer token and keep it across upgrades.
+The init container runs as root so it can change the owner of the key file.
 
 ```bash
 kubectl create secret generic c2pa-signer \
@@ -141,14 +141,13 @@ kubectl create secret generic c2pa-signer \
 ```yaml
 c2paSigner:
   enabled: true
-  image: ghcr.io/example/synaplan-c2pa-signer:1.0.0
   keySecretRef: c2pa-signer
   certSecretRef: c2pa-signer
   alg: ps256
 ```
 
-Use `alg: es256` for an EC key. The sidecar must read the key from those two
-environment variables and must not require a writable key file.
+Use `alg: es256` for an EC key. A development certificate is not a public
+trust anchor. Mount a real key before turning this on for a public site.
 
 Identity needs no clicks either: `oidc.accessPolicy` (synaplan >= 5.3.1)
 decides who may use the instance at all (organization, roles, permissions,
