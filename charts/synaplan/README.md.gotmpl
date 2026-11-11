@@ -149,17 +149,89 @@ c2paSigner:
 Use `alg: es256` for an EC key. A development certificate is not a public
 trust anchor. Mount a real key before turning this on for a public site.
 
-Identity needs no clicks either: `oidc.accessPolicy` (synaplan >= 5.3.1)
-decides who may use the instance at all (organization, roles, permissions,
-and whether a first SSO sign-in creates an account),
-`oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who becomes
-administrator on login,
-`features.setupWizard: false` skips the first-run page on SSO-only installs, and
-`bootstrapAdmin.secretRef` creates a first local administrator where local
-accounts are used.
+### Identity and sign-up
+
+Who can create an account is covered in
+[docs/IDENTITY.md](https://github.com/metadist/synaplan/blob/main/docs/IDENTITY.md).
+A switch here closes account creation. Someone who already has an account
+still signs in. Directory accounts (OIDC) follow `oidc.accessPolicy` only;
+`features.registration` does not stop a first SSO sign-in.
+
+`features.registration: false` closes local self-sign-up, and on `synaplan` >= 5.7.2
+every self-sign-up door (email, Google, GitHub, Apple and the integration
+wizards), including invitation codes; combining `features.registration: false`
+with `social.*` fails the render on older semver tags. `signup.*` and
+`humanCheck.*` need `synaplan` >= 5.6.0. `signup.mode: admission` requires a
+plan or an invitation code — set it only when one of those exists. Leave
+`signup.paused` `null` so Admin can pause without a new release; `true` pauses
+self-sign-up with HTTP 503 (in `admission` mode a valid invitation code still
+opens an account).
+
+`trustedProxies` is the address or dedicated subnet of the ingress that
+connects to Synaplan (comma-separated string or YAML list, for example
+`"10.0.0.8"` or `["10.0.0.8", "10.0.0.9"]`). Leave it empty and every visitor
+shares that ingress address, so the per-address sign-up limit is one limit for
+the whole site. The chart refuses `*`, `REMOTE_ADDR`, `PRIVATE_SUBNETS`,
+`private_ranges`, `0.0.0.0/0` and wide private or pod networks (`10.0.0.0/8`,
+`172.16.0.0/12`, `192.168.0.0/16`, `/16` pod CIDRs): any pod in a trusted range
+can choose the client address. `trustedHeaders` defaults to `x-forwarded-for`
+and refuses `forwarded`. `CF-Connecting-IP` counts (`synaplan` >= 5.7.2) only
+when the connecting hop is a Cloudflare address you listed.
+
+Turnstile (`humanCheck`) and the Google, GitHub and Apple secrets are never
+written into the pod spec. A value in `secretKey` / `clientSecret` /
+`privateKey` is stored in `<fullname>-credentials` and kept across upgrades.
+`secretRef` / `clientSecretRef` / `privateKeyRef` name an existing Kubernetes
+Secret (one Secret may hold all of them); the keys inside it are
+`turnstile-secret-key`, `google-client-secret`, `github-client-secret` and
+`apple-private-key`. Set `publicUrl` so OAuth callback URLs are absolute. An id
+without its secret fails the render. Do not put these names in `env`.
+
+```yaml
+# Public install. Admission only when codes or Stripe exist.
+publicUrl: "https://synaplan.example.com"
+signup:
+  mode: open
+  ipLimit: 5
+  globalLimit: 20
+trustedProxies: "10.0.0.8"
+humanCheck:
+  siteKey: "<widget site key>"
+  secretRef: synaplan-identity
+social:
+  google:
+    clientId: "<client id>.apps.googleusercontent.com"
+    clientSecretRef: synaplan-identity
+```
+
+```yaml
+# SSO only. Existing local accounts still sign in. The directory is OIDC.
+publicUrl: "https://synaplan.example.com"
+features:
+  registration: false
+  guestChat: false
+  setupWizard: false
+trustedProxies: "10.0.0.8"
+oidc:
+  enabled: true
+  accessPolicy:
+    allowUserProvisioning: true
+```
+
+```bash
+kubectl create secret generic synaplan-identity \
+  --from-literal=turnstile-secret-key=<widget secret> \
+  --from-literal=google-client-secret=<google client secret>
+```
+
+`oidc.accessPolicy` (synaplan >= 5.3.1) decides who may use the instance at
+all, `oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who
+becomes administrator on login, and `bootstrapAdmin.secretRef` creates a
+first local administrator where local accounts are used.
 
 Every other environment variable the application reads can be set through
-`env` (use `valueFrom.secretKeyRef` for secrets).
+`env` (use `valueFrom.secretKeyRef` for secrets). The names this chart owns
+are refused there.
 
 ### Admin settings (synaplan >= 5.1.0)
 

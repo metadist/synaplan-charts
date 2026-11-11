@@ -78,6 +78,13 @@ technical:
             subfolder: "de/de_DE/thorsten/medium"
     features: {}
     featurePins: {}
+    # Ingress hop(s) connecting to Synaplan (string or list), sign-up policy,
+    # Cloudflare Turnstile and social sign-in: passed to the chart as they are.
+    trustedProxies: ""
+    trustedHeaders: ""
+    signup: {}
+    humanCheck: {}
+    social: {}
   # "gpu" or "cpu"
   triton:
     mode: "gpu"

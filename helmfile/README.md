@@ -251,7 +251,10 @@ against the values in the cluster.
 | `technical.synaplan.oidc.enabled: true` (default) | an OIDC provider, e.g. Keycloak |
 
 `technical.synaplan.bootstrapAdmin.email` creates the first administrator, a
-local account (see [Standalone](#standalone)).
+local account (see [Standalone](#standalone)). `trustedProxies`,
+`trustedHeaders`, `signup`, `humanCheck` and `social` under
+`technical.synaplan` go to the chart's identity values as they are (see
+[Identity and sign-up](../charts/synaplan/README.md#identity-and-sign-up)).
 
 With OIDC, the issuer is
 `https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>`

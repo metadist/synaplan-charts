@@ -1,0 +1,560 @@
+suite: identity
+templates:
+  - deployment.yaml
+  - credentials-secret.yaml
+  - init-scripts-configmap.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: leaves sign-up at the application default
+    template: deployment.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REGISTRATION_MODE
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SIGNUP_IP_LIMIT
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SIGNUP_PAUSED
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TURNSTILE_SECRET_KEY
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_PROXIES
+
+  - it: emits an open public install and keeps the Turnstile secret out of the pod
+    template: deployment.yaml
+    set:
+      signup:
+        mode: open
+        ipLimit: 5
+        globalLimit: 20
+      trustedProxies: "10.0.0.8, 10.0.0.9"
+      humanCheck:
+        siteKey: 0xpublic
+        secretKey: turnstile-secret-value
+      social:
+        google:
+          clientId: google-client
+          clientSecret: google-secret-value
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REGISTRATION_MODE
+            value: open
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SIGNUP_IP_LIMIT
+            value: "5"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SIGNUP_GLOBAL_LIMIT
+            value: "20"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_PROXIES
+            value: 10.0.0.8,10.0.0.9
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_HEADERS
+            value: x-forwarded-for
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TURNSTILE_SITE_KEY
+            value: 0xpublic
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TURNSTILE_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-synaplan-credentials
+                key: turnstile-secret-key
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GOOGLE_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-synaplan-credentials
+                key: google-client-secret
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            value: turnstile-secret-value
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            value: google-secret-value
+
+  - it: stores inline secrets in the credentials Secret
+    template: credentials-secret.yaml
+    set:
+      humanCheck:
+        siteKey: 0xpublic
+        secretKey: turnstile-secret-value
+      social:
+        github:
+          clientId: github-client
+          clientSecret: github-secret-value
+        apple:
+          clientId: com.example.web
+          teamId: TEAMID1234
+          keyId: KEYID12345
+          privateKey: |
+            -----BEGIN PRIVATE KEY-----
+            line
+            -----END PRIVATE KEY-----
+    asserts:
+      - equal:
+          path: stringData.turnstile-secret-key
+          value: turnstile-secret-value
+      - equal:
+          path: stringData.github-client-secret
+          value: github-secret-value
+      - matchRegex:
+          path: stringData.apple-private-key
+          pattern: "BEGIN PRIVATE KEY"
+
+  - it: reads a Turnstile secret from an existing Secret
+    template: deployment.yaml
+    set:
+      humanCheck:
+        siteKey: 0xpublic
+        secretRef: turnstile-keys
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TURNSTILE_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: turnstile-keys
+                key: turnstile-secret-key
+
+  - it: leaves a referenced Turnstile secret out of the credentials Secret
+    template: credentials-secret.yaml
+    set:
+      humanCheck:
+        siteKey: 0xpublic
+        secretRef: turnstile-keys
+    asserts:
+      - notExists:
+          path: stringData.turnstile-secret-key
+
+  - it: pins registration off without a mode and still trusts only the named ingress
+    template: deployment.yaml
+    set:
+      features:
+        registration: false
+        guestChat: false
+        setupWizard: false
+      trustedProxies: 10.0.0.8
+      oidc:
+        enabled: true
+        issuerURI: https://idp.example.test/realms/synaplan
+        clientId: synaplan
+        clientSecret: lint
+        accessPolicy:
+          allowUserProvisioning: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REGISTRATION_ENABLED
+            value: "false"
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REGISTRATION_MODE
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_ALLOW_USER_PROVISIONING
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_PROXIES
+            value: 10.0.0.8
+
+  - it: accepts a tight ingress range and an explicit forwarding header
+    template: deployment.yaml
+    set:
+      trustedProxies: 10.0.0.0/24
+      trustedHeaders: "X-Forwarded-For, X-Forwarded-Proto"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_PROXIES
+            value: 10.0.0.0/24
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_HEADERS
+            value: x-forwarded-for,x-forwarded-proto
+
+  - it: emits admission and a pause
+    template: deployment.yaml
+    set:
+      signup:
+        mode: admission
+        paused: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REGISTRATION_MODE
+            value: admission
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SIGNUP_PAUSED
+            value: "true"
+
+  - it: refuses a mode the application does not have
+    template: deployment.yaml
+    set:
+      signup:
+        mode: closed
+    asserts:
+      - failedTemplate:
+          errorMessage: "signup.mode must be open, admission, or empty. admission needs invitation codes or Stripe; with neither, nobody can create an account."
+
+  - it: refuses a sign-up limit of zero
+    template: deployment.yaml
+    set:
+      signup:
+        ipLimit: 0
+    asserts:
+      - failedTemplate:
+          errorMessage: "signup.ipLimit must be an integer from 1 to 10000, or null for the application default."
+
+  - it: refuses trusting every private address
+    template: deployment.yaml
+    set:
+      trustedProxies: 10.0.0.0/8
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustedProxies refuses 10.0.0.0/8"
+
+  - it: refuses the Symfony private-subnets shortcut
+    template: deployment.yaml
+    set:
+      trustedProxies: PRIVATE_SUBNETS
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustedProxies refuses private_subnets"
+
+  - it: refuses trusting the whole internet
+    template: deployment.yaml
+    set:
+      trustedProxies: 0.0.0.0/0
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustedProxies refuses 0.0.0.0/0"
+
+  - it: refuses forwarding headers without a named hop
+    template: deployment.yaml
+    set:
+      trustedHeaders: x-forwarded-for
+    asserts:
+      - failedTemplate:
+          errorMessage: "trustedHeaders does nothing without trustedProxies. Name the ingress that connects to Synaplan, or leave both empty."
+
+  - it: refuses a header list that never carries the client address
+    template: deployment.yaml
+    set:
+      trustedProxies: 10.0.0.8
+      trustedHeaders: x-forwarded-proto
+    asserts:
+      - failedTemplate:
+          errorMessage: "trustedHeaders must include x-forwarded-for. Without it every visitor shares the ingress address."
+
+  - it: refuses RFC 7239 forwarded header because the in-pod proxy writes X-Forwarded-For
+    template: deployment.yaml
+    set:
+      trustedProxies: 10.0.0.8
+      trustedHeaders: forwarded
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustedHeaders refuses forwarded"
+
+  - it: accepts YAML lists and Cloudflare ranges in trustedProxies and trustedHeaders
+    template: deployment.yaml
+    set:
+      trustedProxies:
+        - 10.0.0.8
+        - 104.16.0.0/13
+        - 2a06:98c0::/29
+      trustedHeaders:
+        - X-Forwarded-For
+        - X-Forwarded-Proto
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_PROXIES
+            value: 10.0.0.8,104.16.0.0/13,2a06:98c0::/29
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_HEADERS
+            value: x-forwarded-for,x-forwarded-proto
+
+  - it: refuses Symfony REMOTE_ADDR and private_ranges shortcuts
+    template: deployment.yaml
+    set:
+      trustedProxies: REMOTE_ADDR
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustedProxies refuses remote_addr"
+
+  - it: refuses private_ranges shortcut
+    template: deployment.yaml
+    set:
+      trustedProxies: private_ranges
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustedProxies refuses private_ranges"
+
+  - it: refuses non-zero host bits on a broad range and /16 pod CIDRs
+    template: deployment.yaml
+    set:
+      trustedProxies: 10.244.0.0/16
+    asserts:
+      - failedTemplate:
+          errorPattern: "trustedProxies refuses 10.244.0.0/16"
+
+  - it: refuses non-IP hostnames in trustedProxies
+    template: deployment.yaml
+    set:
+      trustedProxies: ingress-nginx.ingress.svc
+    asserts:
+      - failedTemplate:
+          errorPattern: "expected an IP address or CIDR"
+
+  - it: refuses IPv4-mapped IPv6 bypasses in trustedProxies
+    template: deployment.yaml
+    set:
+      trustedProxies: "::ffff:10.0.0.8"
+    asserts:
+      - failedTemplate:
+          errorPattern: "IPv4-mapped IPv6"
+
+  - it: keeps existing Turnstile and OAuth secrets in the credentials Secret across upgrades
+    templates:
+      - credentials-secret.yaml
+      - deployment.yaml
+    set:
+      humanCheck:
+        siteKey: 0xpublic
+      social:
+        google:
+          clientId: google-client
+    kubernetesProvider:
+      scheme:
+        "v1/Secret":
+          gvr:
+            version: "v1"
+            resource: "secrets"
+          namespaced: true
+      objects:
+        - kind: Secret
+          apiVersion: v1
+          metadata:
+            name: RELEASE-NAME-synaplan-credentials
+            namespace: NAMESPACE
+          data:
+            turnstile-secret-key: a2VwdC10dXJuc3RpbGU=
+            google-client-secret: a2VwdC1nb29nbGU=
+    asserts:
+      - equal:
+          path: stringData.turnstile-secret-key
+          value: kept-turnstile
+        template: credentials-secret.yaml
+      - equal:
+          path: stringData.google-client-secret
+          value: kept-google
+        template: credentials-secret.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TURNSTILE_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-synaplan-credentials
+                key: turnstile-secret-key
+        template: deployment.yaml
+
+  - it: refuses unknown keys such as signup.pause
+    template: deployment.yaml
+    set:
+      signup:
+        pause: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "signup.pause is not a known key"
+
+  - it: refuses a raw secret pasted into secretRef
+    template: deployment.yaml
+    set:
+      social:
+        google:
+          clientId: google-client
+          clientSecretRef: GOCSPX_raw_secret_value
+    asserts:
+      - failedTemplate:
+          errorPattern: "social.google.clientSecretRef must be a Kubernetes Secret name"
+
+  - it: refuses signup.* on Synaplan older than 5.6.0
+    template: deployment.yaml
+    set:
+      image:
+        tag: 5.5.4
+      signup:
+        paused: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "signup.\\* needs synaplan >= 5.6.0"
+
+  - it: refuses humanCheck.* on Synaplan older than 5.6.0
+    template: deployment.yaml
+    set:
+      image:
+        tag: 5.5.4
+      humanCheck:
+        siteKey: 0xpublic
+        secretRef: turnstile-keys
+    asserts:
+      - failedTemplate:
+          errorPattern: "humanCheck.\\* needs synaplan >= 5.6.0"
+
+  - it: refuses features.registration false with social.* on Synaplan older than 5.7.2
+    template: deployment.yaml
+    set:
+      image:
+        tag: 5.6.2
+      features:
+        registration: false
+      social:
+        google:
+          clientId: google-client
+          clientSecretRef: google-oauth
+    asserts:
+      - failedTemplate:
+          errorPattern: "features.registration: false together with social.\\* needs synaplan >= 5.7.2"
+
+  - it: accepts features.registration false with social.* on Synaplan 5.7.2
+    template: deployment.yaml
+    set:
+      image:
+        tag: 5.7.2
+      features:
+        registration: false
+      social:
+        google:
+          clientId: google-client
+          clientSecretRef: google-oauth
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REGISTRATION_ENABLED
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GOOGLE_CLIENT_ID
+            value: google-client
+
+  - it: refuses repeating signup.mode under settings.ACCESS.REGISTRATION_MODE
+    template: deployment.yaml
+    set:
+      signup:
+        mode: admission
+      settings:
+        ACCESS.REGISTRATION_MODE: open
+    asserts:
+      - failedTemplate:
+          errorPattern: "settings.ACCESS.REGISTRATION_MODE is already pinned"
+
+  - it: refuses Turnstile with only the public key
+    template: deployment.yaml
+    set:
+      humanCheck:
+        siteKey: 0xpublic
+    asserts:
+      - failedTemplate:
+          errorPattern: "Turnstile needs the public site key and the secret together"
+
+  - it: refuses two Turnstile secrets
+    template: deployment.yaml
+    set:
+      humanCheck:
+        siteKey: 0xpublic
+        secretKey: one
+        secretRef: two
+    asserts:
+      - failedTemplate:
+          errorPattern: "both set the Turnstile secret"
+
+  - it: refuses a Google client id without its secret
+    template: deployment.yaml
+    set:
+      social:
+        google:
+          clientId: google-client
+    asserts:
+      - failedTemplate:
+          errorPattern: "Google sign-in needs the public client id and the client secret"
+
+  - it: refuses an Apple team id of the wrong length
+    template: deployment.yaml
+    set:
+      social:
+        apple:
+          clientId: com.example.web
+          teamId: SHORT
+          keyId: KEYID12345
+          privateKeyRef: apple-oauth
+    asserts:
+      - failedTemplate:
+          errorMessage: "social.apple.teamId is the 10-character Apple Team ID."
+
+  - it: refuses a Turnstile secret pasted into env
+    template: deployment.yaml
+    set:
+      env:
+        - name: TURNSTILE_SECRET_KEY
+          value: pasted
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets TURNSTILE_SECRET_KEY"
+
+  - it: refuses a trusted-proxy list pasted into env
+    template: deployment.yaml
+    set:
+      env:
+        - name: SYMFONY_TRUSTED_PROXIES
+          value: 0.0.0.0/0
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets SYMFONY_TRUSTED_PROXIES"
