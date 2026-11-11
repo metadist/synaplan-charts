@@ -85,6 +85,7 @@ value given in values, else the value already in the Secret. Neither fails
 the render rather than replace a secret the release may already use.
 */}}
 {{- define "synaplan.credentials" -}}
+{{- include "synaplan.identity.validate" . -}}
 {{- $existing := (lookup "v1" "Secret" .Release.Namespace (include "synaplan.credentials.secretName" .)).data | default dict }}
 {{- $given := dict }}
 {{- if not .Values.database.passwordSecretRef }}
@@ -114,6 +115,7 @@ database-root-password: {{ . | quote }}
 {{- end }}
 admin-password: {{ $adminPassword | quote }}
 {{- end }}
+{{- include "synaplan.identity.credentialLines" . }}
 {{- end }}
 
 {{/*
@@ -125,6 +127,301 @@ Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
 {{- end -}}
 {{- .Values.redis.dsn | default (printf "redis://%s-redis:6379" (include "synaplan.fullname" .)) -}}
 {{- end }}
+
+{{/*
+Comma-separated proxy list, or a failure. Refuses a value that would let any
+pod on the cluster choose the client address.
+*/}}
+{{- define "synaplan.trustedProxies.clean" -}}
+{{- $banned := list "*" "private_subnets" "0.0.0.0/0" "::/0" "0.0.0.0" "::" "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" "fd00::/8" "fc00::/7" -}}
+{{- $hops := list -}}
+{{- range splitList "," . -}}
+{{- $raw := . | trim -}}
+{{- $hop := $raw | lower -}}
+{{- if eq $hop "" -}}
+{{- fail "trustedProxies has an empty entry. Name each hop that connects to Synaplan." -}}
+{{- end -}}
+{{- if has $hop $banned -}}
+{{- fail (printf "trustedProxies refuses %s. Name the ingress address that connects to Synaplan, for example 10.0.0.8. Trusting every private address or the whole internet lets another pod choose the client address, so one visitor can use up the sign-up limit for everyone." $hop) -}}
+{{- end -}}
+{{- $hops = append $hops $raw -}}
+{{- end -}}
+{{- join "," $hops -}}
+{{- end -}}
+
+{{/*
+Canonical SYMFONY_TRUSTED_HEADERS. The client address comes from
+x-forwarded-for or forwarded; the other names only describe the request.
+*/}}
+{{- define "synaplan.trustedHeaders.clean" -}}
+{{- $allowed := list "forwarded" "x-forwarded-for" "x-forwarded-host" "x-forwarded-proto" "x-forwarded-port" "x-forwarded-prefix" -}}
+{{- $headers := list -}}
+{{- $sawClient := false -}}
+{{- range splitList "," . -}}
+{{- $header := . | trim | lower -}}
+{{- if eq $header "" -}}
+{{- fail "trustedHeaders has an empty entry." -}}
+{{- end -}}
+{{- if not (has $header $allowed) -}}
+{{- fail (printf "trustedHeaders refuses %s. Use x-forwarded-for, and add x-forwarded-proto when the ingress terminates TLS." $header) -}}
+{{- end -}}
+{{- if or (eq $header "x-forwarded-for") (eq $header "forwarded") -}}
+{{- $sawClient = true -}}
+{{- end -}}
+{{- $headers = append $headers $header -}}
+{{- end -}}
+{{- if not $sawClient -}}
+{{- fail "trustedHeaders must include x-forwarded-for (or forwarded). Without it every visitor shares the ingress address." -}}
+{{- end -}}
+{{- join "," $headers -}}
+{{- end -}}
+
+{{/*
+Google or GitHub: the public id and the secret together, the secret from one place.
+*/}}
+{{- define "synaplan.identity.requireOAuth" -}}
+{{- $id := .id | default "" | toString | trim -}}
+{{- $secret := .secret | default "" | toString | trim -}}
+{{- $ref := .secretRef | default "" | toString | trim -}}
+{{- if and (ne $secret "") (ne $ref "") -}}
+{{- fail (printf "%s: set %s or %s, not both." .label .valueName .refName) -}}
+{{- end -}}
+{{- if or (ne $id "") (ne $secret "") (ne $ref "") -}}
+{{- if or (eq $id "") (and (eq $secret "") (eq $ref "")) -}}
+{{- fail (printf "%s needs the public client id and the client secret. Put the secret in %s (it is stored in the credentials Secret) or name an existing Secret in %s. The id alone does not turn the provider on." .label .valueName .refName) -}}
+{{- end -}}
+{{- if or (contains "\n" $id) (contains "\n" $secret) -}}
+{{- fail (printf "%s client id and client secret are each one line. A private key belongs under social.apple." .label) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+signup, trusted proxies, Turnstile and social sign-in. Empty output when every
+value is left at its default. Secrets are lines for the credentials Secret.
+*/}}
+{{- define "synaplan.identity.validate" -}}
+{{- $signup := .Values.signup | default dict -}}
+{{- if not (kindIs "map" $signup) -}}
+{{- fail "signup must be a map (mode, ipLimit, globalLimit, paused)." -}}
+{{- end -}}
+{{- $mode := $signup.mode | default "" | toString | trim -}}
+{{- if and (ne $mode "") (not (has $mode (list "open" "admission"))) -}}
+{{- fail "signup.mode must be open, admission, or empty. admission needs invitation codes or Stripe; with neither, nobody can create an account." -}}
+{{- end -}}
+{{- range $field := list "ipLimit" "globalLimit" -}}
+{{- $value := index $signup $field -}}
+{{- if not (kindIs "invalid" $value) -}}
+{{- $whole := false -}}
+{{- if or (kindIs "int" $value) (kindIs "int64" $value) -}}
+{{- $whole = true -}}
+{{- else if and (kindIs "float64" $value) (eq (float64 $value) (float64 (int $value))) -}}
+{{- $whole = true -}}
+{{- end -}}
+{{- if or (not $whole) (lt (int $value) 1) (gt (int $value) 10000) -}}
+{{- fail (printf "signup.%s must be an integer from 1 to 10000, or null for the application default." $field) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if and (not (kindIs "invalid" $signup.paused)) (not (kindIs "bool" $signup.paused)) -}}
+{{- fail "signup.paused must be true, false, or null. null leaves the pause to Admin." -}}
+{{- end -}}
+{{- $proxiesRaw := .Values.trustedProxies -}}
+{{- if not (kindIs "string" $proxiesRaw) -}}
+{{- if not (kindIs "invalid" $proxiesRaw) -}}
+{{- fail "trustedProxies is a comma-separated string, for example 10.0.0.8." -}}
+{{- end -}}
+{{- $proxiesRaw = "" -}}
+{{- else -}}
+{{- $proxiesRaw = $proxiesRaw | trim -}}
+{{- end -}}
+{{- $headersRaw := .Values.trustedHeaders -}}
+{{- if not (kindIs "string" $headersRaw) -}}
+{{- if not (kindIs "invalid" $headersRaw) -}}
+{{- fail "trustedHeaders is a comma-separated string. Empty means x-forwarded-for." -}}
+{{- end -}}
+{{- $headersRaw = "" -}}
+{{- else -}}
+{{- $headersRaw = $headersRaw | trim -}}
+{{- end -}}
+{{- if and (eq $proxiesRaw "") (ne $headersRaw "") -}}
+{{- fail "trustedHeaders does nothing without trustedProxies. Name the ingress that connects to Synaplan, or leave both empty." -}}
+{{- end -}}
+{{- if ne $proxiesRaw "" -}}
+{{- $_ := include "synaplan.trustedProxies.clean" $proxiesRaw -}}
+{{- end -}}
+{{- if ne $headersRaw "" -}}
+{{- $_ := include "synaplan.trustedHeaders.clean" $headersRaw -}}
+{{- end -}}
+{{- $check := .Values.humanCheck | default dict -}}
+{{- if not (kindIs "map" $check) -}}
+{{- fail "humanCheck must be a map (siteKey, secretKey, secretRef)." -}}
+{{- end -}}
+{{- $site := $check.siteKey | default "" | toString | trim -}}
+{{- $turnstile := $check.secretKey | default "" | toString | trim -}}
+{{- $turnstileRef := $check.secretRef | default "" | toString | trim -}}
+{{- if and (ne $turnstile "") (ne $turnstileRef "") -}}
+{{- fail "humanCheck.secretKey and humanCheck.secretRef both set the Turnstile secret. Use one. secretRef names an existing Secret and is the value to commit." -}}
+{{- end -}}
+{{- if or (ne $site "") (ne $turnstile "") (ne $turnstileRef "") -}}
+{{- if or (eq $site "") (and (eq $turnstile "") (eq $turnstileRef "")) -}}
+{{- fail "Turnstile needs the public site key and the secret together. Set humanCheck.siteKey and either humanCheck.secretKey (stored in the credentials Secret) or humanCheck.secretRef. With only one of them, sign-up fails closed." -}}
+{{- end -}}
+{{- if contains "\n" $site -}}
+{{- fail "humanCheck.siteKey is the public widget key, one line. The secret belongs in humanCheck.secretKey or humanCheck.secretRef." -}}
+{{- end -}}
+{{- end -}}
+{{- $social := .Values.social | default dict -}}
+{{- if not (kindIs "map" $social) -}}
+{{- fail "social must be a map (google, github, apple)." -}}
+{{- end -}}
+{{- $google := $social.google | default dict -}}
+{{- $github := $social.github | default dict -}}
+{{- include "synaplan.identity.requireOAuth" (dict "label" "Google sign-in" "id" $google.clientId "secret" $google.clientSecret "secretRef" $google.clientSecretRef "valueName" "social.google.clientSecret" "refName" "social.google.clientSecretRef") -}}
+{{- include "synaplan.identity.requireOAuth" (dict "label" "GitHub sign-in" "id" $github.clientId "secret" $github.clientSecret "secretRef" $github.clientSecretRef "valueName" "social.github.clientSecret" "refName" "social.github.clientSecretRef") -}}
+{{- $apple := $social.apple | default dict -}}
+{{- $appleId := $apple.clientId | default "" | toString | trim -}}
+{{- $team := $apple.teamId | default "" | toString | trim -}}
+{{- $keyId := $apple.keyId | default "" | toString | trim -}}
+{{- $privateKey := $apple.privateKey | default "" | toString | trim -}}
+{{- $privateKeyRef := $apple.privateKeyRef | default "" | toString | trim -}}
+{{- $bundle := $apple.bundleId | default "" | toString | trim -}}
+{{- if and (ne $privateKey "") (ne $privateKeyRef "") -}}
+{{- fail "social.apple.privateKey and social.apple.privateKeyRef both set the Apple private key. Use one. privateKeyRef names an existing Secret and is the value to commit." -}}
+{{- end -}}
+{{- if or (ne $appleId "") (ne $team "") (ne $keyId "") (ne $privateKey "") (ne $privateKeyRef "") (ne $bundle "") -}}
+{{- if or (eq $appleId "") (eq $team "") (eq $keyId "") (and (eq $privateKey "") (eq $privateKeyRef "")) -}}
+{{- fail "Sign in with Apple needs the Services ID (social.apple.clientId), the team id, the key id, and the private key (social.apple.privateKey or social.apple.privateKeyRef). The private key is stored in a Secret, not in the pod spec." -}}
+{{- end -}}
+{{- if not (regexMatch "^[A-Za-z0-9]{10}$" $team) -}}
+{{- fail "social.apple.teamId is the 10-character Apple Team ID." -}}
+{{- end -}}
+{{- if not (regexMatch "^[A-Za-z0-9]{10}$" $keyId) -}}
+{{- fail "social.apple.keyId is the 10-character id of the Sign in with Apple key." -}}
+{{- end -}}
+{{- if and (ne $privateKey "") (not (contains "PRIVATE KEY" $privateKey)) -}}
+{{- fail "social.apple.privateKey must be the p8 PEM, including the BEGIN PRIVATE KEY line. Prefer social.apple.privateKeyRef." -}}
+{{- end -}}
+{{- if and (ne $bundle "") (not (regexMatch "^[A-Za-z0-9][A-Za-z0-9.-]+$" $bundle)) -}}
+{{- fail "social.apple.bundleId must be a bundle id such as com.example.app, or empty for the application default." -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "synaplan.identity.credentialLines" -}}
+{{- $check := .Values.humanCheck | default dict -}}
+{{- $turnstileRef := $check.secretRef | default "" | toString | trim -}}
+{{- $turnstile := $check.secretKey | default "" | toString | trim -}}
+{{- if and (eq $turnstileRef "") (ne $turnstile "") }}
+turnstile-secret-key: {{ $turnstile | quote }}
+{{- end }}
+{{- $social := .Values.social | default dict -}}
+{{- $google := $social.google | default dict -}}
+{{- $googleRef := $google.clientSecretRef | default "" | toString | trim -}}
+{{- $googleSecret := $google.clientSecret | default "" | toString | trim -}}
+{{- if and (eq $googleRef "") (ne $googleSecret "") }}
+google-client-secret: {{ $googleSecret | quote }}
+{{- end }}
+{{- $github := $social.github | default dict -}}
+{{- $githubRef := $github.clientSecretRef | default "" | toString | trim -}}
+{{- $githubSecret := $github.clientSecret | default "" | toString | trim -}}
+{{- if and (eq $githubRef "") (ne $githubSecret "") }}
+github-client-secret: {{ $githubSecret | quote }}
+{{- end }}
+{{- $apple := $social.apple | default dict -}}
+{{- $appleRef := $apple.privateKeyRef | default "" | toString | trim -}}
+{{- $appleKey := $apple.privateKey | default "" | toString | trim -}}
+{{- if and (eq $appleRef "") (ne $appleKey "") }}
+apple-private-key: {{ $appleKey | quote }}
+{{- end }}
+{{- end -}}
+
+{{- define "synaplan.identity.secretEnv" }}
+- name: {{ .env }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ .name | quote }}
+      key: {{ .key | quote }}
+{{- end }}
+
+{{- define "synaplan.identityEnv" -}}
+{{- include "synaplan.identity.validate" . -}}
+{{- $signup := .Values.signup | default dict -}}
+{{- with $signup.mode | default "" | toString | trim }}
+- name: REGISTRATION_MODE
+  value: {{ . | quote }}
+{{- end }}
+{{- if not (kindIs "invalid" $signup.ipLimit) }}
+- name: SIGNUP_IP_LIMIT
+  value: {{ $signup.ipLimit | quote }}
+{{- end }}
+{{- if not (kindIs "invalid" $signup.globalLimit) }}
+- name: SIGNUP_GLOBAL_LIMIT
+  value: {{ $signup.globalLimit | quote }}
+{{- end }}
+{{- if kindIs "bool" $signup.paused }}
+- name: SIGNUP_PAUSED
+  value: {{ $signup.paused | toString | quote }}
+{{- end }}
+{{- $proxiesRaw := .Values.trustedProxies | default "" | toString | trim -}}
+{{- if ne $proxiesRaw "" }}
+{{- $proxies := include "synaplan.trustedProxies.clean" $proxiesRaw | trim }}
+- name: SYMFONY_TRUSTED_PROXIES
+  value: {{ $proxies | quote }}
+{{- $headersRaw := .Values.trustedHeaders | default "" | toString | trim -}}
+{{- $headers := "x-forwarded-for" -}}
+{{- if ne $headersRaw "" -}}
+{{- $headers = include "synaplan.trustedHeaders.clean" $headersRaw | trim -}}
+{{- end }}
+- name: SYMFONY_TRUSTED_HEADERS
+  value: {{ $headers | quote }}
+{{- end }}
+{{- $check := .Values.humanCheck | default dict -}}
+{{- $site := $check.siteKey | default "" | toString | trim -}}
+{{- if ne $site "" }}
+- name: TURNSTILE_SITE_KEY
+  value: {{ $site | quote }}
+{{- $turnstileRef := $check.secretRef | default "" | toString | trim -}}
+{{- $turnstileName := $turnstileRef | default (include "synaplan.credentials.secretName" .) -}}
+{{- include "synaplan.identity.secretEnv" (dict "env" "TURNSTILE_SECRET_KEY" "name" $turnstileName "key" "turnstile-secret-key") }}
+{{- end }}
+{{- $social := .Values.social | default dict -}}
+{{- $google := $social.google | default dict -}}
+{{- $googleId := $google.clientId | default "" | toString | trim -}}
+{{- if ne $googleId "" }}
+- name: GOOGLE_CLIENT_ID
+  value: {{ $googleId | quote }}
+{{- $googleRef := $google.clientSecretRef | default "" | toString | trim -}}
+{{- $googleName := $googleRef | default (include "synaplan.credentials.secretName" .) -}}
+{{- include "synaplan.identity.secretEnv" (dict "env" "GOOGLE_CLIENT_SECRET" "name" $googleName "key" "google-client-secret") }}
+{{- end }}
+{{- $github := $social.github | default dict -}}
+{{- $githubId := $github.clientId | default "" | toString | trim -}}
+{{- if ne $githubId "" }}
+- name: GITHUB_CLIENT_ID
+  value: {{ $githubId | quote }}
+{{- $githubRef := $github.clientSecretRef | default "" | toString | trim -}}
+{{- $githubName := $githubRef | default (include "synaplan.credentials.secretName" .) -}}
+{{- include "synaplan.identity.secretEnv" (dict "env" "GITHUB_CLIENT_SECRET" "name" $githubName "key" "github-client-secret") }}
+{{- end }}
+{{- $apple := $social.apple | default dict -}}
+{{- $appleId := $apple.clientId | default "" | toString | trim -}}
+{{- if ne $appleId "" }}
+- name: APPLE_CLIENT_ID
+  value: {{ $appleId | quote }}
+- name: APPLE_TEAM_ID
+  value: {{ $apple.teamId | toString | trim | quote }}
+- name: APPLE_KEY_ID
+  value: {{ $apple.keyId | toString | trim | quote }}
+{{- $appleRef := $apple.privateKeyRef | default "" | toString | trim -}}
+{{- $appleName := $appleRef | default (include "synaplan.credentials.secretName" .) -}}
+{{- include "synaplan.identity.secretEnv" (dict "env" "APPLE_PRIVATE_KEY" "name" $appleName "key" "apple-private-key") }}
+{{- with $apple.bundleId | default "" | toString | trim }}
+- name: APPLE_APP_BUNDLE_ID
+  value: {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- end -}}
 
 {{/*
 Environment shared by every synaplan role (web, worker, scheduler). All roles
@@ -271,13 +568,13 @@ role deployments add SYNAPLAN_ROLE on top.
   value: {{ .Values.c2paSigner.alg | default "ps256" | toString | trim | lower | quote }}
 {{- end }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" "C2PA_SIGNER_TOKEN" "C2PA_ALG" }}
+{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" "C2PA_SIGNER_TOKEN" "C2PA_ALG" "REGISTRATION_MODE" "SIGNUP_IP_LIMIT" "SIGNUP_GLOBAL_LIMIT" "SIGNUP_PAUSED" "SYMFONY_TRUSTED_PROXIES" "SYMFONY_TRUSTED_HEADERS" "TURNSTILE_SITE_KEY" "TURNSTILE_SECRET_KEY" "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "GITHUB_CLIENT_ID" "GITHUB_CLIENT_SECRET" "APPLE_CLIENT_ID" "APPLE_TEAM_ID" "APPLE_KEY_ID" "APPLE_PRIVATE_KEY" "APPLE_APP_BUNDLE_ID" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
 {{- range .Values.env }}
 {{- if has .name $managed }}
-{{- fail (printf "env sets %s, which the chart already emits from tika.*, c2paSigner.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.*. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply)." .name) }}
+{{- fail (printf "env sets %s, which signup.*, trustedProxies, trustedHeaders, humanCheck.*, social.*, tika.*, c2paSigner.*, qdrant.*, office.*, compute.*, speech.*, features.*, featurePins, settings, settingSecrets, oidc.* or bootstrapAdmin.* already own. Remove it from env and set the matching value (a duplicate env key is rejected by server-side apply, and a secret in env would be stored in the pod spec)." .name) }}
 {{- end }}
 {{- end }}
 {{- $switchEnv }}
@@ -461,7 +758,8 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 - name: BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE
   value: {{ .Values.bootstrapAdmin.forcePasswordChange | toString | quote }}
 {{- end }}
-{{- include "synaplan.settingsEnv" . }}
+{{- include "synaplan.identityEnv" . }}
+{{ include "synaplan.settingsEnv" . }}
 {{- end }}
 
 {{/*

@@ -150,17 +150,73 @@ c2paSigner:
 Use `alg: es256` for an EC key. A development certificate is not a public
 trust anchor. Mount a real key before turning this on for a public site.
 
-Identity needs no clicks either: `oidc.accessPolicy` (synaplan >= 5.3.1)
-decides who may use the instance at all (organization, roles, permissions,
-and whether a first SSO sign-in creates an account),
-`oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who becomes
-administrator on login,
-`features.setupWizard: false` skips the first-run page on SSO-only installs, and
-`bootstrapAdmin.secretRef` creates a first local administrator where local
-accounts are used.
+Who can create an account is the guide
+[docs/IDENTITY.md](https://github.com/metadist/synaplan/blob/main/docs/IDENTITY.md).
+A switch here closes account creation. Someone who already has an account
+still signs in. Directory accounts (OIDC) follow `oidc.accessPolicy` only;
+`features.registration` does not stop a first SSO sign-in.
+
+`features.registration: false` closes email, Google, GitHub, Apple and the
+integration wizards. `signup.mode: admission` requires a plan or an invitation
+code — set it only when one of those exists. Leave `signup.paused` empty so
+Admin can pause without a new release; `true` closes every self-sign-up door
+until you turn it off.
+
+`trustedProxies` is the address of the ingress that connects to Synaplan, for
+example `10.0.0.8`. Leave it empty and every visitor shares that ingress
+address, so the per-address sign-up limit is one limit for the whole site.
+The chart refuses `*`, `PRIVATE_SUBNETS`, `0.0.0.0/0` and a whole private
+range (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`): any pod in a trusted
+range can choose the client address. `CF-Connecting-IP` counts only when the
+connecting hop is a Cloudflare address you listed.
+
+Turnstile (`humanCheck`) and the Google, GitHub and Apple secrets are never
+written into the pod spec. A value in `secretKey` / `clientSecret` /
+`privateKey` is stored in the Secret `<fullname>-credentials`. `secretRef` /
+`clientSecretRef` / `privateKeyRef` name a Secret you created; the key inside
+it is `turnstile-secret-key`, `google-client-secret`, `github-client-secret`
+or `apple-private-key`. The matching id is public. An id without its secret
+fails the render. Do not put these names in `env`.
+
+```yaml
+# Public install. Admission only when codes or Stripe exist.
+signup:
+  mode: open
+  ipLimit: 5
+  globalLimit: 20
+trustedProxies: "10.0.0.8"
+humanCheck:
+  siteKey: "<widget site key>"
+  secretRef: turnstile-keys
+social:
+  google:
+    clientId: "<client id>.apps.googleusercontent.com"
+    clientSecretRef: google-oauth
+```
+
+```yaml
+# SSO only. Existing local accounts still sign in. The directory is OIDC.
+features:
+  registration: false
+  guestChat: false
+  setupWizard: false
+trustedProxies: "10.0.0.8"
+oidc:
+  enabled: true
+  accessPolicy:
+    allowUserProvisioning: true
+```
+
+`kubectl create secret generic turnstile-keys --from-literal=turnstile-secret-key=<widget secret>`
+
+`oidc.accessPolicy` (synaplan >= 5.3.1) decides who may use the instance at
+all, `oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who
+becomes administrator on login, and `bootstrapAdmin.secretRef` creates a
+first local administrator where local accounts are used.
 
 Every other environment variable the application reads can be set through
-`env` (use `valueFrom.secretKeyRef` for secrets).
+`env` (use `valueFrom.secretKeyRef` for secrets). The names this chart owns
+are refused there.
 
 ### Admin settings (synaplan >= 5.1.0)
 
@@ -335,7 +391,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | features.groups | bool | `nil` | FEATURE_IAM_GROUPS_ENABLED (people & groups) |
 | features.guestChat | bool | `nil` | GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs) |
 | features.platformLinks | bool | `nil` | FEATURE_PLATFORM_LINKS_ENABLED (Nextcloud / ownCloud / OpenCloud account linking) |
-| features.registration | bool | `nil` | REGISTRATION_ENABLED (local self-registration; false for SSO-only installs) |
+| features.registration | bool | `nil` | REGISTRATION_ENABLED. false closes every self-sign-up door (email, Google, GitHub, Apple, integration wizards). An existing account still signs in. Directory sign-in is oidc.accessPolicy.allowUserProvisioning. null = application default. |
 | features.setupWizard | bool | `nil` | SETUP_WIZARD_ENABLED (first-run setup page on an empty database; false for SSO-only installs) |
 | features.sharing | bool | `nil` | FEATURE_IAM_SHARING_ENABLED (needs groups) |
 | features.toolApprovals | bool | `nil` | FEATURE_TOOLS_APPROVALS_ENABLED (ask before a changing tool runs) |
@@ -349,6 +405,9 @@ openDesk, is the [Helmfile](../../helmfile/).
 | frankenphp.streamWorkers | int | `nil` | PHP workers for AI streams, the `streams` pool (FRANKENPHP_STREAM_WORKER_NUM). Image default: the same as `workers`. |
 | frankenphp.workers | int | `nil` | PHP workers for short requests, the `api` pool (FRANKENPHP_WORKER_NUM). Image default 16. |
 | fullnameOverride | string | `""` |  |
+| humanCheck.secretKey | string | `""` | TURNSTILE_SECRET_KEY, stored in the Secret <fullname>-credentials under turnstile-secret-key. Prefer secretRef so the value stays out of the release. |
+| humanCheck.secretRef | string | `""` | Name of an existing Secret. The key inside it is turnstile-secret-key. |
+| humanCheck.siteKey | string | `""` | TURNSTILE_SITE_KEY, the public widget key. Empty = Turnstile off. |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
 | image.tag | string | `""` |  |
@@ -445,6 +504,22 @@ openDesk, is the [Helmfile](../../helmfile/).
 | serviceAccount.name | string | `""` |  |
 | settingSecrets | object | `{}` | BCONFIG admin settings whose value comes from a Secret ({name, key}). Requires synaplan >= 5.1.0. |
 | settings | object | `{}` | BCONFIG admin settings (GROUP.SETTING -> CONFIG_*). Empty = database default. Requires synaplan >= 5.1.0. |
+| signup.globalLimit | int | `nil` | SIGNUP_GLOBAL_LIMIT, new accounts for the whole installation per 10 minutes. null = application default (20). |
+| signup.ipLimit | int | `nil` | SIGNUP_IP_LIMIT, new accounts per client address per hour. null = application default (5). The address is the visitor's only when trustedProxies names the ingress. |
+| signup.mode | string | `""` | REGISTRATION_MODE. open creates an active account. admission requires a plan or an invitation code. Empty = application default (open). Set admission only when codes or Stripe exist. |
+| signup.paused | bool | `nil` | SIGNUP_PAUSED. true closes every self-sign-up door until it is turned off. An existing account still signs in. null = Admin can pause. false pins the pause off. |
+| social.apple.bundleId | string | `""` | APPLE_APP_BUNDLE_ID for the native app token. Empty = application default. |
+| social.apple.clientId | string | `""` | APPLE_CLIENT_ID, the Services ID (public). Empty = Sign in with Apple off. |
+| social.apple.keyId | string | `""` | APPLE_KEY_ID of the Sign in with Apple key, 10 letters or digits. |
+| social.apple.privateKey | string | `""` | APPLE_PRIVATE_KEY, the p8 PEM, stored under apple-private-key. Prefer privateKeyRef. |
+| social.apple.privateKeyRef | string | `""` | Name of an existing Secret. The key inside it is apple-private-key. |
+| social.apple.teamId | string | `""` | APPLE_TEAM_ID, 10 letters or digits. |
+| social.github.clientId | string | `""` | GITHUB_CLIENT_ID (public). Empty = GitHub sign-in off. |
+| social.github.clientSecret | string | `""` | GITHUB_CLIENT_SECRET, stored under github-client-secret. Prefer clientSecretRef. |
+| social.github.clientSecretRef | string | `""` | Name of an existing Secret. The key inside it is github-client-secret. |
+| social.google.clientId | string | `""` | GOOGLE_CLIENT_ID (public). Empty = Google sign-in off. |
+| social.google.clientSecret | string | `""` | GOOGLE_CLIENT_SECRET, stored under google-client-secret. Prefer clientSecretRef. |
+| social.google.clientSecretRef | string | `""` | Name of an existing Secret. The key inside it is google-client-secret. |
 | speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
 | speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
@@ -485,6 +560,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | tolerations | list | `[]` |  |
 | triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
+| trustedHeaders | string | `""` | SYMFONY_TRUSTED_HEADERS. Used only together with trustedProxies. Empty = x-forwarded-for. CF-Connecting-IP counts only when that hop is a Cloudflare address listed in trustedProxies. |
+| trustedProxies | string | `""` | SYMFONY_TRUSTED_PROXIES. Comma-separated address of the hop that connects to Synaplan. Empty = ignore X-Forwarded-For, so every visitor shares the ingress address. Refuses *, PRIVATE_SUBNETS, 0.0.0.0/0 and a whole private range. |
 | tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.15-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.0@sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
