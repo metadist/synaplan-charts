@@ -104,7 +104,7 @@ Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
 
 ```yaml
 features:
-  registration: false   # closes email, Google, GitHub, Apple and the wizards
+  registration: false   # local sign-up off; >= 5.7.2 also closes Google, GitHub, Apple & wizards
   guestChat: false
   setupWizard: false
   userSearch: false
@@ -120,14 +120,14 @@ Any other flag the application reads as `FEATURE_<GROUP>_<SETTING>` goes in
 variables in `env`. The render fails on a duplicate.
 
 Who can create an account, the human check, and the ingress address are
-`signup`, `humanCheck`, `social` and `trustedProxies` on the synaplan chart.
-The guide is
+`signup`, `humanCheck`, `social` and `trustedProxies` on the synaplan chart
+(`signup` and `humanCheck` require `synaplan` >= 5.6.0). The guide is
 [docs/IDENTITY.md](https://github.com/metadist/synaplan/blob/main/docs/IDENTITY.md).
 A secret (Turnstile, Google, GitHub, the Apple p8) stays in a Secret. Name
-the ingress in `trustedProxies`, not the whole cluster network: otherwise
-every visitor shares one sign-up limit, or any pod can pick the client
-address. `features.registration: false` does not stop a first SSO sign-in;
-that switch is `oidc.accessPolicy.allowUserProvisioning`.
+the ingress in `trustedProxies` (string or list), not the whole cluster
+network: otherwise every visitor shares one sign-up limit, or any pod can pick
+the client address. `features.registration: false` does not stop a first SSO
+sign-in; that switch is `oidc.accessPolicy.allowUserProvisioning`.
 
 Who is an administrator comes from the identity provider:
 

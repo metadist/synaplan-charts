@@ -115,7 +115,7 @@ database-root-password: {{ . | quote }}
 {{- end }}
 admin-password: {{ $adminPassword | quote }}
 {{- end }}
-{{- include "synaplan.identity.credentialLines" . }}
+{{- include "synaplan.identity.credentialLines" (dict "ctx" . "existing" $existing) }}
 {{- end }}
 
 {{/*
@@ -129,51 +129,185 @@ Redis DSN: external redis.dsn wins, otherwise the bundled redis Service
 {{- end }}
 
 {{/*
-Comma-separated proxy list, or a failure. Refuses a value that would let any
-pod on the cluster choose the client address.
+Normalize a comma-separated string or a YAML string list into raw entries.
+*/}}
+{{- define "synaplan.identity.csvItems" -}}
+{{- $raw := .raw -}}
+{{- $label := .label -}}
+{{- $items := list -}}
+{{- if kindIs "invalid" $raw -}}
+{{- else if kindIs "string" $raw -}}
+{{- if ne (trim $raw) "" -}}
+{{- $items = splitList "," $raw -}}
+{{- end -}}
+{{- else if kindIs "slice" $raw -}}
+{{- range $entry := $raw -}}
+{{- if not (kindIs "string" $entry) -}}
+{{- fail (printf "%s entries must be strings, got %v." $label $entry) -}}
+{{- end -}}
+{{- range splitList "," $entry -}}
+{{- $items = append $items . -}}
+{{- end -}}
+{{- end -}}
+{{- else -}}
+{{- fail (printf "%s must be a comma-separated string or a list of strings." $label) -}}
+{{- end -}}
+{{- mustToJson $items -}}
+{{- end -}}
+
+{{/*
+Comma-separated proxy list, or a failure. Refuses magic shortcuts, invalid
+addresses/hostnames, and any range wide enough to let arbitrary pods on the
+cluster or visitors on the internet choose the client address.
 */}}
 {{- define "synaplan.trustedProxies.clean" -}}
-{{- $banned := list "*" "private_subnets" "0.0.0.0/0" "::/0" "0.0.0.0" "::" "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" "fd00::/8" "fc00::/7" -}}
+{{- $items := include "synaplan.identity.csvItems" (dict "raw" . "label" "trustedProxies") | fromJsonArray -}}
+{{- $shortcuts := list "*" "remote_addr" "private_subnets" "private_ranges" -}}
 {{- $hops := list -}}
-{{- range splitList "," . -}}
+{{- range $items -}}
 {{- $raw := . | trim -}}
 {{- $hop := $raw | lower -}}
 {{- if eq $hop "" -}}
 {{- fail "trustedProxies has an empty entry. Name each hop that connects to Synaplan." -}}
 {{- end -}}
-{{- if has $hop $banned -}}
-{{- fail (printf "trustedProxies refuses %s. Name the ingress address that connects to Synaplan, for example 10.0.0.8. Trusting every private address or the whole internet lets another pod choose the client address, so one visitor can use up the sign-up limit for everyone." $hop) -}}
+{{- if has $hop $shortcuts -}}
+{{- fail (printf "trustedProxies refuses %s. Name the ingress address that connects to Synaplan, for example 10.0.0.8. Trusting every private address or every connecting peer lets another pod choose the client address, so one visitor can use up the sign-up limit for everyone." $hop) -}}
 {{- end -}}
+{{- if contains ":" $hop -}}
+{{- if regexMatch "^0*(:0*)*:ffff:" $hop -}}
+{{- fail (printf "trustedProxies refuses %s: write an IPv4 address directly instead of an IPv4-mapped IPv6 address." $raw) -}}
+{{- end -}}
+{{- if or (not (regexMatch "^[0-9a-f:]+(/[0-9]{1,3})?$" $hop)) (contains ":::" $hop) -}}
+{{- fail (printf "trustedProxies refuses %s: expected an IP address or CIDR (not a hostname, URL or port), for example 10.0.0.8." $raw) -}}
+{{- end -}}
+{{- $addr := $hop -}}
+{{- $prefix := 128 -}}
+{{- if contains "/" $hop -}}
+{{- $parts := splitList "/" $hop -}}
+{{- $addr = index $parts 0 -}}
+{{- $pStr := index $parts 1 -}}
+{{- if or (not (regexMatch "^(0|[1-9][0-9]*)$" $pStr)) (gt (int $pStr) 128) -}}
+{{- fail (printf "trustedProxies refuses %s: invalid IPv6 CIDR prefix." $raw) -}}
+{{- end -}}
+{{- $prefix = int $pStr -}}
+{{- end -}}
+{{- if or (eq $addr "::") (regexMatch "^0*(:0*)+$" $addr) (and (or (eq $addr "::1") (regexMatch "^0*(:0*)+:0*1$" $addr)) (lt $prefix 128)) -}}
+{{- fail (printf "trustedProxies refuses %s. Name the ingress address that connects to Synaplan, for example 10.0.0.8." $hop) -}}
+{{- end -}}
+{{- $isPrivateV6 := regexMatch "^(fc|fd|fe[89ab])[0-9a-f]{0,2}:" $addr -}}
+{{- if or (lt $prefix 29) (and $isPrivateV6 (lt $prefix 64)) -}}
+{{- fail (printf "trustedProxies refuses %s. Name the ingress address or dedicated ingress subnet, for example 10.0.0.8. Trusting every private address or the whole internet lets another pod choose the client address, so one visitor can use up the sign-up limit for everyone." $hop) -}}
+{{- end -}}
+{{- else -}}
+{{- if not (regexMatch "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(/[0-9]{1,2})?$" $hop) -}}
+{{- fail (printf "trustedProxies refuses %s: expected an IP address or CIDR (not a hostname, URL or port), for example 10.0.0.8." $raw) -}}
+{{- end -}}
+{{- $addr := $hop -}}
+{{- $prefix := 32 -}}
+{{- if contains "/" $hop -}}
+{{- $parts := splitList "/" $hop -}}
+{{- $addr = index $parts 0 -}}
+{{- $pStr := index $parts 1 -}}
+{{- if or (not (regexMatch "^(0|[1-9][0-9]*)$" $pStr)) (gt (int $pStr) 32) -}}
+{{- fail (printf "trustedProxies refuses %s: invalid IPv4 CIDR prefix." $raw) -}}
+{{- end -}}
+{{- $prefix = int $pStr -}}
+{{- end -}}
+{{- $octets := splitList "." $addr -}}
+{{- range $o := $octets -}}
+{{- if or (not (regexMatch "^(0|[1-9][0-9]*)$" $o)) (gt (int $o) 255) -}}
+{{- fail (printf "trustedProxies refuses %s: invalid IPv4 address." $raw) -}}
+{{- end -}}
+{{- end -}}
+{{- $o0 := int (index $octets 0) -}}
+{{- $o1 := int (index $octets 1) -}}
+{{- if or (eq $o0 0) (ge $o0 224) (and (eq $o0 127) (lt $prefix 32)) -}}
+{{- fail (printf "trustedProxies refuses %s. Name the ingress address that connects to Synaplan, for example 10.0.0.8." $hop) -}}
+{{- end -}}
+{{- $isPrivateV4 := or (eq $o0 10) (and (eq $o0 172) (ge $o1 16) (le $o1 31)) (and (eq $o0 192) (eq $o1 168)) (and (eq $o0 100) (ge $o1 64) (le $o1 127)) (and (eq $o0 169) (eq $o1 254)) -}}
+{{- if or (lt $prefix 13) (and $isPrivateV4 (le $prefix 16)) -}}
+{{- fail (printf "trustedProxies refuses %s. Name the ingress address or dedicated ingress subnet (tighter than /16), for example 10.0.0.8 or 10.0.0.0/24. Trusting every private address or the whole internet lets another pod choose the client address, so one visitor can use up the sign-up limit for everyone." $hop) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (has $raw $hops) -}}
 {{- $hops = append $hops $raw -}}
+{{- end -}}
 {{- end -}}
 {{- join "," $hops -}}
 {{- end -}}
 
 {{/*
 Canonical SYMFONY_TRUSTED_HEADERS. The client address comes from
-x-forwarded-for or forwarded; the other names only describe the request.
+x-forwarded-for: the in-pod Caddy reverse proxy in production writes the
+connecting hop to X-Forwarded-For, not RFC 7239 Forwarded, so trusting
+forwarded would let a client spoof Forwarded: for=... or trigger a Symfony
+ConflictingHeadersException.
 */}}
 {{- define "synaplan.trustedHeaders.clean" -}}
-{{- $allowed := list "forwarded" "x-forwarded-for" "x-forwarded-host" "x-forwarded-proto" "x-forwarded-port" "x-forwarded-prefix" -}}
+{{- $items := include "synaplan.identity.csvItems" (dict "raw" . "label" "trustedHeaders") | fromJsonArray -}}
+{{- $allowed := list "x-forwarded-for" "x-forwarded-host" "x-forwarded-proto" "x-forwarded-port" "x-forwarded-prefix" -}}
 {{- $headers := list -}}
 {{- $sawClient := false -}}
-{{- range splitList "," . -}}
+{{- range $items -}}
 {{- $header := . | trim | lower -}}
 {{- if eq $header "" -}}
 {{- fail "trustedHeaders has an empty entry." -}}
 {{- end -}}
+{{- if eq $header "forwarded" -}}
+{{- fail "trustedHeaders refuses forwarded: the in-pod proxy writes X-Forwarded-For, so trusting RFC 7239 Forwarded lets visitors spoof their client address or causes conflicting-header errors. Use x-forwarded-for instead." -}}
+{{- end -}}
 {{- if not (has $header $allowed) -}}
 {{- fail (printf "trustedHeaders refuses %s. Use x-forwarded-for, and add x-forwarded-proto when the ingress terminates TLS." $header) -}}
 {{- end -}}
-{{- if or (eq $header "x-forwarded-for") (eq $header "forwarded") -}}
+{{- if eq $header "x-forwarded-for" -}}
 {{- $sawClient = true -}}
 {{- end -}}
+{{- if not (has $header $headers) -}}
 {{- $headers = append $headers $header -}}
 {{- end -}}
+{{- end -}}
 {{- if not $sawClient -}}
-{{- fail "trustedHeaders must include x-forwarded-for (or forwarded). Without it every visitor shares the ingress address." -}}
+{{- fail "trustedHeaders must include x-forwarded-for. Without it every visitor shares the ingress address." -}}
 {{- end -}}
 {{- join "," $headers -}}
+{{- end -}}
+
+{{/*
+Reject unknown keys or non-map values on a structured values block.
+*/}}
+{{- define "synaplan.identity.checkKeys" -}}
+{{- $name := .name -}}
+{{- $known := .known -}}
+{{- if not (kindIs "map" .map) -}}
+{{- fail (printf "%s must be a map (%s)." $name (join ", " $known)) -}}
+{{- end -}}
+{{- range $k := keys .map | sortAlpha -}}
+{{- if not (has $k $known) -}}
+{{- fail (printf "%s.%s is not a known key. Known keys: %s." $name $k (join ", " $known)) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Ensure a *Ref field is a DNS-1123 Kubernetes Secret name, never a raw secret.
+*/}}
+{{- define "synaplan.identity.requireSecretName" -}}
+{{- $name := .name | default "" | toString | trim -}}
+{{- if ne $name "" -}}
+{{- if or (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) -}}
+{{- fail (printf "%s must be a Kubernetes Secret name (lowercase letters, digits, '-' and '.'), got %q. Put a raw secret value in %s instead, never in %s." .refField $name .valueField .refField) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Require a minimum Synaplan semver when a complete semver image tag is used.
+*/}}
+{{- define "synaplan.requireMinImage" -}}
+{{- $tag := .ctx.Values.image.tag | default .ctx.Chart.AppVersion | toString | trimPrefix "v" -}}
+{{- if and (regexMatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` $tag) (not (semverCompare (printf ">=%s-0" .min) $tag)) -}}
+{{- fail (printf "%s needs synaplan >= %s%s; effective image tag is %q. Set image.tag to %s or newer, or %s." .what .min (.why | default "") $tag .min (.leave | default "leave it unset")) -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -183,11 +317,14 @@ Google or GitHub: the public id and the secret together, the secret from one pla
 {{- $id := .id | default "" | toString | trim -}}
 {{- $secret := .secret | default "" | toString | trim -}}
 {{- $ref := .secretRef | default "" | toString | trim -}}
+{{- $existing := .existing | default "" | toString | trim -}}
 {{- if and (ne $secret "") (ne $ref "") -}}
 {{- fail (printf "%s: set %s or %s, not both." .label .valueName .refName) -}}
 {{- end -}}
+{{- include "synaplan.identity.requireSecretName" (dict "name" $ref "refField" .refName "valueField" .valueName) -}}
+{{- $effectiveSecret := $secret | default $existing -}}
 {{- if or (ne $id "") (ne $secret "") (ne $ref "") -}}
-{{- if or (eq $id "") (and (eq $secret "") (eq $ref "")) -}}
+{{- if or (eq $id "") (and (eq $effectiveSecret "") (eq $ref "")) -}}
 {{- fail (printf "%s needs the public client id and the client secret. Put the secret in %s (it is stored in the credentials Secret) or name an existing Secret in %s. The id alone does not turn the provider on." .label .valueName .refName) -}}
 {{- end -}}
 {{- if or (contains "\n" $id) (contains "\n" $secret) -}}
@@ -198,100 +335,117 @@ Google or GitHub: the public id and the secret together, the secret from one pla
 
 {{/*
 signup, trusted proxies, Turnstile and social sign-in. Empty output when every
-value is left at its default. Secrets are lines for the credentials Secret.
+value is left at its default. Secrets stay in a Secret, never in the pod spec.
 */}}
 {{- define "synaplan.identity.validate" -}}
-{{- $signup := .Values.signup | default dict -}}
-{{- if not (kindIs "map" $signup) -}}
-{{- fail "signup must be a map (mode, ipLimit, globalLimit, paused)." -}}
+{{- $existing := (lookup "v1" "Secret" .Release.Namespace (include "synaplan.credentials.secretName" .)).data | default dict -}}
+{{- $signup := .Values.signup -}}
+{{- if kindIs "invalid" $signup -}}
+{{- $signup = dict -}}
 {{- end -}}
-{{- $mode := $signup.mode | default "" | toString | trim -}}
+{{- include "synaplan.identity.checkKeys" (dict "name" "signup" "map" $signup "known" (list "mode" "ipLimit" "globalLimit" "paused")) -}}
+{{- $mode := $signup.mode | default "" | toString | trim | lower -}}
 {{- if and (ne $mode "") (not (has $mode (list "open" "admission"))) -}}
 {{- fail "signup.mode must be open, admission, or empty. admission needs invitation codes or Stripe; with neither, nobody can create an account." -}}
 {{- end -}}
+{{- $signupActive := ne $mode "" -}}
 {{- range $field := list "ipLimit" "globalLimit" -}}
 {{- $value := index $signup $field -}}
 {{- if not (kindIs "invalid" $value) -}}
+{{- $signupActive = true -}}
 {{- $whole := false -}}
+{{- $inRange := false -}}
 {{- if or (kindIs "int" $value) (kindIs "int64" $value) -}}
 {{- $whole = true -}}
-{{- else if and (kindIs "float64" $value) (eq (float64 $value) (float64 (int $value))) -}}
+{{- $inRange = and (ge (int $value) 1) (le (int $value) 10000) -}}
+{{- else if and (kindIs "float64" $value) (ge $value 1.0) (le $value 10000.0) -}}
+{{- if eq (float64 $value) (float64 (int $value)) -}}
 {{- $whole = true -}}
+{{- $inRange = true -}}
 {{- end -}}
-{{- if or (not $whole) (lt (int $value) 1) (gt (int $value) 10000) -}}
+{{- end -}}
+{{- if or (not $whole) (not $inRange) -}}
 {{- fail (printf "signup.%s must be an integer from 1 to 10000, or null for the application default." $field) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- if and (not (kindIs "invalid" $signup.paused)) (not (kindIs "bool" $signup.paused)) -}}
+{{- if not (kindIs "invalid" $signup.paused) -}}
+{{- if not (kindIs "bool" $signup.paused) -}}
 {{- fail "signup.paused must be true, false, or null. null leaves the pause to Admin." -}}
 {{- end -}}
-{{- $proxiesRaw := .Values.trustedProxies -}}
-{{- if not (kindIs "string" $proxiesRaw) -}}
-{{- if not (kindIs "invalid" $proxiesRaw) -}}
-{{- fail "trustedProxies is a comma-separated string, for example 10.0.0.8." -}}
+{{- $signupActive = true -}}
 {{- end -}}
-{{- $proxiesRaw = "" -}}
-{{- else -}}
-{{- $proxiesRaw = $proxiesRaw | trim -}}
+{{- if $signupActive -}}
+{{- include "synaplan.requireMinImage" (dict "ctx" . "what" "signup.*" "min" "5.6.0" "why" ", the first release with REGISTRATION_MODE, SIGNUP_PAUSED and SIGNUP_*_LIMIT" "leave" "leave signup.* unset") -}}
 {{- end -}}
-{{- $headersRaw := .Values.trustedHeaders -}}
-{{- if not (kindIs "string" $headersRaw) -}}
-{{- if not (kindIs "invalid" $headersRaw) -}}
-{{- fail "trustedHeaders is a comma-separated string. Empty means x-forwarded-for." -}}
-{{- end -}}
-{{- $headersRaw = "" -}}
-{{- else -}}
-{{- $headersRaw = $headersRaw | trim -}}
-{{- end -}}
-{{- if and (eq $proxiesRaw "") (ne $headersRaw "") -}}
+{{- $proxiesItems := include "synaplan.identity.csvItems" (dict "raw" .Values.trustedProxies "label" "trustedProxies") | fromJsonArray -}}
+{{- $headersItems := include "synaplan.identity.csvItems" (dict "raw" .Values.trustedHeaders "label" "trustedHeaders") | fromJsonArray -}}
+{{- if and (eq (len $proxiesItems) 0) (gt (len $headersItems) 0) -}}
 {{- fail "trustedHeaders does nothing without trustedProxies. Name the ingress that connects to Synaplan, or leave both empty." -}}
 {{- end -}}
-{{- if ne $proxiesRaw "" -}}
-{{- $_ := include "synaplan.trustedProxies.clean" $proxiesRaw -}}
+{{- if gt (len $proxiesItems) 0 -}}
+{{- $_ := include "synaplan.trustedProxies.clean" .Values.trustedProxies -}}
 {{- end -}}
-{{- if ne $headersRaw "" -}}
-{{- $_ := include "synaplan.trustedHeaders.clean" $headersRaw -}}
+{{- if gt (len $headersItems) 0 -}}
+{{- $_ := include "synaplan.trustedHeaders.clean" .Values.trustedHeaders -}}
 {{- end -}}
-{{- $check := .Values.humanCheck | default dict -}}
-{{- if not (kindIs "map" $check) -}}
-{{- fail "humanCheck must be a map (siteKey, secretKey, secretRef)." -}}
+{{- $check := .Values.humanCheck -}}
+{{- if kindIs "invalid" $check -}}
+{{- $check = dict -}}
 {{- end -}}
+{{- include "synaplan.identity.checkKeys" (dict "name" "humanCheck" "map" $check "known" (list "siteKey" "secretKey" "secretRef")) -}}
 {{- $site := $check.siteKey | default "" | toString | trim -}}
 {{- $turnstile := $check.secretKey | default "" | toString | trim -}}
 {{- $turnstileRef := $check.secretRef | default "" | toString | trim -}}
+{{- $existingTurnstile := index $existing "turnstile-secret-key" | default "" | b64dec | trim -}}
 {{- if and (ne $turnstile "") (ne $turnstileRef "") -}}
 {{- fail "humanCheck.secretKey and humanCheck.secretRef both set the Turnstile secret. Use one. secretRef names an existing Secret and is the value to commit." -}}
 {{- end -}}
+{{- include "synaplan.identity.requireSecretName" (dict "name" $turnstileRef "refField" "humanCheck.secretRef" "valueField" "humanCheck.secretKey") -}}
+{{- $effectiveTurnstile := $turnstile | default $existingTurnstile -}}
 {{- if or (ne $site "") (ne $turnstile "") (ne $turnstileRef "") -}}
-{{- if or (eq $site "") (and (eq $turnstile "") (eq $turnstileRef "")) -}}
+{{- if or (eq $site "") (and (eq $effectiveTurnstile "") (eq $turnstileRef "")) -}}
 {{- fail "Turnstile needs the public site key and the secret together. Set humanCheck.siteKey and either humanCheck.secretKey (stored in the credentials Secret) or humanCheck.secretRef. With only one of them, sign-up fails closed." -}}
 {{- end -}}
-{{- if contains "\n" $site -}}
-{{- fail "humanCheck.siteKey is the public widget key, one line. The secret belongs in humanCheck.secretKey or humanCheck.secretRef." -}}
+{{- if or (contains "\n" $site) (contains "\n" $turnstile) -}}
+{{- fail "humanCheck.siteKey and humanCheck.secretKey are each one line. A private key belongs under social.apple." -}}
 {{- end -}}
+{{- include "synaplan.requireMinImage" (dict "ctx" . "what" "humanCheck.*" "min" "5.6.0" "why" ", the first release with Cloudflare Turnstile" "leave" "leave humanCheck.* empty") -}}
 {{- end -}}
-{{- $social := .Values.social | default dict -}}
-{{- if not (kindIs "map" $social) -}}
-{{- fail "social must be a map (google, github, apple)." -}}
+{{- $social := .Values.social -}}
+{{- if kindIs "invalid" $social -}}
+{{- $social = dict -}}
 {{- end -}}
-{{- $google := $social.google | default dict -}}
-{{- $github := $social.github | default dict -}}
-{{- include "synaplan.identity.requireOAuth" (dict "label" "Google sign-in" "id" $google.clientId "secret" $google.clientSecret "secretRef" $google.clientSecretRef "valueName" "social.google.clientSecret" "refName" "social.google.clientSecretRef") -}}
-{{- include "synaplan.identity.requireOAuth" (dict "label" "GitHub sign-in" "id" $github.clientId "secret" $github.clientSecret "secretRef" $github.clientSecretRef "valueName" "social.github.clientSecret" "refName" "social.github.clientSecretRef") -}}
-{{- $apple := $social.apple | default dict -}}
+{{- include "synaplan.identity.checkKeys" (dict "name" "social" "map" $social "known" (list "google" "github" "apple")) -}}
+{{- $google := index $social "google" -}}
+{{- if kindIs "invalid" $google -}}{{- $google = dict -}}{{- end -}}
+{{- include "synaplan.identity.checkKeys" (dict "name" "social.google" "map" $google "known" (list "clientId" "clientSecret" "clientSecretRef")) -}}
+{{- $github := index $social "github" -}}
+{{- if kindIs "invalid" $github -}}{{- $github = dict -}}{{- end -}}
+{{- include "synaplan.identity.checkKeys" (dict "name" "social.github" "map" $github "known" (list "clientId" "clientSecret" "clientSecretRef")) -}}
+{{- include "synaplan.identity.requireOAuth" (dict "label" "Google sign-in" "id" $google.clientId "secret" $google.clientSecret "secretRef" $google.clientSecretRef "existing" (index $existing "google-client-secret" | default "" | b64dec) "valueName" "social.google.clientSecret" "refName" "social.google.clientSecretRef") -}}
+{{- include "synaplan.identity.requireOAuth" (dict "label" "GitHub sign-in" "id" $github.clientId "secret" $github.clientSecret "secretRef" $github.clientSecretRef "existing" (index $existing "github-client-secret" | default "" | b64dec) "valueName" "social.github.clientSecret" "refName" "social.github.clientSecretRef") -}}
+{{- $apple := index $social "apple" -}}
+{{- if kindIs "invalid" $apple -}}{{- $apple = dict -}}{{- end -}}
+{{- include "synaplan.identity.checkKeys" (dict "name" "social.apple" "map" $apple "known" (list "clientId" "teamId" "keyId" "privateKey" "privateKeyRef" "bundleId")) -}}
 {{- $appleId := $apple.clientId | default "" | toString | trim -}}
 {{- $team := $apple.teamId | default "" | toString | trim -}}
 {{- $keyId := $apple.keyId | default "" | toString | trim -}}
 {{- $privateKey := $apple.privateKey | default "" | toString | trim -}}
 {{- $privateKeyRef := $apple.privateKeyRef | default "" | toString | trim -}}
+{{- $existingApple := index $existing "apple-private-key" | default "" | b64dec | trim -}}
 {{- $bundle := $apple.bundleId | default "" | toString | trim -}}
 {{- if and (ne $privateKey "") (ne $privateKeyRef "") -}}
 {{- fail "social.apple.privateKey and social.apple.privateKeyRef both set the Apple private key. Use one. privateKeyRef names an existing Secret and is the value to commit." -}}
 {{- end -}}
+{{- include "synaplan.identity.requireSecretName" (dict "name" $privateKeyRef "refField" "social.apple.privateKeyRef" "valueField" "social.apple.privateKey") -}}
+{{- $effectiveAppleKey := $privateKey | default $existingApple -}}
 {{- if or (ne $appleId "") (ne $team "") (ne $keyId "") (ne $privateKey "") (ne $privateKeyRef "") (ne $bundle "") -}}
-{{- if or (eq $appleId "") (eq $team "") (eq $keyId "") (and (eq $privateKey "") (eq $privateKeyRef "")) -}}
+{{- if or (eq $appleId "") (eq $team "") (eq $keyId "") (and (eq $effectiveAppleKey "") (eq $privateKeyRef "")) -}}
 {{- fail "Sign in with Apple needs the Services ID (social.apple.clientId), the team id, the key id, and the private key (social.apple.privateKey or social.apple.privateKeyRef). The private key is stored in a Secret, not in the pod spec." -}}
+{{- end -}}
+{{- if contains "\n" $appleId -}}
+{{- fail "social.apple.clientId must be one line." -}}
 {{- end -}}
 {{- if not (regexMatch "^[A-Za-z0-9]{10}$" $team) -}}
 {{- fail "social.apple.teamId is the 10-character Apple Team ID." -}}
@@ -299,39 +453,50 @@ value is left at its default. Secrets are lines for the credentials Secret.
 {{- if not (regexMatch "^[A-Za-z0-9]{10}$" $keyId) -}}
 {{- fail "social.apple.keyId is the 10-character id of the Sign in with Apple key." -}}
 {{- end -}}
-{{- if and (ne $privateKey "") (not (contains "PRIVATE KEY" $privateKey)) -}}
-{{- fail "social.apple.privateKey must be the p8 PEM, including the BEGIN PRIVATE KEY line. Prefer social.apple.privateKeyRef." -}}
+{{- if and (ne $privateKey "") (or (not (contains "-----BEGIN PRIVATE KEY-----" $privateKey)) (not (contains "-----END PRIVATE KEY-----" $privateKey))) -}}
+{{- fail "social.apple.privateKey must be the p8 PEM, including the BEGIN PRIVATE KEY and END PRIVATE KEY lines. Prefer social.apple.privateKeyRef." -}}
 {{- end -}}
 {{- if and (ne $bundle "") (not (regexMatch "^[A-Za-z0-9][A-Za-z0-9.-]+$" $bundle)) -}}
 {{- fail "social.apple.bundleId must be a bundle id such as com.example.app, or empty for the application default." -}}
 {{- end -}}
 {{- end -}}
+{{- $socialActive := or (ne ($google.clientId | default "" | toString | trim) "") (ne ($github.clientId | default "" | toString | trim) "") (ne $appleId "") -}}
+{{- $features := .Values.features | default dict -}}
+{{- if and $socialActive (kindIs "map" $features) (kindIs "bool" $features.registration) (not $features.registration) -}}
+{{- include "synaplan.requireMinImage" (dict "ctx" . "what" "features.registration: false together with social.*" "min" "5.7.2" "why" " (older images only close email sign-up and still create new accounts through Google, GitHub and Apple)" "leave" "leave social.* empty") -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "synaplan.identity.credentialLines" -}}
-{{- $check := .Values.humanCheck | default dict -}}
+{{- $ctx := .ctx -}}
+{{- $existing := .existing | default dict -}}
+{{- $check := $ctx.Values.humanCheck | default dict -}}
+{{- $site := $check.siteKey | default "" | toString | trim -}}
 {{- $turnstileRef := $check.secretRef | default "" | toString | trim -}}
-{{- $turnstile := $check.secretKey | default "" | toString | trim -}}
-{{- if and (eq $turnstileRef "") (ne $turnstile "") }}
+{{- $turnstile := ($check.secretKey | default "" | toString | trim) | default (index $existing "turnstile-secret-key" | default "" | b64dec | trim) -}}
+{{- if and (ne $site "") (eq $turnstileRef "") (ne $turnstile "") }}
 turnstile-secret-key: {{ $turnstile | quote }}
 {{- end }}
-{{- $social := .Values.social | default dict -}}
+{{- $social := $ctx.Values.social | default dict -}}
 {{- $google := $social.google | default dict -}}
+{{- $googleId := $google.clientId | default "" | toString | trim -}}
 {{- $googleRef := $google.clientSecretRef | default "" | toString | trim -}}
-{{- $googleSecret := $google.clientSecret | default "" | toString | trim -}}
-{{- if and (eq $googleRef "") (ne $googleSecret "") }}
+{{- $googleSecret := ($google.clientSecret | default "" | toString | trim) | default (index $existing "google-client-secret" | default "" | b64dec | trim) -}}
+{{- if and (ne $googleId "") (eq $googleRef "") (ne $googleSecret "") }}
 google-client-secret: {{ $googleSecret | quote }}
 {{- end }}
 {{- $github := $social.github | default dict -}}
+{{- $githubId := $github.clientId | default "" | toString | trim -}}
 {{- $githubRef := $github.clientSecretRef | default "" | toString | trim -}}
-{{- $githubSecret := $github.clientSecret | default "" | toString | trim -}}
-{{- if and (eq $githubRef "") (ne $githubSecret "") }}
+{{- $githubSecret := ($github.clientSecret | default "" | toString | trim) | default (index $existing "github-client-secret" | default "" | b64dec | trim) -}}
+{{- if and (ne $githubId "") (eq $githubRef "") (ne $githubSecret "") }}
 github-client-secret: {{ $githubSecret | quote }}
 {{- end }}
 {{- $apple := $social.apple | default dict -}}
+{{- $appleId := $apple.clientId | default "" | toString | trim -}}
 {{- $appleRef := $apple.privateKeyRef | default "" | toString | trim -}}
-{{- $appleKey := $apple.privateKey | default "" | toString | trim -}}
-{{- if and (eq $appleRef "") (ne $appleKey "") }}
+{{- $appleKey := ($apple.privateKey | default "" | toString | trim) | default (index $existing "apple-private-key" | default "" | b64dec | trim) -}}
+{{- if and (ne $appleId "") (eq $appleRef "") (ne $appleKey "") }}
 apple-private-key: {{ $appleKey | quote }}
 {{- end }}
 {{- end -}}
@@ -347,31 +512,31 @@ apple-private-key: {{ $appleKey | quote }}
 {{- define "synaplan.identityEnv" -}}
 {{- include "synaplan.identity.validate" . -}}
 {{- $signup := .Values.signup | default dict -}}
-{{- with $signup.mode | default "" | toString | trim }}
+{{- with $signup.mode | default "" | toString | trim | lower }}
 - name: REGISTRATION_MODE
   value: {{ . | quote }}
 {{- end }}
 {{- if not (kindIs "invalid" $signup.ipLimit) }}
 - name: SIGNUP_IP_LIMIT
-  value: {{ $signup.ipLimit | quote }}
+  value: {{ int $signup.ipLimit | toString | quote }}
 {{- end }}
 {{- if not (kindIs "invalid" $signup.globalLimit) }}
 - name: SIGNUP_GLOBAL_LIMIT
-  value: {{ $signup.globalLimit | quote }}
+  value: {{ int $signup.globalLimit | toString | quote }}
 {{- end }}
 {{- if kindIs "bool" $signup.paused }}
 - name: SIGNUP_PAUSED
   value: {{ $signup.paused | toString | quote }}
 {{- end }}
-{{- $proxiesRaw := .Values.trustedProxies | default "" | toString | trim -}}
-{{- if ne $proxiesRaw "" }}
-{{- $proxies := include "synaplan.trustedProxies.clean" $proxiesRaw | trim }}
+{{- $proxiesItems := include "synaplan.identity.csvItems" (dict "raw" .Values.trustedProxies "label" "trustedProxies") | fromJsonArray -}}
+{{- if gt (len $proxiesItems) 0 }}
+{{- $proxies := include "synaplan.trustedProxies.clean" .Values.trustedProxies | trim }}
 - name: SYMFONY_TRUSTED_PROXIES
   value: {{ $proxies | quote }}
-{{- $headersRaw := .Values.trustedHeaders | default "" | toString | trim -}}
+{{- $headersItems := include "synaplan.identity.csvItems" (dict "raw" .Values.trustedHeaders "label" "trustedHeaders") | fromJsonArray -}}
 {{- $headers := "x-forwarded-for" -}}
-{{- if ne $headersRaw "" -}}
-{{- $headers = include "synaplan.trustedHeaders.clean" $headersRaw | trim -}}
+{{- if gt (len $headersItems) 0 -}}
+{{- $headers = include "synaplan.trustedHeaders.clean" .Values.trustedHeaders | trim -}}
 {{- end }}
 - name: SYMFONY_TRUSTED_HEADERS
   value: {{ $headers | quote }}
@@ -799,6 +964,10 @@ A tag that is not a complete semver (a branch name, a digest) skips the check.
 {{- range $key, $value := (.Values.featurePins | default dict) }}
 {{- $pinned = append $pinned $key }}
 {{- end }}
+{{- $signup := .Values.signup | default dict }}
+{{- if and (kindIs "map" $signup) (ne ($signup.mode | default "" | toString | trim) "") }}
+{{- $pinned = append $pinned "ACCESS.REGISTRATION_MODE" }}
+{{- end }}
 {{- $rendered := dict }}
 {{- $secretRefs := dict }}
 {{- range $key, $value := $settings }}
@@ -881,7 +1050,7 @@ the include output is empty.
 {{- $pinnedUpper = append $pinnedUpper (upper .) }}
 {{- end }}
 {{- if has (upper $key) $pinnedUpper }}
-{{- fail (printf "settings.%s is already pinned by features.* or featurePins. Leave it out of settings; that pin wins." $key) }}
+{{- fail (printf "settings.%s is already pinned by features.*, featurePins or signup.mode. Leave it out of settings; that pin wins." $key) }}
 {{- end }}
 {{- end }}
 

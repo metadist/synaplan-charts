@@ -87,11 +87,12 @@ check: ## Unit-test the synaplan chart; render the Helmfile
 	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-public.yaml | grep -A5 'name: TURNSTILE_SECRET_KEY$$' | grep -c 'name: "turnstile-keys"' | grep -qx 3
 	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-public.yaml | grep -A5 'name: GOOGLE_CLIENT_SECRET$$' | grep -c 'name: "google-oauth"' | grep -qx 3
 	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-public.yaml | grep -A5 'name: APPLE_PRIVATE_KEY$$' | grep -c 'key: "apple-private-key"' | grep -qx 3
-	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-public.yaml | (! grep -q 'turnstile-secret-value')
+	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-public.yaml --set humanCheck.secretRef="",humanCheck.secretKey=turnstile-secret-value -s templates/deployment.yaml -s templates/worker-deployment.yaml -s templates/scheduler-deployment.yaml | (! grep -q 'turnstile-secret-value')
 	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-sso.yaml | grep -A1 'name: REGISTRATION_ENABLED$$' | grep -c 'value: "false"' | grep -qx 3
 	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-sso.yaml | grep -A1 'name: OIDC_ALLOW_USER_PROVISIONING$$' | grep -c 'value: "true"' | grep -qx 3
 	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-sso.yaml | (! grep -q 'name: REGISTRATION_MODE$$')
 	$(HELM) template charts/synaplan -f ci/synaplan/lint-values-identity-sso.yaml | (! grep -q 'name: TURNSTILE_')
+	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set technical.synaplan.trustedProxies=10.0.0.8,technical.synaplan.signup.ipLimit=5 -l name=synaplan template | grep -A1 -E 'name: (SYMFONY_TRUSTED_PROXIES|SIGNUP_IP_LIMIT)$$' | grep -c -E 'value: "(10\.0\.0\.8|5)"' | grep -qx 6
 
 .PHONY: clean
 clean: ## Remove build artifacts

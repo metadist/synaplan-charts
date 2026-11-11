@@ -256,6 +256,34 @@ features:
 featurePins:
   {{- toYaml . | nindent 2 }}
 {{- end }}
+{{- with dig "trustedProxies" "" $t }}
+{{- if kindIs "slice" . }}
+trustedProxies:
+  {{- toYaml . | nindent 2 }}
+{{- else }}
+trustedProxies: {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- with dig "trustedHeaders" "" $t }}
+{{- if kindIs "slice" . }}
+trustedHeaders:
+  {{- toYaml . | nindent 2 }}
+{{- else }}
+trustedHeaders: {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- with dig "signup" dict $t }}
+signup:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with dig "humanCheck" dict $t }}
+humanCheck:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with dig "social" dict $t }}
+social:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 
 {{- if dig "certificate" "selfSigned" false .Values }}
 customRootCA:

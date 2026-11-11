@@ -3,6 +3,7 @@
 appSecret: lint
 database:
   password: lint
+publicUrl: https://synaplan.example.test
 features:
   registration: true
 signup:

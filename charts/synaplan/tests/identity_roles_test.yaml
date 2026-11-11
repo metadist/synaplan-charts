@@ -1,0 +1,70 @@
+suite: identity roles and notes
+templates:
+  - deployment.yaml
+  - worker-deployment.yaml
+  - scheduler-deployment.yaml
+  - init-scripts-configmap.yaml
+  - init-scripts-aux-configmap.yaml
+  - NOTES.txt
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: emits identity settings on web, worker and scheduler alike
+    templates:
+      - deployment.yaml
+      - worker-deployment.yaml
+      - scheduler-deployment.yaml
+    set:
+      publicUrl: https://synaplan.example.test
+      signup:
+        mode: open
+        ipLimit: 5
+      trustedProxies:
+        - 10.0.0.8
+        - 10.0.0.9
+      humanCheck:
+        siteKey: 0xpublic
+        secretRef: turnstile-keys
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REGISTRATION_MODE
+            value: open
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYMFONY_TRUSTED_PROXIES
+            value: 10.0.0.8,10.0.0.9
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TURNSTILE_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: turnstile-keys
+                key: turnstile-secret-key
+
+  - it: warns in NOTES when ingress is enabled without trustedProxies
+    template: NOTES.txt
+    set:
+      ingress:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: raw
+          pattern: "ingress.enabled is true and trustedProxies is empty"
+
+  - it: warns in NOTES when social sign-in is enabled without publicUrl
+    template: NOTES.txt
+    set:
+      social:
+        google:
+          clientId: google-client
+          clientSecretRef: google-oauth
+    asserts:
+      - matchRegex:
+          path: raw
+          pattern: "publicUrl is empty"
