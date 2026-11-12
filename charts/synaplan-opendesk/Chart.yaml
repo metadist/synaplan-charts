@@ -1,8 +1,8 @@
 apiVersion: v2
 name: synaplan-opendesk
-description: Nextcloud app and portal tile for Synaplan on openDesk
+description: Portal tile for Synaplan on openDesk
 type: application
-version: 0.1.0
+version: 0.3.0
 appVersion: "1.7.0"
 keywords:
   - synaplan

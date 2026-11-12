@@ -103,7 +103,8 @@ office:
 Neighbour services are switched on by their URL and off by leaving it empty:
 `ollama.baseUrl`, `triton.url`, `qdrant.url`, `office.convertUrl`,
 `office.publicUrl` with `office.wopiUrl`,
-`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`.
+`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`,
+`c2paSigner.enabled`.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`
@@ -118,17 +119,125 @@ Any other flag the application pins from the environment goes into
 `MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
 `FEATURE_*` variable the same way the application does.
 
-Identity needs no clicks either: `oidc.accessPolicy` (synaplan >= 5.3.1)
-decides who may use the instance at all (organization, roles, permissions,
-and whether a first SSO sign-in creates an account),
-`oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who becomes
-administrator on login,
-`features.setupWizard: false` skips the first-run page on SSO-only installs, and
-`bootstrapAdmin.secretRef` creates a first local administrator where local
-accounts are used.
+### Content credentials
+
+`c2paSigner.enabled` turns on the signer that already ships in the Synaplan
+image. It listens on `127.0.0.1` inside the web, worker and scheduler pods.
+There is no second Deployment, no Service, no host port and no Ingress.
+
+The chart does not create a signing key. Create a Secret whose data keys are
+`key.pem` and `cert.pem`. An init container copies them to `/certs`, mode
+`0400`, owner uid 65532. The website user cannot read them. They are not
+environment variables.
+
+The binary is linux amd64 only. An arm64 pod does not sign. PNG and JPEG
+still get the XMP note.
+
+`C2PA_SIGNER_URL`, `C2PA_SIGNER_TOKEN` and `C2PA_ALG` are empty or unset
+while the signer is off. Do not set them in `env`. Leave `tokenSecretRef`
+empty to let the chart create the bearer token and keep it across upgrades.
+The init container runs as root so it can change the owner of the key file.
+
+```bash
+kubectl create secret generic c2pa-signer \
+  --from-file=key.pem=/path/to/key.pem \
+  --from-file=cert.pem=/path/to/cert.pem
+```
+
+```yaml
+c2paSigner:
+  enabled: true
+  keySecretRef: c2pa-signer
+  certSecretRef: c2pa-signer
+  alg: ps256
+```
+
+Use `alg: es256` for an EC key. A development certificate is not a public
+trust anchor. Mount a real key before turning this on for a public site.
+
+### Identity and sign-up
+
+Who can create an account is covered in
+[docs/IDENTITY.md](https://github.com/metadist/synaplan/blob/main/docs/IDENTITY.md).
+A switch here closes account creation. Someone who already has an account
+still signs in. Directory accounts (OIDC) follow `oidc.accessPolicy` only;
+`features.registration` does not stop a first SSO sign-in.
+
+`features.registration: false` closes local self-sign-up, and on `synaplan` >= 5.7.2
+every self-sign-up door (email, Google, GitHub, Apple and the integration
+wizards), including invitation codes; combining `features.registration: false`
+with `social.*` fails the render on older semver tags. `signup.*` and
+`humanCheck.*` need `synaplan` >= 5.6.0. `signup.mode: admission` requires a
+plan or an invitation code — set it only when one of those exists. Leave
+`signup.paused` `null` so Admin can pause without a new release; `true` pauses
+self-sign-up with HTTP 503 (in `admission` mode a valid invitation code still
+opens an account).
+
+`trustedProxies` is the address or dedicated subnet of the ingress that
+connects to Synaplan (comma-separated string or YAML list, for example
+`"10.0.0.8"` or `["10.0.0.8", "10.0.0.9"]`). Leave it empty and every visitor
+shares that ingress address, so the per-address sign-up limit is one limit for
+the whole site. The chart refuses `*`, `REMOTE_ADDR`, `PRIVATE_SUBNETS`,
+`private_ranges`, `0.0.0.0/0` and wide private or pod networks (`10.0.0.0/8`,
+`172.16.0.0/12`, `192.168.0.0/16`, `/16` pod CIDRs): any pod in a trusted range
+can choose the client address. `trustedHeaders` defaults to `x-forwarded-for`
+and refuses `forwarded`. `CF-Connecting-IP` counts (`synaplan` >= 5.7.2) only
+when the connecting hop is a Cloudflare address you listed.
+
+Turnstile (`humanCheck`) and the Google, GitHub and Apple secrets are never
+written into the pod spec. A value in `secretKey` / `clientSecret` /
+`privateKey` is stored in `<fullname>-credentials` and kept across upgrades.
+`secretRef` / `clientSecretRef` / `privateKeyRef` name an existing Kubernetes
+Secret (one Secret may hold all of them); the keys inside it are
+`turnstile-secret-key`, `google-client-secret`, `github-client-secret` and
+`apple-private-key`. Set `publicUrl` so OAuth callback URLs are absolute. An id
+without its secret fails the render. Do not put these names in `env`.
+
+```yaml
+# Public install. Admission only when codes or Stripe exist.
+publicUrl: "https://synaplan.example.com"
+signup:
+  mode: open
+  ipLimit: 5
+  globalLimit: 20
+trustedProxies: "10.0.0.8"
+humanCheck:
+  siteKey: "<widget site key>"
+  secretRef: synaplan-identity
+social:
+  google:
+    clientId: "<client id>.apps.googleusercontent.com"
+    clientSecretRef: synaplan-identity
+```
+
+```yaml
+# SSO only. Existing local accounts still sign in. The directory is OIDC.
+publicUrl: "https://synaplan.example.com"
+features:
+  registration: false
+  guestChat: false
+  setupWizard: false
+trustedProxies: "10.0.0.8"
+oidc:
+  enabled: true
+  accessPolicy:
+    allowUserProvisioning: true
+```
+
+```bash
+kubectl create secret generic synaplan-identity \
+  --from-literal=turnstile-secret-key=<widget secret> \
+  --from-literal=google-client-secret=<google client secret>
+```
+
+`oidc.accessPolicy` (synaplan >= 5.3.1) decides who may use the instance at
+all, `oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who
+becomes administrator on login, and `bootstrapAdmin.secretRef` creates a
+first local administrator where local accounts are used.
 
 Every other environment variable the application reads can be set through
-`env` (use `valueFrom.secretKeyRef` for secrets).
+`env` (use `valueFrom.secretKeyRef` for secrets). The names this chart owns
+are refused there.
 
 ### Admin settings (synaplan >= 5.1.0)
 
@@ -268,6 +377,12 @@ openDesk, is the [Helmfile](../../helmfile/).
 | bootstrapAdmin.forcePasswordChange | bool | `nil` | BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default. |
 | bootstrapAdmin.password | string | `""` | Password of the first administrator, kept in the Secret <fullname>-credentials. Written once: Synaplan creates the administrator only while it has none, so a later value does not change it. |
 | bootstrapAdmin.secretRef | string | `""` | Name of an existing Secret with keys email and password (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off. |
+| c2paSigner.alg | string | `"ps256"` | C2PA_ALG. ps256 for an RSA key, es256 for an EC key. |
+| c2paSigner.certSecretRef | string | `""` | Name of an existing Secret. The certificate is the data key cert.pem. May be the same Secret as keySecretRef. |
+| c2paSigner.enabled | bool | `false` | Mount the key and set C2PA_SIGNER_URL to http://127.0.0.1 |
+| c2paSigner.keySecretRef | string | `""` | Name of an existing Secret. The key material is the data key key.pem. May be the same Secret as certSecretRef. |
+| c2paSigner.port | int | `8787` | Port the signer listens on inside the pod. Not a Service. |
+| c2paSigner.tokenSecretRef | string | `""` | Existing Secret whose data key is token. Empty creates one and keeps it across upgrades. |
 | compute.tokenSecretRef | string | `""` | Name of an existing Secret holding the token under key compute-token. |
 | compute.url | string | `""` | Compute sidecar URL. Empty = off. |
 | customRootCA.crt | string | `""` | Option 1: inline PEM certificate (the chart creates a Secret from it) |
@@ -297,7 +412,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | features.groups | bool | `nil` | FEATURE_IAM_GROUPS_ENABLED (people & groups) |
 | features.guestChat | bool | `nil` | GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs) |
 | features.platformLinks | bool | `nil` | FEATURE_PLATFORM_LINKS_ENABLED (Nextcloud / ownCloud / OpenCloud account linking) |
-| features.registration | bool | `nil` | REGISTRATION_ENABLED (local self-registration; false for SSO-only installs) |
+| features.registration | bool | `nil` | REGISTRATION_ENABLED. false closes local self-sign-up, and on synaplan >= 5.7.2 every self-sign-up door (email, Google, GitHub, Apple, integration wizards), including invitation codes. An existing account still signs in. Directory sign-in is oidc.accessPolicy.allowUserProvisioning. null = application default. |
 | features.setupWizard | bool | `nil` | SETUP_WIZARD_ENABLED (first-run setup page on an empty database; false for SSO-only installs) |
 | features.sharing | bool | `nil` | FEATURE_IAM_SHARING_ENABLED (needs groups) |
 | features.toolApprovals | bool | `nil` | FEATURE_TOOLS_APPROVALS_ENABLED (ask before a changing tool runs) |
@@ -311,6 +426,9 @@ openDesk, is the [Helmfile](../../helmfile/).
 | frankenphp.streamWorkers | int | `nil` | PHP workers for AI streams, the `streams` pool (FRANKENPHP_STREAM_WORKER_NUM). Image default: the same as `workers`. |
 | frankenphp.workers | int | `nil` | PHP workers for short requests, the `api` pool (FRANKENPHP_WORKER_NUM). Image default 16. |
 | fullnameOverride | string | `""` |  |
+| humanCheck.secretKey | string | `""` | TURNSTILE_SECRET_KEY, stored in <fullname>-credentials under turnstile-secret-key (kept across upgrades when left empty afterwards). Prefer secretRef so the value stays out of values. |
+| humanCheck.secretRef | string | `""` | Name of an existing Secret holding key turnstile-secret-key. |
+| humanCheck.siteKey | string | `""` | TURNSTILE_SITE_KEY, the public widget key. Empty = Turnstile off. |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
 | image.tag | string | `""` |  |
@@ -409,6 +527,22 @@ openDesk, is the [Helmfile](../../helmfile/).
 | serviceAccount.name | string | `""` |  |
 | settingSecrets | object | `{}` | BCONFIG admin settings whose value comes from a Secret ({name, key}). Requires synaplan >= 5.1.0. |
 | settings | object | `{}` | BCONFIG admin settings (GROUP.SETTING -> CONFIG_*). Empty = database default. Requires synaplan >= 5.1.0. |
+| signup.globalLimit | int | `nil` | SIGNUP_GLOBAL_LIMIT (synaplan >= 5.6.0), new accounts for the whole installation per 10 minutes. null = application default (20). |
+| signup.ipLimit | int | `nil` | SIGNUP_IP_LIMIT (synaplan >= 5.6.0), new accounts per client address per hour. null = application default (5). The address is the visitor's only when trustedProxies names the ingress. |
+| signup.mode | string | `""` | REGISTRATION_MODE (synaplan >= 5.6.0). open creates an active account. admission requires a plan or an invitation code. Empty = application default (open). Set admission only when codes or Stripe exist. |
+| signup.paused | bool | `nil` | SIGNUP_PAUSED (synaplan >= 5.6.0). true pauses self-sign-up (HTTP 503; in admission mode a valid invitation code still opens an account). An existing account still signs in. null = Admin can pause. false pins the pause off. |
+| social.apple.bundleId | string | `""` | APPLE_APP_BUNDLE_ID for the native app token. Empty = application default. |
+| social.apple.clientId | string | `""` | APPLE_CLIENT_ID, the Services ID (public). Empty = Sign in with Apple off. |
+| social.apple.keyId | string | `""` | APPLE_KEY_ID of the Sign in with Apple key, 10 letters or digits. |
+| social.apple.privateKey | string | `""` | APPLE_PRIVATE_KEY, the p8 PEM, stored under apple-private-key. Prefer privateKeyRef. |
+| social.apple.privateKeyRef | string | `""` | Name of an existing Secret holding key apple-private-key. |
+| social.apple.teamId | string | `""` | APPLE_TEAM_ID, 10 letters or digits. |
+| social.github.clientId | string | `""` | GITHUB_CLIENT_ID (public). Empty = GitHub sign-in off. |
+| social.github.clientSecret | string | `""` | GITHUB_CLIENT_SECRET, stored under github-client-secret. Prefer clientSecretRef. |
+| social.github.clientSecretRef | string | `""` | Name of an existing Secret holding key github-client-secret. |
+| social.google.clientId | string | `""` | GOOGLE_CLIENT_ID (public). Empty = Google sign-in off. |
+| social.google.clientSecret | string | `""` | GOOGLE_CLIENT_SECRET, stored under google-client-secret. Prefer clientSecretRef. |
+| social.google.clientSecretRef | string | `""` | Name of an existing Secret holding key google-client-secret. |
 | speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
 | speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
@@ -449,6 +583,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | tolerations | list | `[]` |  |
 | triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
+| trustedHeaders | string | `""` | SYMFONY_TRUSTED_HEADERS. Comma-separated string or YAML list, used only together with trustedProxies. Empty = x-forwarded-for. Must include x-forwarded-for (forwarded is refused). CF-Connecting-IP counts on synaplan >= 5.7.2 only when that hop is a Cloudflare address listed in trustedProxies. |
+| trustedProxies | string | `""` | SYMFONY_TRUSTED_PROXIES. Comma-separated string or YAML list of addresses/CIDRs of the hop that connects to Synaplan. Empty = ignore X-Forwarded-For, so every visitor shares the ingress address. Refuses *, REMOTE_ADDR, PRIVATE_SUBNETS, private_ranges, 0.0.0.0/0 and wide private/pod networks. |
 | tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.15-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.0@sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |

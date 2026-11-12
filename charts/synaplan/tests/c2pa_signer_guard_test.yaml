@@ -1,0 +1,38 @@
+suite: c2pa signer guards
+templates:
+  - c2pa-token-secret.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: refuses to enable the signer without the key secret
+    set:
+      c2paSigner:
+        enabled: true
+        certSecretRef: signer-cert
+    asserts:
+      - failedTemplate:
+          errorPattern: "does not create a key"
+
+  - it: refuses an unknown signature algorithm
+    set:
+      c2paSigner:
+        enabled: true
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+        alg: none
+    asserts:
+      - failedTemplate:
+          errorPattern: "c2paSigner.alg must be"
+
+  - it: refuses an invalid port
+    set:
+      c2paSigner:
+        enabled: true
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+        port: 70000
+    asserts:
+      - failedTemplate:
+          errorPattern: "c2paSigner.port must be between 1 and 65535"

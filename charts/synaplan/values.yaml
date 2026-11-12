@@ -215,7 +215,7 @@ features:
   compute: null
   # -- (bool) FEATURE_FREEAPI_ENABLED (Synaplan Demo shared onboarding key; pinned off on Kubernetes, set true for an evaluation cluster)
   freeApi: false
-  # -- (bool) REGISTRATION_ENABLED (local self-registration; false for SSO-only installs)
+  # -- (bool) REGISTRATION_ENABLED. false closes local self-sign-up, and on synaplan >= 5.7.2 every self-sign-up door (email, Google, GitHub, Apple, integration wizards), including invitation codes. An existing account still signs in. Directory sign-in is oidc.accessPolicy.allowUserProvisioning. null = application default.
   registration: null
   # -- (bool) GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs)
   guestChat: null
@@ -279,6 +279,71 @@ bootstrapAdmin:
   password: ""
   # -- (bool) BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default.
   forcePasswordChange: null
+
+# Who can create an account (synaplan >= 5.6.0). The guide, with a block to
+# copy for each profile, is https://github.com/metadist/synaplan/blob/main/docs/IDENTITY.md
+# A value here closes account creation. It does not close a sign-in that
+# already exists. Directory accounts follow oidc.accessPolicy only.
+signup:
+  # -- REGISTRATION_MODE (synaplan >= 5.6.0). open creates an active account. admission requires a plan or an invitation code. Empty = application default (open). Set admission only when codes or Stripe exist.
+  mode: ""
+  # -- (int) SIGNUP_IP_LIMIT (synaplan >= 5.6.0), new accounts per client address per hour. null = application default (5). The address is the visitor's only when trustedProxies names the ingress.
+  ipLimit: null
+  # -- (int) SIGNUP_GLOBAL_LIMIT (synaplan >= 5.6.0), new accounts for the whole installation per 10 minutes. null = application default (20).
+  globalLimit: null
+  # -- (bool) SIGNUP_PAUSED (synaplan >= 5.6.0). true pauses self-sign-up (HTTP 503; in admission mode a valid invitation code still opens an account). An existing account still signs in. null = Admin can pause. false pins the pause off.
+  paused: null
+
+# -- SYMFONY_TRUSTED_PROXIES. Comma-separated string or YAML list of addresses/CIDRs of the hop that connects to Synaplan. Empty = ignore X-Forwarded-For, so every visitor shares the ingress address. Refuses *, REMOTE_ADDR, PRIVATE_SUBNETS, private_ranges, 0.0.0.0/0 and wide private/pod networks.
+trustedProxies: ""
+# -- SYMFONY_TRUSTED_HEADERS. Comma-separated string or YAML list, used only together with trustedProxies. Empty = x-forwarded-for. Must include x-forwarded-for (forwarded is refused). CF-Connecting-IP counts on synaplan >= 5.7.2 only when that hop is a Cloudflare address listed in trustedProxies.
+trustedHeaders: ""
+
+# Cloudflare Turnstile (synaplan >= 5.6.0), in front of sign-up, sign-in and
+# the start of every Google/GitHub/Apple flow. Both keys or neither. The secret
+# is never written into the pod spec. reCAPTCHA is not a chart value: Turnstile
+# replaces it, and the application uses reCAPTCHA only when Turnstile is unset.
+humanCheck:
+  # -- TURNSTILE_SITE_KEY, the public widget key. Empty = Turnstile off.
+  siteKey: ""
+  # -- TURNSTILE_SECRET_KEY, stored in <fullname>-credentials under turnstile-secret-key (kept across upgrades when left empty afterwards). Prefer secretRef so the value stays out of values.
+  secretKey: ""
+  # -- Name of an existing Secret holding key turnstile-secret-key.
+  secretRef: ""
+
+# Social sign-in. The client id is public. The secret stays in
+# <fullname>-credentials (kept across upgrades), or in the Secret named by
+# *Ref, and the pod reads it from there. An id without its secret, or a secret
+# without its id, fails the render. Combining social.* with
+# features.registration: false requires synaplan >= 5.7.2.
+social:
+  google:
+    # -- GOOGLE_CLIENT_ID (public). Empty = Google sign-in off.
+    clientId: ""
+    # -- GOOGLE_CLIENT_SECRET, stored under google-client-secret. Prefer clientSecretRef.
+    clientSecret: ""
+    # -- Name of an existing Secret holding key google-client-secret.
+    clientSecretRef: ""
+  github:
+    # -- GITHUB_CLIENT_ID (public). Empty = GitHub sign-in off.
+    clientId: ""
+    # -- GITHUB_CLIENT_SECRET, stored under github-client-secret. Prefer clientSecretRef.
+    clientSecret: ""
+    # -- Name of an existing Secret holding key github-client-secret.
+    clientSecretRef: ""
+  apple:
+    # -- APPLE_CLIENT_ID, the Services ID (public). Empty = Sign in with Apple off.
+    clientId: ""
+    # -- APPLE_TEAM_ID, 10 letters or digits.
+    teamId: ""
+    # -- APPLE_KEY_ID of the Sign in with Apple key, 10 letters or digits.
+    keyId: ""
+    # -- APPLE_PRIVATE_KEY, the p8 PEM, stored under apple-private-key. Prefer privateKeyRef.
+    privateKey: ""
+    # -- Name of an existing Secret holding key apple-private-key.
+    privateKeyRef: ""
+    # -- APPLE_APP_BUNDLE_ID for the native app token. Empty = application default.
+    bundleId: ""
 
 # OIDC authentication configuration
 oidc:
@@ -381,6 +446,24 @@ models:
     sound2text: ""
     vectorize: ""
     analyze: ""
+
+# Content credentials inside the Synaplan pods. Off by default:
+# C2PA_SIGNER_URL stays empty and no key is mounted. The chart does not
+# create a signing key and does not publish a port. The binary ships in the
+# Synaplan image and is linux amd64 only.
+c2paSigner:
+  # -- Mount the key and set C2PA_SIGNER_URL to http://127.0.0.1
+  enabled: false
+  # -- Port the signer listens on inside the pod. Not a Service.
+  port: 8787
+  # -- Name of an existing Secret. The key material is the data key key.pem. May be the same Secret as certSecretRef.
+  keySecretRef: ""
+  # -- Name of an existing Secret. The certificate is the data key cert.pem. May be the same Secret as keySecretRef.
+  certSecretRef: ""
+  # -- Existing Secret whose data key is token. Empty creates one and keeps it across upgrades.
+  tokenSecretRef: ""
+  # -- C2PA_ALG. ps256 for an RSA key, es256 for an EC key.
+  alg: ps256
 
 # -- TTS (text-to-speech) sub-deployment using Piper voices
 tts:

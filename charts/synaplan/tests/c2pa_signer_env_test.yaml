@@ -1,0 +1,28 @@
+suite: c2pa signer env
+templates:
+  - deployment.yaml
+  - init-scripts-configmap.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: refuses a signer url set by hand
+    template: deployment.yaml
+    set:
+      env:
+        - name: C2PA_SIGNER_URL
+          value: http://elsewhere:8787
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets C2PA_SIGNER_URL"
+
+  - it: refuses a signer token set by hand
+    template: deployment.yaml
+    set:
+      env:
+        - name: C2PA_SIGNER_TOKEN
+          value: from-env
+    asserts:
+      - failedTemplate:
+          errorPattern: "env sets C2PA_SIGNER_TOKEN"
