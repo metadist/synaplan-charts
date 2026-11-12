@@ -125,9 +125,20 @@ tika:
   enabled: {{ ne $tikaUrl "" }}
   url: {{ $tikaUrl | quote }}
 
-{{- with $t.office.convertUrl | default (ternary "http://collabora:9980" "" (dig "apps" "collabora" "enabled" false .Values)) }}
+{{- $officeConvert := $t.office.convertUrl | default (ternary "http://collabora:9980" "" (dig "apps" "collabora" "enabled" false .Values)) }}
+{{- $officePublic := $t.office.publicUrl | default "" }}
+{{- $officeWopi := $t.office.wopiUrl | default "" }}
+{{- if or $officeConvert $officePublic $officeWopi }}
 office:
+  {{- with $officeConvert }}
   convertUrl: {{ . | quote }}
+  {{- end }}
+  {{- if and $officePublic $officeWopi }}
+  publicUrl: {{ $officePublic | quote }}
+  wopiUrl: {{ $officeWopi | quote }}
+  {{- else if or $officePublic $officeWopi }}
+  {{- fail "technical.synaplan.office.publicUrl and wopiUrl must both be set, or both left empty. Previews stay on convertUrl alone." }}
+  {{- end }}
 {{- end }}
 
 {{- with $t.c2paSigner }}
