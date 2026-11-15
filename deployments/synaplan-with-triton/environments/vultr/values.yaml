@@ -1,0 +1,53 @@
+# Vultr cluster environment — vsap.metadist.de
+# Last verified: 2026-04-02
+
+cluster:
+  ingressClassName: nginx
+  customRootCA: false
+  certIssuer: letsencrypt-prod
+
+services:
+  synaplan:
+    url: https://synaplan.vsap.metadist.de
+    oidc:
+      issuerURI: https://id.vsap.metadist.de/realms/opendesk
+      clientId: synaplan
+      clientSecretRef: synaplan-oidc-credentials
+    apiKeysSecretRef: synaplan-api-keys
+    env:
+      - name: APP_ENV
+        value: "prod"
+      - name: APP_DEBUG
+        value: "false"
+      - name: OIDC_AUTO_REDIRECT
+        value: "true"
+      - name: OIDC_SCOPES
+        value: "openid email profile offline_access"
+      - name: LOCK_DSN
+        value: "flock"
+      - name: VECTOR_STORAGE_PROVIDER
+        value: "qdrant"
+      - name: QDRANT_URL
+        value: "http://qdrant.synaplan.svc.cluster.local:6333"
+      - name: QDRANT_DOCUMENTS_COLLECTION
+        value: "user_documents"
+    models:
+      enabled:
+        - "triton:gpt-oss-20b"
+        - "triton:bge-m3"
+        - "piper:piper-multi"
+      defaults:
+        chat: "triton:gpt-oss-20b"
+        sort: "triton:gpt-oss-20b"
+        vectorize: "triton:bge-m3"
+        text2sound: "piper:piper-multi"
+  tts:
+    enabled: true
+    huggingfaceVoices:
+      voices:
+        - name: "en_US-lessac-medium"
+          subfolder: "en/en_US/lessac/medium"
+        - name: "de_DE-thorsten-medium"
+          subfolder: "de/de_DE/thorsten/medium"
+  triton:
+    mode: gpu
