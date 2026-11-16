@@ -1,0 +1,16 @@
+apiVersion: v2
+name: synaplan-nextcloud
+description: Nextcloud app for Synaplan, installed into a Nextcloud that runs in the same namespace
+type: application
+version: 0.1.0
+appVersion: "1.7.0"
+keywords:
+  - synaplan
+  - nextcloud
+maintainers:
+  - name: metadist
+    email: info@metadist.de
+    url: https://github.com/metadist
+sources:
+  - https://github.com/metadist/synaplan-charts
+  - https://github.com/metadist/synaplan-nextcloud

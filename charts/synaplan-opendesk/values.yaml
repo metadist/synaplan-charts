@@ -1,0 +1,42 @@
+# Portal tile for Synaplan on openDesk. A Job after install and upgrade adds
+# a tile named Synaplan, with the Synaplan bird, to the applications category
+# and the central navigation of openDesk's portal (through the UDM REST API)
+# and restarts the portal workloads. Signing in is openDesk's Keycloak.
+# This chart does not deploy the portal.
+
+# -- Synaplan as users open it. Required.
+synaplanUrl: ""
+
+# -- UDM REST API inside the namespace
+udmUrl: "http://ums-udm-rest-api:9979/univention/udm"
+# -- LDAP base of this openDesk (Nubus default)
+ldapBase: "dc=swp-ldap,dc=internal"
+# -- Secret with the LDAP administrator password, key password (ums-ldap-server-admin)
+adminSecret: ums-ldap-server-admin
+adminSecretKey: password
+# -- Bind DN for that password
+adminDn: "cn=admin"
+# -- Image of the registration Job
+image: "python:3.15-alpine"
+pullPolicy: IfNotPresent
+# Workloads restarted after the tile changes. Names are the caller's portal,
+# not a fixed product. The hook's permissions cover only this list.
+restarts:
+  - api: statefulsets
+    name: ums-portal-consumer
+  - api: deployments
+    name: ums-portal-server
+  - api: deployments
+    name: ums-portal-frontend
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full resource name
+fullnameOverride: ""

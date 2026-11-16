@@ -1,0 +1,4 @@
+# Render the Job and the volume. synaplanUrl is required.
+synaplanUrl: https://synaplan.example.org
+persistence:
+  storageClass: local-path

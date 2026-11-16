@@ -1,0 +1,132 @@
+{{- if not .Values.synaplanUrl }}
+{{- fail "synaplanUrl is required" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "synaplan-opencloud.fullname" . }}
+  labels:
+    {{- include "synaplan-opencloud.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "synaplan-opencloud.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan-opencloud.selectorLabels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: synaplan-opencloud
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.port }}
+          env:
+            - name: SYNAPLAN_URL
+              value: {{ .Values.synaplanUrl | quote }}
+            - name: SYNAPLAN_HTTP_ADDR
+              value: {{ printf ":%v" .Values.port | quote }}
+            - name: SYNAPLAN_LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            {{- if kindIs "bool" .Values.insecure }}
+            - name: OC_INSECURE
+              value: {{ .Values.insecure | toString | quote }}
+            {{- end }}
+            {{- if .Values.customRootCA.secretRef }}
+            - name: SSL_CERT_FILE
+              value: /etc/synaplan-opencloud/ca/ca.crt
+            {{- end }}
+            {{- if .Values.apiKeySecret }}
+            - name: SYNAPLAN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeySecret | quote }}
+                  key: {{ .Values.apiKeySecretKey | quote }}
+            {{- end }}
+            {{- with .Values.revaGateway }}
+            - name: OC_REVA_GATEWAY
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.jwtSecretSecret }}
+            - name: OC_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jwtSecretSecret | quote }}
+                  key: {{ .Values.jwtSecretKey | quote }}
+            {{- end }}
+            {{- with .Values.oidc.tokenEndpoint }}
+            - name: SYNAPLAN_OIDC_TOKEN_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.oidc.exchangeClientId }}
+            - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_ID
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.oidc.exchangeSecretSecret }}
+            - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.oidc.exchangeSecretSecret | quote }}
+                  key: {{ .Values.oidc.exchangeSecretKey | quote }}
+            {{- end }}
+            {{- with .Values.oidc.targetAudience }}
+            - name: SYNAPLAN_OIDC_TARGET_AUDIENCE
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if or .Values.customRootCA.secretRef .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if .Values.customRootCA.secretRef }}
+            - name: ca
+              mountPath: /etc/synaplan-opencloud/ca
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if or .Values.customRootCA.secretRef .Values.extraVolumes }}
+      volumes:
+        {{- if .Values.customRootCA.secretRef }}
+        - name: ca
+          secret:
+            secretName: {{ .Values.customRootCA.secretRef | quote }}
+            items:
+              - key: {{ .Values.customRootCA.key | quote }}
+                path: ca.crt
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}

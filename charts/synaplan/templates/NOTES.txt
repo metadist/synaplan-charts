@@ -29,3 +29,22 @@ the background jobs (extraction/indexing will fail on them). Enable
 persistence.uploads with storage all roles can mount (ReadWriteMany, or
 co-schedule the roles onto one node), or disable worker/scheduler.
 {{- end }}
+{{- $proxies := include "synaplan.identity.csvItems" (dict "raw" .Values.trustedProxies "label" "trustedProxies") | fromJsonArray -}}
+{{- if and .Values.ingress.enabled (eq (len $proxies) 0) }}
+
+WARNING: ingress.enabled is true and trustedProxies is empty. Every visitor
+shares the ingress address, so per-address sign-up and guest limits apply to
+the whole site at once. Set trustedProxies to the address or dedicated subnet
+of the ingress that connects to Synaplan.
+{{- end }}
+{{- $social := .Values.social | default dict -}}
+{{- $google := $social.google | default dict -}}
+{{- $github := $social.github | default dict -}}
+{{- $apple := $social.apple | default dict -}}
+{{- $hasOAuth := or .Values.oidc.enabled (ne ($google.clientId | default "" | toString | trim) "") (ne ($github.clientId | default "" | toString | trim) "") (ne ($apple.clientId | default "" | toString | trim) "") -}}
+{{- if and $hasOAuth (eq (.Values.publicUrl | default "" | toString | trim) "") }}
+
+WARNING: OIDC or social sign-in is enabled, but publicUrl is empty. Set
+publicUrl (e.g. https://synaplan.example.com) so OAuth callback redirect URIs
+resolve to an absolute URL.
+{{- end }}

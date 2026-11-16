@@ -49,7 +49,7 @@ technical:
       # Model name the plugin sends to the speech-to-text server (whisper.cpp
       # ignores it, vLLM needs its --served-model-name). Empty: not sent.
       # With secrets.synascriber.sttApiKey (SYNASCRIBER_STT_API_KEY) this
-      # needs plugin 0.4.1, a Synaplan release after 5.5.4.
+      # needs plugin 0.4.1 (Synaplan 5.6.0 or later).
       sttModel: ""
       previewEveryMs: 1500
       commitAfterMs: 8000
@@ -66,6 +66,12 @@ technical:
       # scopes, roleClaims, roleMapping, providerLabel, bearerAudience and
       # accessPolicy are passed to the chart's oidc values as they are
       accessPolicy: {}
+    # Content credentials inside the Synaplan pods. Off until a key Secret exists.
+    # The chart does not create the key.
+    c2paSigner:
+      enabled: false
+      keySecretRef: ""
+      certSecretRef: ""
     # Passed to the chart's tts values
     tts:
       enabled: true
@@ -77,6 +83,13 @@ technical:
             subfolder: "de/de_DE/thorsten/medium"
     features: {}
     featurePins: {}
+    # Ingress hop(s) connecting to Synaplan (string or list), sign-up policy,
+    # Cloudflare Turnstile and social sign-in: passed to the chart as they are.
+    trustedProxies: ""
+    trustedHeaders: ""
+    signup: {}
+    humanCheck: {}
+    social: {}
   # "gpu" or "cpu"
   triton:
     mode: "gpu"

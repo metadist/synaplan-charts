@@ -27,7 +27,8 @@ helmfile/
 └── opendesk/                       # files for openDesk's environment
     ├── synaplan-client.yaml.gotmpl     # Synaplan's Keycloak client
     ├── synascriber-client.yaml.gotmpl  # meeting notes: the Jitsi button's Keycloak client
-    └── synascriber-jitsi.yaml.gotmpl   # meeting notes: values for openDesk's jitsi release
+    ├── synascriber-jitsi.yaml.gotmpl   # meeting notes: values for openDesk's jitsi release
+    └── nextcloud-app.yaml.gotmpl       # Nextcloud: mount the Synaplan app
 ```
 
 | Release | Installed when | Chart |
@@ -36,6 +37,9 @@ helmfile/
 | `synaplan-mariadb` | `apps.synaplanMariadb.enabled` (default) | openDesk's MariaDB chart, with MariaDB 11.8 (Synaplan needs `VECTOR`) |
 | `synaplan-stt` | `apps.synaplanStt.enabled` | [charts/stt](../charts/stt/) |
 | meeting notes (in `synaplan`) | `technical.synaplan.synascriber.enabled` | [charts/synaplan](../charts/synaplan/), see [Meeting notes](#meeting-notes) |
+| Nextcloud app | `apps.synaplanNextcloud.enabled` | [charts/synaplan-nextcloud](../charts/synaplan-nextcloud/), see [Nextcloud and the portal](#nextcloud-and-the-portal) |
+| openDesk portal tile | `apps.synaplanOpendesk.enabled` | [charts/synaplan-opendesk](../charts/synaplan-opendesk/), see [Nextcloud and the portal](#nextcloud-and-the-portal) |
+| OpenCloud plugin | `apps.synaplanOpencloud.enabled` | [charts/synaplan-opencloud](../charts/synaplan-opencloud/), see [OpenCloud plugin](#opencloud-plugin) |
 | `tika` | `apps.tika.enabled` (default) | Apache Tika |
 | `triton` | `apps.triton.enabled` | [charts/triton](../charts/triton/) |
 | `ollama` | `apps.ollama.enabled` | otwld/ollama-helm |
@@ -249,7 +253,10 @@ against the values in the cluster.
 | `technical.synaplan.oidc.enabled: true` (default) | an OIDC provider, e.g. Keycloak |
 
 `technical.synaplan.bootstrapAdmin.email` creates the first administrator, a
-local account (see [Standalone](#standalone)).
+local account (see [Standalone](#standalone)). `trustedProxies`,
+`trustedHeaders`, `signup`, `humanCheck` and `social` under
+`technical.synaplan` go to the chart's identity values as they are (see
+[Identity and sign-up](../charts/synaplan/README.md#identity-and-sign-up)).
 
 With OIDC, the issuer is
 `https://<global.hosts.keycloak>.<global.domain>/realms/<platform.realm>`
@@ -363,9 +370,10 @@ Any server with the OpenAI transcription API works
 (`technical.synaplan.speech.whisperServerUrl`); vLLM and the cloud services
 need the model name the plugin sends (`technical.synaplan.synascriber.sttModel`,
 vLLM's `--served-model-name`) and perhaps a key (`SYNASCRIBER_STT_API_KEY`).
-Both are sent only when set, and setting them needs plugin 0.4.1, a Synaplan
-release after 5.5.4: with an older image the Job stops with a message
+Both are sent only when set, and setting them needs plugin 0.4.1
+(Synaplan 5.6.0 or later): with an older image the Job stops with a message
 instead of writing settings the plugin refuses.
+
 It is a plain Job next to the release (one per revision, gone after a day),
 not a Helm hook: a hook would hold the install until the web pod answers,
 and on a first install the database release only follows once this release
@@ -393,6 +401,73 @@ Two more files go into openDesk's environment folder:
 openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only
 those users can start or receive notes. The e2e suite runs all of this with
 `E2E_OPENDESK_SYNASCRIBER=true`, see [e2e](../e2e/).
+
+## Nextcloud and the portal
+
+The combination openDesk publishes with Synaplan is Synaplan itself, the
+Nextcloud app, the portal tile and meeting notes. Meeting notes are
+[above](#meeting-notes). The Nextcloud app is the release `synaplan-nextcloud`
+([charts/synaplan-nextcloud](../charts/synaplan-nextcloud/)), the tile the
+release `synaplan-opendesk` ([charts/synaplan-opendesk](../charts/synaplan-opendesk/)):
+
+```yaml
+apps:
+  collabora:
+    enabled: true          # openDesk's Collabora; Synaplan uses it for Office files
+  synaplanNextcloud:
+    enabled: true
+  synaplanOpendesk:
+    enabled: true
+technical:
+  synaplan:
+    synascriber:
+      enabled: true
+customization:
+  release:
+    opendeskNextcloud:
+      synaplan: '<synaplan-charts>/helmfile/opendesk/nextcloud-app.yaml.gotmpl'
+    jitsi:
+      synascriber: '<synaplan-charts>/helmfile/opendesk/synascriber-jitsi.yaml.gotmpl'
+```
+
+`nextcloud-app.yaml.gotmpl` mounts the volume `synaplan-nextcloud-app` into
+Nextcloud. The Job writes the current
+[synaplan-nextcloud](https://github.com/metadist/synaplan-nextcloud) release
+onto that volume and enables it; people connect their own Synaplan account.
+The same Job adds the Synaplan bird to the portal's central navigation.
+`archiveUrl` on the chart points the tarball at a mirror when the cluster
+cannot reach GitHub. An install that already has the client secret sets
+`SYNAPLAN_OIDC_EXISTING_SECRET` to that Secret's name before openDesk's
+Keycloak bootstrap, and `technical.synaplan.oidc.clientSecretRef` to the same
+Secret. A database that already exists stays in place with
+`apps.synaplanMariadb.enabled: false` and
+`databases.synaplan.password.secretRef`.
+
+## OpenCloud plugin
+
+An OpenCloud next to Synaplan gets the plugin from the release
+`synaplan-opencloud` ([charts/synaplan-opencloud](../charts/synaplan-opencloud/)):
+the token-exchange service, and the web extension OpenCloud serves from the
+same image. The OpenCloud release itself is configured elsewhere (its proxy
+route to the Service and the extension mount). The plugin's settings are
+passed through from `technical.synaplanOpencloud` as they are; with
+`certificate.selfSigned` the chart's `customRootCA.secretRef` points at the
+certificate Secret.
+
+```yaml
+apps:
+  synaplanOpencloud:
+    enabled: true
+technical:
+  synaplanOpencloud:
+    revaGateway: "kubernetes://opencloud-gateway:9142"
+    jwtSecretSecret: rolling-secrets
+    oidc:
+      tokenEndpoint: "https://id.example.org/realms/opendesk/protocol/openid-connect/token"
+      exchangeClientId: synaplan-opencloud
+      exchangeSecretSecret: synaplan-opencloud-oidc
+      targetAudience: synaplan
+```
 
 ## Certificates
 

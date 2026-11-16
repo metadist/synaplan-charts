@@ -1,0 +1,19 @@
+{{- $domain := dig "global" "domain" "" .Values | required "global.domain is required" }}
+{{- $host := dig "global" "hosts" "synaplan" "synaplan" .Values }}
+synaplanUrl: {{ printf "https://%s.%s" $host $domain | quote }}
+{{- if dig "certificate" "selfSigned" false .Values }}
+# The CA of a self-signed install, from the certificate Secret (as values-synaplan)
+customRootCA:
+  secretRef: {{ ternary (dig "ingress" "tls" "secretName" "" .Values) "synaplan-tls" (dig "certificate" "wildcard" false .Values) | quote }}
+{{- end }}
+{{- with (dig "global" "imagePullSecrets" list .Values) }}
+imagePullSecrets:
+  {{- range . }}
+  - name: {{ . | quote }}
+  {{- end }}
+{{- end }}
+# The plugin's OpenCloud settings (revaGateway, jwtSecretSecret, oidc, ...),
+# as the environment sets them
+{{- with dig "technical" "synaplanOpencloud" dict .Values }}
+{{ toYaml . }}
+{{- end }}

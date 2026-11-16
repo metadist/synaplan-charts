@@ -1,0 +1,22 @@
+{{- if .Values.persistence.create }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "synaplan-nextcloud.claim" . }}
+  labels:
+    {{- include "synaplan-nextcloud.labels" . | nindent 4 }}
+  annotations:
+    # Nextcloud mounts this volume from its own release. Removing this chart
+    # must not delete the app files. Delete the claim by hand when the app
+    # itself is going away.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end }}

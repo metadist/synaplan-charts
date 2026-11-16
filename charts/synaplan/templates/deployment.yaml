@@ -53,8 +53,31 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
+            {{- if .Values.watchdog.enabled }}
+            - name: watchdog
+              containerPort: 8098
+              protocol: TCP
+            {{- end }}
           env:
+            {{- include "synaplan.watchdogEnv" (dict "ctx" . "container" .Chart.Name "deployment" (include "synaplan.fullname" .) "resources" .Values.resources) | nindent 12 }}
+            {{- with include "synaplan.phpRuntimeEnv" . }}
+            {{- . | nindent 12 }}
+            {{- end }}
             {{- include "synaplan.env" . | nindent 12 }}
+          {{- if .Values.watchdog.enabled }}
+          {{- with .Values.watchdog.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.watchdog.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.watchdog.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- else }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -63,6 +86,7 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -70,7 +94,7 @@ spec:
           volumeMounts:
             {{- include "synaplan.volumeMounts" . | nindent 12 }}
       volumes:
-        {{- include "synaplan.volumes" (dict "ctx" . "initScripts" (printf "%s-init-scripts" (include "synaplan.fullname" .))) | nindent 8 }}
+        {{- include "synaplan.volumes" (dict "ctx" . "certs" true "initScripts" (printf "%s-init-scripts" (include "synaplan.fullname" .))) | nindent 8 }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

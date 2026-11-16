@@ -1,0 +1,139 @@
+suite: c2pa signer
+templates:
+  - deployment.yaml
+  - worker-deployment.yaml
+  - scheduler-deployment.yaml
+  - init-scripts-configmap.yaml
+  - init-scripts-aux-configmap.yaml
+  - c2pa-token-secret.yaml
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: stays off and leaves the signer url empty
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_URL
+            value: ""
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_PRIVATE_KEY
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_TOKEN
+      - notExists:
+          path: spec.template.spec.initContainers
+
+  - it: does not create a token secret while off
+    template: c2pa-token-secret.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: points the app at localhost and keeps the key off the website process
+    set:
+      c2paSigner:
+        enabled: true
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+    asserts:
+      - template: deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_URL
+            value: http://127.0.0.1:8787
+      - template: deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-synaplan-c2pa-token
+                key: token
+      - template: deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_ALG
+            value: ps256
+      - template: deployment.yaml
+        notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_PRIVATE_KEY
+      - template: deployment.yaml
+        notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGN_CERT
+      - template: deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: c2pa-certs
+            mountPath: /certs
+            readOnly: true
+      - template: deployment.yaml
+        equal:
+          path: spec.template.spec.initContainers[0].name
+          value: c2pa-certs
+      - template: deployment.yaml
+        equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsUser
+          value: 0
+      - template: worker-deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_URL
+            value: http://127.0.0.1:8787
+      - template: worker-deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: c2pa-certs
+            mountPath: /certs
+            readOnly: true
+      - template: scheduler-deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: c2pa-certs
+            mountPath: /certs
+            readOnly: true
+      - template: c2pa-token-secret.yaml
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-synaplan-c2pa-token
+      - template: c2pa-token-secret.yaml
+        isNotEmpty:
+          path: data.token
+
+  - it: uses an existing token secret when one is named
+    set:
+      c2paSigner:
+        enabled: true
+        keySecretRef: signer-key
+        certSecretRef: signer-cert
+        tokenSecretRef: existing-token
+    asserts:
+      - template: deployment.yaml
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: C2PA_SIGNER_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: existing-token
+                key: token
+      - template: c2pa-token-secret.yaml
+        hasDocuments:
+          count: 0

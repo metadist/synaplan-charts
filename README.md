@@ -11,7 +11,10 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.10.0 | Synaplan 5.5.4, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
+| [synaplan](charts/synaplan/) | 0.11.0 | Synaplan 5.8.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
+| [synaplan-nextcloud](charts/synaplan-nextcloud/) | 0.1.0 | Nextcloud app for Synaplan, installed into a Nextcloud in the same namespace ([app](https://github.com/metadist/synaplan-nextcloud)) |
+| [synaplan-opendesk](charts/synaplan-opendesk/) | 0.3.0 | Portal tile for Synaplan on openDesk |
+| [synaplan-opencloud](charts/synaplan-opencloud/) | 0.1.0 | OpenCloud plugin for Synaplan: the token-exchange service and the web extension ([image](https://github.com/metadist/synaplan-opencloud)) |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 | [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |
 
@@ -101,7 +104,7 @@ Product flags (`synaplan` >= 5.0.0). `true` or `false` locks the admin toggle.
 
 ```yaml
 features:
-  registration: false   # SSO-only: no local sign-up
+  registration: false   # local sign-up off; >= 5.7.2 also closes Google, GitHub, Apple & wizards
   guestChat: false
   setupWizard: false
   userSearch: false
@@ -115,6 +118,16 @@ Any other flag the application reads as `FEATURE_<GROUP>_<SETTING>` goes in
 `featurePins`, keyed by the BCONFIG name (`COMPUTE.EGRESS_ENABLED`,
 `MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`). Do not also set those
 variables in `env`. The render fails on a duplicate.
+
+Who can create an account, the human check, and the ingress address are
+`signup`, `humanCheck`, `social` and `trustedProxies` on the synaplan chart
+(`signup` and `humanCheck` require `synaplan` >= 5.6.0). The guide is
+[docs/IDENTITY.md](https://github.com/metadist/synaplan/blob/main/docs/IDENTITY.md).
+A secret (Turnstile, Google, GitHub, the Apple p8) stays in a Secret. Name
+the ingress in `trustedProxies` (string or list), not the whole cluster
+network: otherwise every visitor shares one sign-up limit, or any pod can pick
+the client address. `features.registration: false` does not stop a first SSO
+sign-in; that switch is `oidc.accessPolicy.allowUserProvisioning`.
 
 Who is an administrator comes from the identity provider:
 
@@ -181,6 +194,41 @@ in the cluster unless you allow cloud providers, and runs in three ways:
 | Next to a running openDesk (example environment `opendesk`) | openDesk's Keycloak | [Next to openDesk](helmfile/README.md#next-to-opendesk) |
 | As an app of openDesk's own Helmfile | openDesk's Keycloak | [Inside openDesk](helmfile/README.md#inside-opendesk) |
 
+## Working with openDesk
+
+We test this deployment on Kubernetes against the community edition of
+openDesk. That edition keeps files in Nextcloud and meetings in Jitsi, and
+both plugins talk to Synaplan **5.8.2**, the current release.
+
+- The **Synaplan Nextcloud plugin** adds the AI actions on files: summaries,
+  translations, and chat about a document.
+- The **synascriber plugin** transcribes Jitsi meetings and writes the notes
+  into Synaplan.
+
+Set the file target at the end of the environment. openDesk community edition
+is `nextcloud`. A target that serves files from OpenCloud is `opencloud`.
+Only the plugin for that target is installed. Meeting notes stay on, because
+Jitsi is part of the openDesk test either way. Collabora, when openDesk runs
+it, is the Office engine Synaplan uses for document previews.
+
+```yaml
+apps:
+  synaplanOpendesk:
+    enabled: true
+technical:
+  synaplan:
+    synascriber:
+      enabled: true
+  synaplanOpendesk:
+    files: nextcloud   # or opencloud
+```
+
+This checkout is the feature test: the chart, the Nextcloud plugin, and the
+Jitsi plugin on a community openDesk. The following run is the tested release,
+with the OpenCloud image pinned to a version tag instead of the test digest.
+Details of the Helmfile wiring are in
+[Nextcloud and the portal](helmfile/README.md#nextcloud-and-the-portal).
+
 ```bash
 cp -r helmfile/environments/standalone helmfile/environments/my-cluster
 $EDITOR helmfile/environments/my-cluster/values.yaml.gotmpl
@@ -196,11 +244,11 @@ helmfile -e my-cluster -n synaplan apply
 
 Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
 `triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
-synaplan **0.7.1**, triton **0.1.0** and stt **0.1.0**.
+synaplan **0.11.0**, triton **0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.7.1
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.11.0
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # This checkout, including values that are not in an older GHCR release yet

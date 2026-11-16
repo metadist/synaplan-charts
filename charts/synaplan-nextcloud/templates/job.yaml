@@ -1,0 +1,79 @@
+{{- if not .Values.synaplanUrl }}
+{{- fail "synaplanUrl is required" }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "synaplan-nextcloud.fullname" . }}
+  labels:
+    {{- include "synaplan-nextcloud.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "synaplan-nextcloud.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nextcloud-app
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "synaplan-nextcloud.fullname" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nextcloud
+          image: {{ .Values.nextcloud.kubectlImage | quote }}
+          imagePullPolicy: {{ .Values.nextcloud.pullPolicy }}
+          command: ["bash", "/scripts/nextcloud.sh"]
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NEXTCLOUD_DEPLOYMENT
+              value: {{ .Values.nextcloud.deployment | quote }}
+            - name: NEXTCLOUD_CONTAINER
+              value: {{ .Values.nextcloud.container | quote }}
+            - name: NEXTCLOUD_APP_ID
+              value: {{ .Values.nextcloud.appId | quote }}
+            - name: NEXTCLOUD_APP_VERSION
+              value: {{ .Values.nextcloud.version | quote }}
+            - name: ARCHIVE_URL
+              value: {{ .Values.nextcloud.archiveUrl | quote }}
+            - name: ARCHIVE_SHA256
+              value: {{ .Values.nextcloud.archiveSha256 | quote }}
+            - name: CLAIM_NAME
+              value: {{ include "synaplan-nextcloud.claim" . | quote }}
+            - name: SEED_IMAGE
+              value: {{ .Values.nextcloud.seedImage | quote }}
+            - name: SYNAPLAN_URL
+              value: {{ .Values.synaplanUrl | quote }}
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "synaplan-nextcloud.fullname" . }}
+            defaultMode: 0555
+        - name: tmp
+          emptyDir: {}

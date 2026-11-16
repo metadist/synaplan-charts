@@ -1,0 +1,34 @@
+# Watchdog on: probes on :8098, the pod's place, the worker pools and the
+# Grafana dashboard. The Prometheus Operator monitors are CRDs kubeconform has
+# no schema for; the unit tests cover them.
+
+persistence:
+  enabled: true
+
+appSecret: lint
+
+database:
+  password: lint
+
+image:
+  repository: ghcr.io/metadist/synaplan
+  tag: latest
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 1Gi
+  limits:
+    memory: 3Gi
+
+watchdog:
+  enabled: true
+
+frankenphp:
+  workers: 8
+  streamWorkers: 16
+  maxWaitTime: 15s
+
+metrics:
+  dashboard:
+    enabled: true

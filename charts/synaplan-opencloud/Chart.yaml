@@ -1,0 +1,16 @@
+apiVersion: v2
+name: synaplan-opencloud
+description: OpenCloud plugin for Synaplan, the token-exchange service and the web extension
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - synaplan
+  - opencloud
+maintainers:
+  - name: metadist
+    email: info@metadist.de
+    url: https://github.com/metadist
+sources:
+  - https://github.com/metadist/synaplan-charts
+  - https://github.com/metadist/synaplan-opencloud

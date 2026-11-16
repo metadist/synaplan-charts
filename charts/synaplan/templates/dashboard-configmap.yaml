@@ -1,0 +1,23 @@
+{{- if .Values.metrics.dashboard.enabled }}
+{{- if not .Values.watchdog.enabled }}
+{{- fail "metrics.dashboard reads the watchdog's metrics; set watchdog.enabled=true (synaplan >= 5.6.0)" }}
+{{- end }}
+# Picked up by the Grafana dashboard sidecar (kube-prometheus-stack) through
+# the label in metrics.dashboard.labels.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "synaplan.fullname" . }}-dashboard
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    {{- with .Values.metrics.dashboard.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.metrics.dashboard.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  synaplan-capacity.json: |-
+    {{- .Files.Get "dashboards/synaplan-capacity.json" | nindent 4 }}
+{{- end }}

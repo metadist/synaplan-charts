@@ -1,0 +1,7 @@
+{{- $domain := dig "global" "domain" "" .Values | required "global.domain is required" }}
+{{- $host := dig "global" "hosts" "synaplan" "synaplan" .Values }}
+synaplanUrl: {{ printf "https://%s.%s" $host $domain | quote }}
+# ldapBase, restarts and the rest, as the environment sets them
+{{- with dig "technical" "synaplanOpendesk" dict .Values }}
+{{ toYaml . }}
+{{- end }}

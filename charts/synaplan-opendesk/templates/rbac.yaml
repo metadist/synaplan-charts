@@ -1,0 +1,55 @@
+{{- $deployments := list }}
+{{- $statefulsets := list }}
+{{- range .Values.restarts }}
+{{- if eq .api "deployments" }}
+{{- $deployments = append $deployments .name }}
+{{- else if eq .api "statefulsets" }}
+{{- $statefulsets = append $statefulsets .name }}
+{{- else }}
+{{- fail (printf "restarts api must be deployments or statefulsets, got %q" .api) }}
+{{- end }}
+{{- end }}
+{{- if and (not $deployments) (not $statefulsets) }}
+{{- fail "restarts must name at least one deployment or statefulset" }}
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+rules:
+  {{- if $deployments }}
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: {{ $deployments | toJson }}
+    verbs: ["get", "patch"]
+  {{- end }}
+  {{- if $statefulsets }}
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    resourceNames: {{ $statefulsets | toJson }}
+    verbs: ["get", "patch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "synaplan-opendesk.fullname" . }}
+  labels:
+    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "synaplan-opendesk.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "synaplan-opendesk.fullname" . }}
+    namespace: {{ .Release.Namespace }}

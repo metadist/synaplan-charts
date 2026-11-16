@@ -1,0 +1,29 @@
+# Public install: open sign-up, a named ingress, Turnstile and social ids.
+# Secrets are references. The render must not contain a secret value.
+appSecret: lint
+database:
+  password: lint
+publicUrl: https://synaplan.example.test
+features:
+  registration: true
+signup:
+  mode: open
+  ipLimit: 5
+  globalLimit: 20
+trustedProxies: "10.0.0.8"
+humanCheck:
+  siteKey: 0xpublic
+  secretRef: turnstile-keys
+social:
+  google:
+    clientId: google-client.apps.googleusercontent.com
+    clientSecretRef: google-oauth
+  github:
+    clientId: github-client
+    clientSecretRef: github-oauth
+  apple:
+    clientId: com.example.web
+    teamId: TEAMID1234
+    keyId: KEYID12345
+    privateKeyRef: apple-oauth
+    bundleId: com.example.app

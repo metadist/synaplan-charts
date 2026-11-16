@@ -1,0 +1,18 @@
+# SSO only. Registration off does not stop the directory.
+# The ingress is still named, so other per-address limits stay per visitor.
+appSecret: lint
+database:
+  password: lint
+publicUrl: https://synaplan.example.test
+features:
+  registration: false
+  guestChat: false
+  setupWizard: false
+trustedProxies: "10.0.0.8"
+oidc:
+  enabled: true
+  issuerURI: https://idp.example.test/realms/synaplan
+  clientId: synaplan
+  clientSecret: lint
+  accessPolicy:
+    allowUserProvisioning: true

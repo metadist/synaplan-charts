@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.10.0](https://img.shields.io/badge/Version-0.10.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.5.4](https://img.shields.io/badge/AppVersion-5.5.4-informational?style=flat-square)
+![Version: 0.11.0](https://img.shields.io/badge/Version-0.11.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.8.2](https://img.shields.io/badge/AppVersion-5.8.2-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.10.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.11.0
 ```
 
 ### Install from local chart
@@ -98,7 +98,8 @@ office:
 
 Neighbour services are switched on by their URL and off by leaving it empty:
 `ollama.baseUrl`, `triton.url`, `qdrant.url`, `office.convertUrl`,
-`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`.
+`compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`,
+`c2paSigner.enabled`.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`
@@ -113,17 +114,125 @@ Any other flag the application pins from the environment goes into
 `MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
 `FEATURE_*` variable the same way the application does.
 
-Identity needs no clicks either: `oidc.accessPolicy` (synaplan >= 5.3.1)
-decides who may use the instance at all (organization, roles, permissions,
-and whether a first SSO sign-in creates an account),
-`oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who becomes
-administrator on login,
-`features.setupWizard: false` skips the first-run page on SSO-only installs, and
-`bootstrapAdmin.secretRef` creates a first local administrator where local
-accounts are used.
+### Content credentials
+
+`c2paSigner.enabled` turns on the signer that already ships in the Synaplan
+image. It listens on `127.0.0.1` inside the web, worker and scheduler pods.
+There is no second Deployment, no Service, no host port and no Ingress.
+
+The chart does not create a signing key. Create a Secret whose data keys are
+`key.pem` and `cert.pem`. An init container copies them to `/certs`, mode
+`0400`, owner uid 65532. The website user cannot read them. They are not
+environment variables.
+
+The binary is linux amd64 only. An arm64 pod does not sign. PNG and JPEG
+still get the XMP note.
+
+`C2PA_SIGNER_URL`, `C2PA_SIGNER_TOKEN` and `C2PA_ALG` are empty or unset
+while the signer is off. Do not set them in `env`. Leave `tokenSecretRef`
+empty to let the chart create the bearer token and keep it across upgrades.
+The init container runs as root so it can change the owner of the key file.
+
+```bash
+kubectl create secret generic c2pa-signer \
+  --from-file=key.pem=/path/to/key.pem \
+  --from-file=cert.pem=/path/to/cert.pem
+```
+
+```yaml
+c2paSigner:
+  enabled: true
+  keySecretRef: c2pa-signer
+  certSecretRef: c2pa-signer
+  alg: ps256
+```
+
+Use `alg: es256` for an EC key. A development certificate is not a public
+trust anchor. Mount a real key before turning this on for a public site.
+
+### Identity and sign-up
+
+Who can create an account is covered in
+[docs/IDENTITY.md](https://github.com/metadist/synaplan/blob/main/docs/IDENTITY.md).
+A switch here closes account creation. Someone who already has an account
+still signs in. Directory accounts (OIDC) follow `oidc.accessPolicy` only;
+`features.registration` does not stop a first SSO sign-in.
+
+`features.registration: false` closes local self-sign-up, and on `synaplan` >= 5.7.2
+every self-sign-up door (email, Google, GitHub, Apple and the integration
+wizards), including invitation codes; combining `features.registration: false`
+with `social.*` fails the render on older semver tags. `signup.*` and
+`humanCheck.*` need `synaplan` >= 5.6.0. `signup.mode: admission` requires a
+plan or an invitation code — set it only when one of those exists. Leave
+`signup.paused` `null` so Admin can pause without a new release; `true` pauses
+self-sign-up with HTTP 503 (in `admission` mode a valid invitation code still
+opens an account).
+
+`trustedProxies` is the address or dedicated subnet of the ingress that
+connects to Synaplan (comma-separated string or YAML list, for example
+`"10.0.0.8"` or `["10.0.0.8", "10.0.0.9"]`). Leave it empty and every visitor
+shares that ingress address, so the per-address sign-up limit is one limit for
+the whole site. The chart refuses `*`, `REMOTE_ADDR`, `PRIVATE_SUBNETS`,
+`private_ranges`, `0.0.0.0/0` and wide private or pod networks (`10.0.0.0/8`,
+`172.16.0.0/12`, `192.168.0.0/16`, `/16` pod CIDRs): any pod in a trusted range
+can choose the client address. `trustedHeaders` defaults to `x-forwarded-for`
+and refuses `forwarded`. `CF-Connecting-IP` counts (`synaplan` >= 5.7.2) only
+when the connecting hop is a Cloudflare address you listed.
+
+Turnstile (`humanCheck`) and the Google, GitHub and Apple secrets are never
+written into the pod spec. A value in `secretKey` / `clientSecret` /
+`privateKey` is stored in `<fullname>-credentials` and kept across upgrades.
+`secretRef` / `clientSecretRef` / `privateKeyRef` name an existing Kubernetes
+Secret (one Secret may hold all of them); the keys inside it are
+`turnstile-secret-key`, `google-client-secret`, `github-client-secret` and
+`apple-private-key`. Set `publicUrl` so OAuth callback URLs are absolute. An id
+without its secret fails the render. Do not put these names in `env`.
+
+```yaml
+# Public install. Admission only when codes or Stripe exist.
+publicUrl: "https://synaplan.example.com"
+signup:
+  mode: open
+  ipLimit: 5
+  globalLimit: 20
+trustedProxies: "10.0.0.8"
+humanCheck:
+  siteKey: "<widget site key>"
+  secretRef: synaplan-identity
+social:
+  google:
+    clientId: "<client id>.apps.googleusercontent.com"
+    clientSecretRef: synaplan-identity
+```
+
+```yaml
+# SSO only. Existing local accounts still sign in. The directory is OIDC.
+publicUrl: "https://synaplan.example.com"
+features:
+  registration: false
+  guestChat: false
+  setupWizard: false
+trustedProxies: "10.0.0.8"
+oidc:
+  enabled: true
+  accessPolicy:
+    allowUserProvisioning: true
+```
+
+```bash
+kubectl create secret generic synaplan-identity \
+  --from-literal=turnstile-secret-key=<widget secret> \
+  --from-literal=google-client-secret=<google client secret>
+```
+
+`oidc.accessPolicy` (synaplan >= 5.3.1) decides who may use the instance at
+all, `oidc.adminRoles` / `oidc.roleClaims` / `oidc.roleMapping` decide who
+becomes administrator on login, and `bootstrapAdmin.secretRef` creates a
+first local administrator where local accounts are used.
 
 Every other environment variable the application reads can be set through
-`env` (use `valueFrom.secretKeyRef` for secrets).
+`env` (use `valueFrom.secretKeyRef` for secrets). The names this chart owns
+are refused there.
 
 ### Admin settings (synaplan >= 5.1.0)
 
@@ -161,6 +270,82 @@ Synaplan 5.0.6 does not read `CONFIG_*`. The render fails when `image.tag`
 fails too. A prerelease of 5.1.0 or newer (`5.1.0-rc.1`) is accepted. A tag
 that is not a complete semver skips that check.
 
+### Capacity and probes (synaplan >= 5.6.0)
+
+Each Synaplan pod runs a small watchdog next to PHP. It listens on port 8098
+and serves three endpoints: `/live`, `/ready` and `/metrics`. Every five
+seconds it writes the pod's load to Redis, and **Admin › Capacity** in
+Synaplan shows one card per pod from those reports.
+`watchdog.enabled` switches the watchdog on and changes the web pod's probes:
+
+| Probe | Watchdog off (default) | Watchdog on |
+| ----- | ---------------------- | ----------- |
+| startup | none | `GET /api/health/ready` on `http`, 120 × 5 s for the first boot's migrations |
+| liveness | `GET /` on `http` (a static file) | `GET /live` on `watchdog` |
+| readiness | `GET /` on `http` (a static file) | `GET /ready` on `watchdog`: PHP answered its readiness endpoint within 2 s in the last 10 s, and Redis answers |
+
+With the watchdog off, the static file answers even when every PHP worker is
+busy, so Kubernetes keeps sending traffic to a full pod. With it on, a pod
+whose AI stream pool is full stays live and ready: the readiness endpoint runs
+in the separate `api` pool, and new streams get a "busy, retrying" answer.
+The pod leaves the Service only when PHP itself stops answering.
+
+The watchdog does not exist in 5.5.x. The render fails when `image.tag`, or
+the chart `appVersion` when the tag is empty, is a complete semver below
+5.6.0. A 5.6.0 prerelease is accepted. A tag that is not a complete semver
+(`latest`, a digest) skips the check. Off sets `SYNAPLAN_WATCHDOG=0`, and
+**Admin › Capacity** is then absent.
+
+With the watchdog on, the chart passes each pod's place to it: the namespace
+and node from the Downward API, plus the Deployment and container names. It
+also passes the declared processor request and memory limit as written
+(`1`, `3Gi`). The capacity card shows them under Technical details, with the
+`kubectl logs` command for that pod. The pod name is the server id, so
+`SYNAPLAN_SERVER_ID` stays unset.
+
+```yaml
+watchdog:
+  enabled: true
+frankenphp:
+  workers: 8          # the api pool: every request that is not a stream
+  streamWorkers: 24   # the streams pool: AI answers, the gateways, dictation, TTS
+  maxWaitTime: 15s    # then "busy" with Retry-After instead of a silent wait
+metrics:
+  podMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  dashboard:
+    enabled: true     # the "Synaplan capacity" Grafana dashboard
+resources:
+  requests:
+    cpu: "1"
+    memory: 1Gi
+  limits:
+    memory: 3Gi
+```
+
+`frankenphp.*` sets the two PHP worker pools of the web pod. An empty key keeps
+the image default: 16 `api` workers, the same number of stream workers, and a
+15 s wait. Every key except `workers` needs 5.6.0. Each PHP worker holds a
+database connection while it works. Check the database's `max_connections`
+against (`workers` + `streamWorkers`) × web replicas before you raise either.
+
+`metrics.podMonitor` scrapes every role's watchdog. Web pods also pass
+FrankenPHP's own metrics through. `metrics.serviceMonitor` does the same
+through a headless `-metrics` Service, for a Prometheus that selects only
+ServiceMonitors. Both need the Prometheus Operator CRDs. `metrics.dashboard`
+ships [`dashboards/synaplan-capacity.json`](dashboards/synaplan-capacity.json)
+as a ConfigMap for the Grafana sidecar. Its panels show stream slots in use,
+busy workers per pool, waiting requests, request time, busy (503) answers,
+and memory and processor per pod. Each of the three needs the watchdog.
+
+The resources above are starting values, not measurements from your
+installation. Set no processor limit: throttling shows up as slow answers,
+not as a visible limit. `autoscaling` still scales on processor use, which
+does not see AI streams: a pod whose stream pool is full uses a few percent
+of a processor.
+
 An install with its database, Tika and a model backend, on its own or inside
 openDesk, is the [Helmfile](../../helmfile/).
 
@@ -187,6 +372,12 @@ openDesk, is the [Helmfile](../../helmfile/).
 | bootstrapAdmin.forcePasswordChange | bool | `nil` | BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default. |
 | bootstrapAdmin.password | string | `""` | Password of the first administrator, kept in the Secret <fullname>-credentials. Written once: Synaplan creates the administrator only while it has none, so a later value does not change it. |
 | bootstrapAdmin.secretRef | string | `""` | Name of an existing Secret with keys email and password (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Empty = off. |
+| c2paSigner.alg | string | `"ps256"` | C2PA_ALG. ps256 for an RSA key, es256 for an EC key. |
+| c2paSigner.certSecretRef | string | `""` | Name of an existing Secret. The certificate is the data key cert.pem. May be the same Secret as keySecretRef. |
+| c2paSigner.enabled | bool | `false` | Mount the key and set C2PA_SIGNER_URL to http://127.0.0.1 |
+| c2paSigner.keySecretRef | string | `""` | Name of an existing Secret. The key material is the data key key.pem. May be the same Secret as certSecretRef. |
+| c2paSigner.port | int | `8787` | Port the signer listens on inside the pod. Not a Service. |
+| c2paSigner.tokenSecretRef | string | `""` | Existing Secret whose data key is token. Empty creates one and keeps it across upgrades. |
 | compute.tokenSecretRef | string | `""` | Name of an existing Secret holding the token under key compute-token. |
 | compute.url | string | `""` | Compute sidecar URL. Empty = off. |
 | customRootCA.crt | string | `""` | Option 1: inline PEM certificate (the chart creates a Secret from it) |
@@ -216,7 +407,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | features.groups | bool | `nil` | FEATURE_IAM_GROUPS_ENABLED (people & groups) |
 | features.guestChat | bool | `nil` | GUEST_CHAT_ENABLED (anonymous guest trial; false for SSO-only installs) |
 | features.platformLinks | bool | `nil` | FEATURE_PLATFORM_LINKS_ENABLED (Nextcloud / ownCloud / OpenCloud account linking) |
-| features.registration | bool | `nil` | REGISTRATION_ENABLED (local self-registration; false for SSO-only installs) |
+| features.registration | bool | `nil` | REGISTRATION_ENABLED. false closes local self-sign-up, and on synaplan >= 5.7.2 every self-sign-up door (email, Google, GitHub, Apple, integration wizards), including invitation codes. An existing account still signs in. Directory sign-in is oidc.accessPolicy.allowUserProvisioning. null = application default. |
 | features.setupWizard | bool | `nil` | SETUP_WIZARD_ENABLED (first-run setup page on an empty database; false for SSO-only installs) |
 | features.sharing | bool | `nil` | FEATURE_IAM_SHARING_ENABLED (needs groups) |
 | features.toolApprovals | bool | `nil` | FEATURE_TOOLS_APPROVALS_ENABLED (ask before a changing tool runs) |
@@ -224,7 +415,15 @@ openDesk, is the [Helmfile](../../helmfile/).
 | features.urlFetch | bool | `nil` | FEATURE_MULTITASK_URL_FETCH_ENABLED (watched pages, fetches public URLs) |
 | features.userSearch | bool | `nil` | FEATURE_IAM_USER_SEARCH_ENABLED (find any account by name/email in the share dialog) |
 | features.workflows | bool | `nil` | FEATURE_WORKFLOWS_BUILDER_ENABLED (Saved Tasks steps + webhook trigger) |
+| frankenphp.maxThreads | int | `nil` | Most PHP threads (FRANKENPHP_MAX_THREADS). |
+| frankenphp.maxWaitTime | string | `nil` | How long a request waits for a free worker before the server answers "busy" with Retry-After (FRANKENPHP_MAX_WAIT_TIME). Image default 15s. |
+| frankenphp.numThreads | int | `nil` | PHP threads at start (FRANKENPHP_NUM_THREADS). Must exceed workers + streamWorkers. |
+| frankenphp.streamWorkers | int | `nil` | PHP workers for AI streams, the `streams` pool (FRANKENPHP_STREAM_WORKER_NUM). Image default: the same as `workers`. |
+| frankenphp.workers | int | `nil` | PHP workers for short requests, the `api` pool (FRANKENPHP_WORKER_NUM). Image default 16. |
 | fullnameOverride | string | `""` |  |
+| humanCheck.secretKey | string | `""` | TURNSTILE_SECRET_KEY, stored in <fullname>-credentials under turnstile-secret-key (kept across upgrades when left empty afterwards). Prefer secretRef so the value stays out of values. |
+| humanCheck.secretRef | string | `""` | Name of an existing Secret holding key turnstile-secret-key. |
+| humanCheck.siteKey | string | `""` | TURNSTILE_SITE_KEY, the public widget key. Empty = Turnstile off. |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/metadist/synaplan"` |  |
 | image.tag | string | `""` |  |
@@ -238,12 +437,19 @@ openDesk, is the [Helmfile](../../helmfile/).
 | ingress.hosts[0].paths[0].path | string | `"/"` |  |
 | ingress.hosts[0].paths[0].pathType | string | `"ImplementationSpecific"` |  |
 | ingress.tls | list | `[]` |  |
-| livenessProbe.failureThreshold | int | `3` |  |
-| livenessProbe.httpGet.path | string | `"/"` |  |
-| livenessProbe.httpGet.port | string | `"http"` |  |
-| livenessProbe.initialDelaySeconds | int | `120` |  |
-| livenessProbe.periodSeconds | int | `10` |  |
+| livenessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":120,"periodSeconds":10}` | Web pod liveness probe while the watchdog is off. `GET /` is a static file: it never touches PHP, so a pod whose workers are all held stays live. More information: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/ |
 | mailerDsn | string | `"null://null"` |  |
+| metrics.dashboard.annotations | object | `{}` | Annotations, e.g. the folder for the Grafana sidecar. |
+| metrics.dashboard.enabled | bool | `false` | Ship the "Synaplan capacity" Grafana dashboard as a ConfigMap (`dashboards/synaplan-capacity.json`). |
+| metrics.dashboard.labels | object | `{"grafana_dashboard":"1"}` | Labels the Grafana dashboard sidecar watches for. |
+| metrics.podMonitor.enabled | bool | `false` | Create a PodMonitor (Prometheus Operator) for :8098/metrics on every role. |
+| metrics.podMonitor.interval | string | `"30s"` | Scrape interval. |
+| metrics.podMonitor.labels | object | `{}` | Extra labels, e.g. the `release` label your Prometheus selects on. |
+| metrics.podMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout. |
+| metrics.serviceMonitor.enabled | bool | `false` | Create a headless metrics Service and a ServiceMonitor for :8098/metrics, for a Prometheus that selects ServiceMonitors only. |
+| metrics.serviceMonitor.interval | string | `"30s"` | Scrape interval. |
+| metrics.serviceMonitor.labels | object | `{}` | Extra labels, e.g. the `release` label your Prometheus selects on. |
+| metrics.serviceMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout. |
 | models.defaults.analyze | string | `""` |  |
 | models.defaults.chat | string | `""` |  |
 | models.defaults.pic2text | string | `""` |  |
@@ -294,11 +500,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | prompts.seed | bool | `true` |  |
 | publicUrl | string | `""` |  |
 | qdrant.url | string | `""` | Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333). Empty = off: the application switches memories and Qdrant search off. |
-| readinessProbe.failureThreshold | int | `3` |  |
-| readinessProbe.httpGet.path | string | `"/"` |  |
-| readinessProbe.httpGet.port | string | `"http"` |  |
-| readinessProbe.initialDelaySeconds | int | `30` |  |
-| readinessProbe.periodSeconds | int | `5` |  |
+| readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":30,"periodSeconds":5}` | Web pod readiness probe while the watchdog is off. Same static file, so it cannot see a full server; turn on the watchdog for that. |
 | redis.dsn | string | `""` | External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379). Takes precedence over the bundled Redis. Must not carry a path - the Messenger transports append their stream names to it. Plain value ends up in the pod spec; use dsnSecretRef for DSNs carrying credentials. |
 | redis.dsnSecretRef | string | `""` | Name of an existing Secret holding the external DSN under key redis-dsn. Takes precedence over dsn. |
 | redis.enabled | bool | `true` | Deploy a bundled single-node Redis. NOT persistent: queued async jobs are lost when it restarts. Disable to use an external Redis via dsn. |
@@ -307,7 +509,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | redis.image.tag | string | `"8.10-alpine"` |  |
 | redis.resources | object | `{}` |  |
 | replicaCount | int | `1` |  |
-| resources | object | `{}` |  |
+| resources | object | `{}` | Resources of the web pod. Empty by default so the chart installs on small clusters. Starting values for production (see "Capacity and probes" in the README): memory request 1Gi, memory limit 3Gi, processor request 1 and no processor limit, because throttling shows up as slow answers, not as a visible limit. With the watchdog on, the declared processor request and memory limit appear on Admin > Capacity. |
 | scheduler | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"resources":{},"tolerations":[]}` | Scheduler (SYNAPLAN_ROLE=scheduler): periodic maintenance tasks. Singleton; same uploads-volume sharing caveat as the worker. |
 | securityContext | object | `{}` |  |
 | service.port | int | `80` |  |
@@ -318,6 +520,22 @@ openDesk, is the [Helmfile](../../helmfile/).
 | serviceAccount.name | string | `""` |  |
 | settingSecrets | object | `{}` | BCONFIG admin settings whose value comes from a Secret ({name, key}). Requires synaplan >= 5.1.0. |
 | settings | object | `{}` | BCONFIG admin settings (GROUP.SETTING -> CONFIG_*). Empty = database default. Requires synaplan >= 5.1.0. |
+| signup.globalLimit | int | `nil` | SIGNUP_GLOBAL_LIMIT (synaplan >= 5.6.0), new accounts for the whole installation per 10 minutes. null = application default (20). |
+| signup.ipLimit | int | `nil` | SIGNUP_IP_LIMIT (synaplan >= 5.6.0), new accounts per client address per hour. null = application default (5). The address is the visitor's only when trustedProxies names the ingress. |
+| signup.mode | string | `""` | REGISTRATION_MODE (synaplan >= 5.6.0). open creates an active account. admission requires a plan or an invitation code. Empty = application default (open). Set admission only when codes or Stripe exist. |
+| signup.paused | bool | `nil` | SIGNUP_PAUSED (synaplan >= 5.6.0). true pauses self-sign-up (HTTP 503; in admission mode a valid invitation code still opens an account). An existing account still signs in. null = Admin can pause. false pins the pause off. |
+| social.apple.bundleId | string | `""` | APPLE_APP_BUNDLE_ID for the native app token. Empty = application default. |
+| social.apple.clientId | string | `""` | APPLE_CLIENT_ID, the Services ID (public). Empty = Sign in with Apple off. |
+| social.apple.keyId | string | `""` | APPLE_KEY_ID of the Sign in with Apple key, 10 letters or digits. |
+| social.apple.privateKey | string | `""` | APPLE_PRIVATE_KEY, the p8 PEM, stored under apple-private-key. Prefer privateKeyRef. |
+| social.apple.privateKeyRef | string | `""` | Name of an existing Secret holding key apple-private-key. |
+| social.apple.teamId | string | `""` | APPLE_TEAM_ID, 10 letters or digits. |
+| social.github.clientId | string | `""` | GITHUB_CLIENT_ID (public). Empty = GitHub sign-in off. |
+| social.github.clientSecret | string | `""` | GITHUB_CLIENT_SECRET, stored under github-client-secret. Prefer clientSecretRef. |
+| social.github.clientSecretRef | string | `""` | Name of an existing Secret holding key github-client-secret. |
+| social.google.clientId | string | `""` | GOOGLE_CLIENT_ID (public). Empty = Google sign-in off. |
+| social.google.clientSecret | string | `""` | GOOGLE_CLIENT_SECRET, stored under google-client-secret. Prefer clientSecretRef. |
+| social.google.clientSecretRef | string | `""` | Name of an existing Secret holding key google-client-secret. |
 | speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
 | speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
@@ -332,11 +550,11 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.registration.settings.jitsiUrl | string | `""` | Jitsi as the participants reach it, e.g. https://meet.example.org: the only window the button's sign-in page hands a code to |
 | synascriber.registration.settings.languages | list | `["de","en"]` | Languages offered in the meeting (de, en, es, fr, tr) |
 | synascriber.registration.settings.prosodyUrl | string | `""` | Jitsi's Prosody, e.g. http://jitsi-prosody:5280 |
-| synascriber.registration.settings.sttModel | string | `""` |  |
+| synascriber.registration.settings.sttModel | string | `""` | Model name the plugin sends to the speech-to-text server (plugin setting stt_model). whisper.cpp ignores it. vLLM needs the name it serves. Empty sends nothing, and the plugin keeps its default of whisper. Needs plugin 0.4.1 (Synaplan 5.6.0 or later). An older image makes the Job refuse |
 | synascriber.registration.settings.sttUrl | string | `""` | Speech-to-text server with the OpenAI transcription API (whisper.cpp whisper-server, vLLM, a cloud service). Empty: speech.whisperServerUrl |
 | synascriber.registration.settings.timezone | string | `"Europe/Berlin"` | Times in the transcript |
 | synascriber.secrets.prosodySecret | string | `""` | Shared secret between the plugin and the Prosody module (Secret synascriber-prosody, SYNASCRIBER_SECRET) |
-| synascriber.secrets.sttApiKey | string | `""` |  |
+| synascriber.secrets.sttApiKey | string | `""` | API key of the speech-to-text server (plugin setting stt_api_key). Sent as a bearer token, for a vLLM server or a cloud service. Empty sends nothing, and a key already stored by the plugin stays. Needs plugin 0.4.1 (Synaplan 5.6.0 or later). An older image makes the Job refuse |
 | synascriber.secrets.transcriberSecret | string | `""` | Shared secret between the plugin and the transcriber (plugin setting transcriber_secret, transcriber env SYNAPLAN_TRANSCRIBER_SECRET) |
 | synascriber.secrets.transcriberToken | string | `""` | Bearer token Jitsi's bridge sends to the transcriber (Secret synascriber-jicofo, SYNASCRIBER_TRANSCRIBER_TOKEN) |
 | synascriber.transcriber.affinity | object | `{}` | Affinity of the transcriber |
@@ -360,9 +578,15 @@ openDesk, is the [Helmfile](../../helmfile/).
 | tolerations | list | `[]` |  |
 | triton.url | string | `"triton:8001"` | Triton gRPC endpoint URL. Leave empty to disable Triton backend. |
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
+| trustedHeaders | string | `""` | SYMFONY_TRUSTED_HEADERS. Comma-separated string or YAML list, used only together with trustedProxies. Empty = x-forwarded-for. Must include x-forwarded-for (forwarded is refused). CF-Connecting-IP counts on synaplan >= 5.7.2 only when that hop is a Cloudflare address listed in trustedProxies. |
+| trustedProxies | string | `""` | SYMFONY_TRUSTED_PROXIES. Comma-separated string or YAML list of addresses/CIDRs of the hop that connects to Synaplan. Empty = ignore X-Forwarded-For, so every visitor shares the ingress address. Refuses *, REMOTE_ADDR, PRIVATE_SUBNETS, private_ranges, 0.0.0.0/0 and wide private/pod networks. |
 | tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.15-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.0@sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
+| watchdog.enabled | bool | `false` | Run the watchdog and let the web pod's probes follow PHP capacity: liveness asks the watchdog, readiness turns false when PHP stops answering its own probe within 2 s or Redis is down, and a startup probe gives the first boot's migrations time. Off: SYNAPLAN_WATCHDOG=0, Admin > Capacity is absent, and the web pod keeps `livenessProbe` / `readinessProbe` below. Needs synaplan >= 5.6.0; the render fails on an older semver tag. |
+| watchdog.livenessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/live","port":"watchdog"},"periodSeconds":10,"timeoutSeconds":2}` | Web pod liveness probe while the watchdog is on. A pod whose stream pool is full stays live; only a stopped watchdog restarts it. |
+| watchdog.readinessProbe | object | `{"failureThreshold":2,"httpGet":{"path":"/ready","port":"watchdog"},"periodSeconds":5,"timeoutSeconds":2}` | Web pod readiness probe while the watchdog is on. The watchdog is ready while PHP answered its readiness endpoint within 2 s at least once in the last 10 s and Redis answers. That endpoint runs in the `api` pool, so a full stream pool alone does not make the pod unready. |
+| watchdog.startupProbe | object | `{"failureThreshold":120,"httpGet":{"path":"/api/health/ready","port":"http"},"periodSeconds":5,"timeoutSeconds":2}` | Web pod startup probe while the watchdog is on. PHP's own readiness endpoint; 120 x 5 s leaves ten minutes for the first boot's migrations. |
 | worker | object | `{"affinity":{},"enabled":true,"nodeSelector":{},"replicaCount":1,"resources":{},"tolerations":[],"transports":""}` | Messenger worker (SYNAPLAN_ROLE=worker): consumes the async queues (AI jobs, extraction, indexing). Required for synaplan >= 4.0 async features. Shares the uploads volume with the web pod: with a ReadWriteOnce PVC the worker must be co-scheduled with the web pod (set affinity accordingly) or the PVC switched to ReadWriteMany. |
 | worker.transports | string | `""` | Space-separated Messenger transport list; empty = image default. |
 

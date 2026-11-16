@@ -17,7 +17,16 @@ functional:
           protocol: "openid-connect"
           publicClient: false
           clientAuthenticatorType: "client-secret"
+          {{- if env "SYNAPLAN_OIDC_EXISTING_SECRET" }}
+          # An install that already has this client. Keycloak keeps that secret;
+          # Synaplan reads the same Secret (technical.synaplan.oidc.clientSecretRef).
+          secret:
+            existingSecret:
+              name: {{ env "SYNAPLAN_OIDC_EXISTING_SECRET" | quote }}
+              key: "client-secret"
+          {{- else }}
           secret: {{ derivePassword 1 "long" $masterPassword "keycloak" "synaplan_client_secret" | sha1sum | quote }}
+          {{- end }}
           standardFlowEnabled: true
           implicitFlowEnabled: false
           directAccessGrantsEnabled: false
