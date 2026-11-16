@@ -68,6 +68,10 @@ spec:
                   name: {{ .Values.jwtSecretSecret | quote }}
                   key: {{ .Values.jwtSecretKey | quote }}
             {{- end }}
+            {{- with .Values.oidc.issuer }}
+            - name: OC_OIDC_ISSUER
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.oidc.tokenEndpoint }}
             - name: SYNAPLAN_OIDC_TOKEN_ENDPOINT
               value: {{ . | quote }}
@@ -86,6 +90,24 @@ spec:
             {{- with .Values.oidc.targetAudience }}
             - name: SYNAPLAN_OIDC_TARGET_AUDIENCE
               value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.store.nodes }}
+            - name: SYNAPLAN_STORE_NODES
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.store.encryptionSecret }}
+            - name: SYNAPLAN_STORE_ENCRYPTION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.store.encryptionSecret | quote }}
+                  key: {{ .Values.store.encryptionSecretKey | quote }}
+            {{- end }}
+            {{- if .Values.machineAuthSecret }}
+            - name: OC_MACHINE_AUTH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.machineAuthSecret | quote }}
+                  key: {{ .Values.machineAuthSecretKey | quote }}
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}

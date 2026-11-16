@@ -13,8 +13,15 @@ the Service and mounts the extension from the image; this chart does not
 edit the OpenCloud release.
 
 Gateway, JWT and token-exchange settings are the plugin's own values, passed
-through when set. An install with its own PKI names the Secret with the CA
-in `customRootCA.secretRef`: the service then trusts it for Keycloak,
+through when set. `oidc.issuer` is the identity provider OpenCloud and
+Synaplan share. Plugin 1.2.0 keeps offline tokens, and the settings people
+save, in OpenCloud's NATS: set `store.nodes` to that address. The image
+default is `127.0.0.1:9233`, which is this pod, so a Kubernetes install that
+leaves it empty cannot keep tokens across a restart. `store.encryptionSecret`
+is the key those tokens are encrypted with. `machineAuthSecret` is OpenCloud's
+machine auth key; watches, folder reads and copies Synaplan sends need it
+while a person is away. An install with its own PKI names the Secret with the
+CA in `customRootCA.secretRef`: the service then trusts it for Keycloak,
 Synaplan and OpenCloud (`SSL_CERT_FILE`); `insecure` skips the check towards
 OpenCloud instead. `extraEnv`, `extraVolumes` and `extraVolumeMounts` carry
 anything else the service needs.
@@ -44,10 +51,13 @@ person's own identity are in this image (1.2.0) and in Nextcloud app 2.0.0.
 | jwtSecretKey | string | `"jwt-secret"` | Key in jwtSecretSecret |
 | jwtSecretSecret | string | `""` | Secret holding the OpenCloud JWT (OC_JWT_SECRET). Empty leaves it unset. |
 | logLevel | string | `"info"` | Log level of the service (SYNAPLAN_LOG_LEVEL): debug, info, warn or error |
+| machineAuthSecret | string | `""` | Secret holding OpenCloud's machine auth API key (OC_MACHINE_AUTH_API_KEY). Watches, folder reads and copies Synaplan sends use it while a person is away. Empty leaves that off. |
+| machineAuthSecretKey | string | `"machine-auth-api-key"` | Key in machineAuthSecret |
 | nameOverride | string | `""` | Override the chart name |
 | oidc.exchangeClientId | string | `""` | Confidential client id for token exchange. Empty leaves it unset. |
 | oidc.exchangeSecretKey | string | `"client-secret"` | Key in exchangeSecretSecret |
 | oidc.exchangeSecretSecret | string | `""` | Secret holding the exchange client secret. Empty leaves it unset. |
+| oidc.issuer | string | `""` | Issuer of the identity provider OpenCloud and Synaplan share (OC_OIDC_ISSUER). Empty leaves it unset. |
 | oidc.targetAudience | string | `""` | Audience of the exchanged token, usually the Synaplan client id. Empty leaves it unset. |
 | oidc.tokenEndpoint | string | `""` | Keycloak token endpoint for token exchange. Empty leaves it unset. |
 | port | int | `9106` | Container port. The Service uses the same port. |
@@ -55,4 +65,7 @@ person's own identity are in this image (1.2.0) and in Nextcloud app 2.0.0.
 | resources.requests.cpu | string | `"20m"` |  |
 | resources.requests.memory | string | `"64Mi"` |  |
 | revaGateway | string | `""` | OpenCloud CS3 gateway (OC_REVA_GATEWAY). Empty leaves it unset. |
+| store.encryptionSecret | string | `""` | Secret holding the key that encrypts offline tokens (SYNAPLAN_STORE_ENCRYPTION_SECRET). Empty uses the exchange client secret, so rotating that secret makes everyone allow again. |
+| store.encryptionSecretKey | string | `"encryption-secret"` | Key in encryptionSecret |
+| store.nodes | string | `""` | Address of OpenCloud's NATS (SYNAPLAN_STORE_NODES), host:port. Comma-separated when there is more than one. Empty leaves the image default, 127.0.0.1:9233. |
 | synaplanUrl | string | `""` | Synaplan as users open it. Required. |

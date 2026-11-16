@@ -37,6 +37,8 @@ jwtSecretKey: jwt-secret
 # self-signed certificates. null leaves it unset.
 insecure: null
 oidc:
+  # -- Issuer of the identity provider OpenCloud and Synaplan share (OC_OIDC_ISSUER). Empty leaves it unset.
+  issuer: ""
   # -- Keycloak token endpoint for token exchange. Empty leaves it unset.
   tokenEndpoint: ""
   # -- Confidential client id for token exchange. Empty leaves it unset.
@@ -47,6 +49,21 @@ oidc:
   exchangeSecretKey: client-secret
   # -- Audience of the exchanged token, usually the Synaplan client id. Empty leaves it unset.
   targetAudience: ""
+
+# Offline tokens and the settings people save live in OpenCloud's NATS.
+# The image default is 127.0.0.1:9233, which is this pod. Set nodes to OpenCloud's NATS.
+store:
+  # -- Address of OpenCloud's NATS (SYNAPLAN_STORE_NODES), host:port. Comma-separated when there is more than one. Empty leaves the image default, 127.0.0.1:9233.
+  nodes: ""
+  # -- Secret holding the key that encrypts offline tokens (SYNAPLAN_STORE_ENCRYPTION_SECRET). Empty uses the exchange client secret, so rotating that secret makes everyone allow again.
+  encryptionSecret: ""
+  # -- Key in encryptionSecret
+  encryptionSecretKey: encryption-secret
+
+# -- Secret holding OpenCloud's machine auth API key (OC_MACHINE_AUTH_API_KEY). Watches, folder reads and copies Synaplan sends use it while a person is away. Empty leaves that off.
+machineAuthSecret: ""
+# -- Key in machineAuthSecret
+machineAuthSecretKey: machine-auth-api-key
 
 # A private PKI: the CA the plugin trusts when it calls Keycloak, Synaplan
 # and OpenCloud over TLS.
