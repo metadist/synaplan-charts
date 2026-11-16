@@ -20,7 +20,8 @@ OpenCloud instead. `extraEnv`, `extraVolumes` and `extraVolumeMounts` carry
 anything else the service needs.
 
 Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
-values. The Nextcloud app and the openDesk portal tile are the
-`synaplan-opendesk` chart.
+values. The Nextcloud app is the `synaplan-nextcloud` chart. The openDesk
+portal tile is the `synaplan-opendesk` chart. Directory watches and a
+person's own identity are in this image (1.2.0) and in Nextcloud app 2.0.0.
 
 {{ template "chart.valuesSection" . }}

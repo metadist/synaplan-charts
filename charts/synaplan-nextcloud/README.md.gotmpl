@@ -14,9 +14,11 @@ rewritten. `archiveUrl` can point at a mirror. The volume is mounted by the
 Nextcloud release; for openDesk that is
 [helmfile/opendesk/nextcloud-app.yaml.gotmpl](../../helmfile/opendesk/nextcloud-app.yaml.gotmpl).
 
-The Job sets the Synaplan address and enables the app. Connecting accounts,
-each person or one shared key, is done in that app's settings. This chart
-does not create API keys.
+The Job sets the Synaplan address and enables the app. An administrator
+registers this Nextcloud in the app's settings. It receives an OAuth client
+id, and people connect there with their own grant. App 2.0.0 watches a folder
+or a file the same way the OpenCloud plugin 1.2.0 does. This chart does not
+create API keys.
 
 The openDesk portal tile is the `synaplan-opendesk` chart, the OpenCloud
 plugin the `synaplan-opencloud` chart, meeting notes (the transcriber) the
