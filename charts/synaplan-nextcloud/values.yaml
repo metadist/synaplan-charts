@@ -14,13 +14,13 @@ nextcloud:
   # -- App id occ enables
   appId: synaplan_integration
   # -- Version written into the volume. A volume that already has this version is left as it is.
-  version: "1.7.0"
+  version: "2.0.0"
   # -- Release tarball. Point this at a mirror for an install that cannot reach GitHub.
   # The tarball's top directory is synaplan_integration/, which is what the
   # Nextcloud volume mounts (subPath).
-  archiveUrl: "https://github.com/metadist/synaplan-nextcloud/releases/download/v1.7.0-rc.1/synaplan_integration.tar.gz"
+  archiveUrl: "https://github.com/metadist/synaplan-nextcloud/releases/download/v2.0.0/synaplan_integration.tar.gz"
   # -- sha256 of archiveUrl
-  archiveSha256: "8969a9e9d76ba8e00af8aa4d50c1f36e460ec0f69732a9f13185784ec2190b0d"
+  archiveSha256: "a97ba7fa51de9248106f6fbb3607f5a0edc8d9103a6df446f597917fdee0c4ac"
   # -- Image of the pod that writes the volume. It has wget, tar and sha256sum.
   seedImage: "alpine:3.24"
   # -- Image of the Job. It only talks to the Kubernetes API.
