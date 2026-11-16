@@ -11,7 +11,7 @@ image:
   # -- Image of the plugin (service and web extension)
   repository: ghcr.io/metadist/synaplan-opencloud
   # -- Tag of the image, a release with its digest
-  tag: "1.1.0@sha256:0ba46f404657cbce3fd778738bdb97ad0aec5b90fe61ca34f4e169fa8e2c3b24"
+  tag: "1.2.0@sha256:1489b028a95d2229c6d6ccd38700e37db57ec7fb03e3373f1c0d0751edac5b4e"
   # -- Pull policy
   pullPolicy: IfNotPresent
 # -- Image pull secrets
