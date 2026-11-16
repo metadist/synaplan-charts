@@ -62,6 +62,10 @@ git push origin triton-v0.2.0
 # For stt v0.1.0
 git tag stt-v0.1.0
 git push origin stt-v0.1.0
+
+# For synaplan-opencloud v0.2.0
+git tag synaplan-opencloud-v0.2.0
+git push origin synaplan-opencloud-v0.2.0
 ```
 
 For the `stt` chart, `version`, `appVersion` and the image pins are separate:
@@ -76,6 +80,11 @@ Renovate raises both image pins when a new image version is published. Set
 `appVersion` to that version in the same pull request.
 
 A chart-only fix can ship as `stt-v0.1.1` while `appVersion` stays `0.1.0`.
+
+`synaplan-opencloud` uses the same split. `appVersion` is the plugin release.
+`image.tag` is that release and its digest (`1.2.0@sha256:…`). CI changes
+neither. A new plugin release updates both in the pull request; the chart
+tag is `synaplan-opencloud-vX.Y.Z`.
 
 ### Automated Release
 

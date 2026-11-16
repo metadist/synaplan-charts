@@ -455,6 +455,10 @@ passed through from `technical.synaplanOpencloud` as they are; with
 `certificate.selfSigned` the chart's `customRootCA.secretRef` points at the
 certificate Secret.
 
+Plugin 1.2.0 keeps offline tokens in OpenCloud's NATS and reads files while
+a person is away with OpenCloud's machine auth key. `store.nodes` is that
+NATS; the image default is `127.0.0.1:9233` inside the plugin pod.
+
 ```yaml
 apps:
   synaplanOpencloud:
@@ -463,7 +467,12 @@ technical:
   synaplanOpencloud:
     revaGateway: "kubernetes://opencloud-gateway:9142"
     jwtSecretSecret: rolling-secrets
+    machineAuthSecret: opencloud-machine-auth
+    store:
+      nodes: "opencloud-nats:9233"
+      encryptionSecret: synaplan-store
     oidc:
+      issuer: "https://id.example.org/realms/opendesk"
       tokenEndpoint: "https://id.example.org/realms/opendesk/protocol/openid-connect/token"
       exchangeClientId: synaplan-opencloud
       exchangeSecretSecret: synaplan-opencloud-oidc
