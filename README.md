@@ -11,10 +11,10 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.11.0 | Synaplan 5.8.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
-| [synaplan-nextcloud](charts/synaplan-nextcloud/) | 0.1.0 | Nextcloud app for Synaplan, installed into a Nextcloud in the same namespace ([app](https://github.com/metadist/synaplan-nextcloud)) |
+| [synaplan](charts/synaplan/) | 0.12.0 | Synaplan 5.8.3 (whisper.cpp transcription in the image), plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
+| [synaplan-nextcloud](charts/synaplan-nextcloud/) | 0.2.0 | Nextcloud app 2.0.0, installed into a Nextcloud in the same namespace ([app](https://github.com/metadist/synaplan-nextcloud)) |
 | [synaplan-opendesk](charts/synaplan-opendesk/) | 0.3.0 | Portal tile for Synaplan on openDesk |
-| [synaplan-opencloud](charts/synaplan-opencloud/) | 0.1.0 | OpenCloud plugin for Synaplan: the token-exchange service and the web extension ([image](https://github.com/metadist/synaplan-opencloud)) |
+| [synaplan-opencloud](charts/synaplan-opencloud/) | 0.2.0 | OpenCloud plugin 1.2.0: the token-exchange service and the web extension ([image](https://github.com/metadist/synaplan-opencloud)) |
 | [triton](charts/triton/) | 0.1.0 | Optional NVIDIA Triton 26.01. Default backend is vLLM on GPU. A model can use the Python backend (CPU) or the embedding backend (bge-m3) |
 | [stt](charts/stt/) | 0.1.0 | Optional speech-to-text server: whisper.cpp `whisper-server` with the German Whisper large-v3-turbo model, on a GPU node or on CPU ([image](https://github.com/metadist/synaplan-stt)) |
 
@@ -80,7 +80,12 @@ An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 | `tts.enabled` | `false` |
 | `speech.whisperServerUrl` | `""` (speech-to-text runs on the whisper.cpp binary in the pod) |
 
-Speech (`synaplan` >= 5.0.0). `null` leaves the application default:
+Speech (`synaplan` >= 5.0.0). Synaplan 5.8.3 includes whisper.cpp
+(`/usr/local/bin/whisper`, built into the image by synaplan-base-php). The
+Helmfile turns `speech.whisper` on and allow-lists the `whisper` provider
+when cloud providers are off. The separate whisper-server, for a GPU or a
+larger model, is the [`stt` chart](charts/stt/). `null` leaves the application
+default:
 
 ```yaml
 speech:
@@ -198,14 +203,18 @@ in the cluster unless you allow cloud providers, and runs in three ways:
 
 ## Working with openDesk
 
-We test this deployment on Kubernetes against the community edition of
-openDesk. That edition keeps files in Nextcloud and meetings in Jitsi, and
-both plugins talk to Synaplan **5.8.2**, the current release.
+We test this deployment on Kubernetes against openDesk **v1.20.2** (the pin in
+[`e2e/environments/opendesk/env.sh`](e2e/environments/opendesk/env.sh)). That
+edition keeps files in Nextcloud and meetings in Jitsi. Synaplan is **5.8.3**.
 
-- The **Synaplan Nextcloud plugin** adds the AI actions on files: summaries,
-  translations, and chat about a document.
+- The **Synaplan Nextcloud plugin** (app 2.0.0) adds the AI actions on files:
+  summaries, translations, and chat about a document. It watches a folder or a
+  file, and each person connects with their own OAuth grant.
+- The **OpenCloud plugin** (1.2.0) does the same for an OpenCloud: directory
+  watches, and token exchange so the calls stay that person's.
 - The **synascriber plugin** transcribes Jitsi meetings and writes the notes
-  into Synaplan.
+  into Synaplan. Speech-to-text in the application itself is whisper.cpp in
+  the 5.8.3 image.
 
 Set the file target at the end of the environment. openDesk community edition
 is `nextcloud`. A target that serves files from OpenCloud is `opencloud`.
@@ -245,12 +254,17 @@ helmfile -e my-cluster -n synaplan apply
 - kubectl pointed at the cluster
 
 Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
-`triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
-synaplan **0.11.0**, triton **0.1.0** and stt **0.1.0**.
+`synaplan-nextcloud-vX.Y.Z`, `synaplan-opencloud-vX.Y.Z`,
+`synaplan-opendesk-vX.Y.Z`, `triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The
+versions in this checkout are synaplan **0.12.0**, synaplan-nextcloud
+**0.2.0**, synaplan-opencloud **0.2.0**, synaplan-opendesk **0.3.0**, triton
+**0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.11.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.12.0
+helm install synaplan-nextcloud oci://ghcr.io/metadist/synaplan-charts/synaplan-nextcloud --version 0.2.0
+helm install synaplan-opencloud oci://ghcr.io/metadist/synaplan-charts/synaplan-opencloud --version 0.2.0
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # This checkout, including values that are not in an older GHCR release yet

@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.11.0](https://img.shields.io/badge/Version-0.11.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.8.2](https://img.shields.io/badge/AppVersion-5.8.2-informational?style=flat-square)
+![Version: 0.12.0](https://img.shields.io/badge/Version-0.12.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.8.3](https://img.shields.io/badge/AppVersion-5.8.3-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -24,7 +24,7 @@ Synaplan - AI-powered document analysis and planning platform
 helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan
 
 # Or install specific version
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.11.0
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.12.0
 ```
 
 ### Install from local chart
@@ -545,7 +545,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | social.google.clientSecret | string | `""` | GOOGLE_CLIENT_SECRET, stored under google-client-secret. Prefer clientSecretRef. |
 | social.google.clientSecretRef | string | `""` | Name of an existing Secret holding key google-client-secret. |
 | speech.webSpeech | bool | `nil` | Browser Web Speech API. It streams microphone audio to the browser vendor's cloud: set false for sovereign / air-gapped installs. |
-| speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (binary ships in the image). |
+| speech.whisper | bool | `nil` | Local whisper.cpp speech-to-text (`/usr/local/bin/whisper` in the Synaplan image). |
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
 | speech.whisperServerUrl | string | `""` | Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan with the Whisper server mode; older images ignore it. Empty = off. |
 | synascriber.enabled | bool | `false` | Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan |

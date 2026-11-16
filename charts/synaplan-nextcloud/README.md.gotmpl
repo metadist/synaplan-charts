@@ -16,7 +16,9 @@ Nextcloud release; for openDesk that is
 
 The Job sets the Synaplan address and enables the app. An administrator
 registers this Nextcloud in the app's settings. It receives an OAuth client
-id, and people connect there. This chart does not create API keys.
+id, and people connect there with their own grant. App 2.0.0 watches a folder
+or a file the same way the OpenCloud plugin 1.2.0 does. This chart does not
+create API keys.
 
 The openDesk portal tile is the `synaplan-opendesk` chart, the OpenCloud
 plugin the `synaplan-opencloud` chart, meeting notes (the transcriber) the

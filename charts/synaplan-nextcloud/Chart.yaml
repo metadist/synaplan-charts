@@ -2,7 +2,7 @@ apiVersion: v2
 name: synaplan-nextcloud
 description: Nextcloud app for Synaplan, installed into a Nextcloud that runs in the same namespace
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "2.0.0"
 keywords:
   - synaplan

@@ -20,8 +20,9 @@ OpenCloud instead. `extraEnv`, `extraVolumes` and `extraVolumeMounts` carry
 anything else the service needs.
 
 Meeting notes (the transcriber) are the `synaplan` chart's `synascriber`
-values. The Nextcloud app and the openDesk portal tile are the
-`synaplan-opendesk` chart.
+values. The Nextcloud app is the `synaplan-nextcloud` chart. The openDesk
+portal tile is the `synaplan-opendesk` chart. Directory watches and a
+person's own identity are in this image (1.2.0) and in Nextcloud app 2.0.0.
 
 ## Values
 
@@ -37,7 +38,7 @@ values. The Nextcloud app and the openDesk portal tile are the
 | fullnameOverride | string | `""` | Override the full resource name |
 | image.pullPolicy | string | `"IfNotPresent"` | Pull policy |
 | image.repository | string | `"ghcr.io/metadist/synaplan-opencloud"` | Image of the plugin (service and web extension) |
-| image.tag | string | `"1.1.0@sha256:0ba46f404657cbce3fd778738bdb97ad0aec5b90fe61ca34f4e169fa8e2c3b24"` | Tag of the image, a release with its digest |
+| image.tag | string | `"1.2.0@sha256:1489b028a95d2229c6d6ccd38700e37db57ec7fb03e3373f1c0d0751edac5b4e"` | Tag of the image, a release with its digest |
 | imagePullSecrets | list | `[]` | Image pull secrets |
 | insecure | bool | `nil` | Skip TLS verification towards OpenCloud (OC_INSECURE), for an install with self-signed certificates. null leaves it unset. |
 | jwtSecretKey | string | `"jwt-secret"` | Key in jwtSecretSecret |
