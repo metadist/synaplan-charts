@@ -74,7 +74,7 @@ An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 | `triton.url` | `""` |
 | `qdrant.url` | `""` (memories and Qdrant search stay off; the chart does not deploy Qdrant) |
 | `office.convertUrl` | `""` |
-| `office.publicUrl` and `office.wopiUrl` | either is `""` (the editor needs both) |
+| `office.publicUrl` and `office.wopiUrl` | both `""`. One of the pair alone fails the render |
 | `compute.url` plus `compute.tokenSecretRef` | URL empty, or the token Secret is absent |
 | `tika.enabled` | `false` |
 | `tts.enabled` | `false` |

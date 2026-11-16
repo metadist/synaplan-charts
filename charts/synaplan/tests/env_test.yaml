@@ -31,6 +31,12 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: OFFICE_PUBLIC_URL
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OFFICE_WOPI_URL
+          any: true
 
   - it: emits the editor URLs only as a pair
     template: deployment.yaml

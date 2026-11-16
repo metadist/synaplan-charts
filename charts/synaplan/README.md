@@ -84,9 +84,10 @@ and combine need a convert-to endpoint. Set `office.convertUrl` to CODE in the
 cluster or to an existing instance; the chart emits `OFFICE_CONVERT_URL` and
 `OFFICE_CONVERT_TIMEOUT_MS` on the web, worker and scheduler pods.
 
-The editor stays off until `office.publicUrl` and `office.wopiUrl` are both
-set. Those become `OFFICE_PUBLIC_URL` and `OFFICE_WOPI_URL`. openDesk's
-Collabora must allow `wopiUrl` as a WOPI host. Previews do not need them.
+The editor stays off while `office.publicUrl` and `office.wopiUrl` are both
+empty. Setting only one fails the render. When both are set they become
+`OFFICE_PUBLIC_URL` and `OFFICE_WOPI_URL`. openDesk's Collabora must allow
+`wopiUrl` as a WOPI host. Previews do not need them.
 
 Convert-to never receives a Synaplan user id. Integrator README — AI features,
 identity, 403 / `net.post_allow`, CODE 25.04 healthcheck, future sidecar
@@ -475,8 +476,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | nodeSelector | object | `{}` |  |
 | office.convertTimeoutMs | int | `60000` | Convert timeout in milliseconds. Only emitted when convertUrl is set. |
 | office.convertUrl | string | `""` | Convert-to base URL (e.g. http://collabora.office.svc.cluster.local:9980). Empty = off. Previews and PDF export do not need the editor URLs. |
-| office.publicUrl | string | `""` | Browser URL of Collabora (OFFICE_PUBLIC_URL). Empty = editor off. Set together with wopiUrl. openDesk's Collabora must allow wopiUrl as a WOPI host. |
-| office.wopiUrl | string | `""` | URL Collabora uses to call Synaplan (OFFICE_WOPI_URL), e.g. http://synaplan:80. Set together with publicUrl. Empty = editor off. |
+| office.publicUrl | string | `""` | Browser URL of Collabora (OFFICE_PUBLIC_URL). Set with wopiUrl, or leave both empty. One of the pair alone fails the render. openDesk's Collabora must allow wopiUrl as a WOPI host. |
+| office.wopiUrl | string | `""` | URL Collabora uses to call Synaplan (OFFICE_WOPI_URL), e.g. http://synaplan:80. Set with publicUrl, or leave both empty. One of the pair alone fails the render. |
 | oidc.accessPolicy.allowUserProvisioning | bool | `nil` | Create an account on the first SSO sign-in (OIDC_ALLOW_USER_PROVISIONING). false = only people who signed in through SSO before. null = application default (true). |
 | oidc.accessPolicy.orgClaim | string | `""` | Claim holding the organization (OIDC_ORG_CLAIM), e.g. organization on Keycloak. Empty = application default (org_code). |
 | oidc.accessPolicy.orgCode | string | `""` | Organization the token must name (OIDC_ORG_CODE); also sent as org_code at sign-in (Kinde). Empty = no check. |

@@ -77,8 +77,9 @@ You do **not**:
 `aliasgroup1` and a public editor hostname matter for **WOPI**, not for convert-to.
 
 The chart emits `OFFICE_PUBLIC_URL` and `OFFICE_WOPI_URL` when `office.publicUrl`
-and `office.wopiUrl` are both set. Leave either empty and the editor stays off;
-previews keep working from `office.convertUrl` alone. On openDesk, `publicUrl`
+and `office.wopiUrl` are both set. Leave both empty and the editor stays off.
+Setting only one fails the render. Previews keep working from `office.convertUrl`
+alone. On openDesk, `publicUrl`
 is the browser hostname (`https://office.<domain>`) and `wopiUrl` is the
 in-cluster Synaplan Service Collabora can call (`http://synaplan:80`). That
 host has to be allowed on openDesk's Collabora. The chart does not change
