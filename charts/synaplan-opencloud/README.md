@@ -37,7 +37,7 @@ values. The Nextcloud app and the openDesk portal tile are the
 | fullnameOverride | string | `""` | Override the full resource name |
 | image.pullPolicy | string | `"IfNotPresent"` | Pull policy |
 | image.repository | string | `"ghcr.io/metadist/synaplan-opencloud"` | Image of the plugin (service and web extension) |
-| image.tag | string | `"1.0.0@sha256:362f4da6e889129c8f4d28195eb70da041a8e16da549783e3b35217fb064a36c"` | Tag of the image, a release with its digest |
+| image.tag | string | `"1.1.0@sha256:0ba46f404657cbce3fd778738bdb97ad0aec5b90fe61ca34f4e169fa8e2c3b24"` | Tag of the image, a release with its digest |
 | imagePullSecrets | list | `[]` | Image pull secrets |
 | insecure | bool | `nil` | Skip TLS verification towards OpenCloud (OC_INSECURE), for an install with self-signed certificates. null leaves it unset. |
 | jwtSecretKey | string | `"jwt-secret"` | Key in jwtSecretSecret |
