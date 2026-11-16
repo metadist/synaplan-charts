@@ -11,7 +11,7 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.10.1 | Synaplan 5.6.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
+| [synaplan](charts/synaplan/) | 0.11.0 | Synaplan 5.8.2, plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech and optional meeting notes for Jitsi |
 | [synaplan-nextcloud](charts/synaplan-nextcloud/) | 0.1.0 | Nextcloud app for Synaplan, installed into a Nextcloud in the same namespace ([app](https://github.com/metadist/synaplan-nextcloud)) |
 | [synaplan-opendesk](charts/synaplan-opendesk/) | 0.3.0 | Portal tile for Synaplan on openDesk |
 | [synaplan-opencloud](charts/synaplan-opencloud/) | 0.1.0 | OpenCloud plugin for Synaplan: the token-exchange service and the web extension ([image](https://github.com/metadist/synaplan-opencloud)) |
@@ -200,7 +200,7 @@ in the cluster unless you allow cloud providers, and runs in three ways:
 
 We test this deployment on Kubernetes against the community edition of
 openDesk. That edition keeps files in Nextcloud and meetings in Jitsi, and
-both plugins talk to Synaplan **5.6.2**, the current release.
+both plugins talk to Synaplan **5.8.2**, the current release.
 
 - The **Synaplan Nextcloud plugin** adds the AI actions on files: summaries,
   translations, and chat about a document.
@@ -246,11 +246,11 @@ helmfile -e my-cluster -n synaplan apply
 
 Charts are published to GHCR when a git tag `synaplan-vX.Y.Z`,
 `triton-vX.Y.Z` or `stt-vX.Y.Z` is pushed. The versions in this checkout are
-synaplan **0.10.1**, triton **0.1.0** and stt **0.1.0**.
+synaplan **0.11.0**, triton **0.1.0** and stt **0.1.0**.
 
 ```bash
 # Published release (after the matching tag exists)
-helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.10.1
+helm install synaplan oci://ghcr.io/metadist/synaplan-charts/synaplan --version 0.11.0
 helm install triton oci://ghcr.io/metadist/synaplan-charts/triton --version 0.1.0
 
 # This checkout, including values that are not in an older GHCR release yet

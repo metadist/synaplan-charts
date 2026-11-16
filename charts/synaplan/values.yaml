@@ -758,6 +758,8 @@ synascriber:
     transcriberToken: ""
     # -- Shared secret between the plugin and the transcriber (plugin setting transcriber_secret, transcriber env SYNAPLAN_TRANSCRIBER_SECRET)
     transcriberSecret: ""
+    # -- API key of the speech-to-text server (plugin setting stt_api_key). Sent as a bearer token, for a vLLM server or a cloud service. Empty sends nothing, and a key already stored by the plugin stays. Needs plugin 0.4.1 (Synaplan 5.6.0 or later). An older image makes the Job refuse
+    sttApiKey: ""
   transcriber:
     image:
       # -- Registry of the transcriber image
@@ -833,8 +835,10 @@ synascriber:
       timezone: Europe/Berlin
       # -- Live captions in the meeting
       captions: true
-      # -- Whisper server (whisper.cpp whisper-server). Empty: speech.whisperServerUrl
+      # -- Speech-to-text server with the OpenAI transcription API (whisper.cpp whisper-server, vLLM, a cloud service). Empty: speech.whisperServerUrl
       sttUrl: ""
+      # -- Model name the plugin sends to the speech-to-text server (plugin setting stt_model). whisper.cpp ignores it. vLLM needs the name it serves. Empty sends nothing, and the plugin keeps its default of whisper. Needs plugin 0.4.1 (Synaplan 5.6.0 or later). An older image makes the Job refuse
+      sttModel: ""
       # -- Jitsi's Prosody, e.g. http://jitsi-prosody:5280
       prosodyUrl: ""
       # -- Jitsi as the participants reach it, e.g. https://meet.example.org: the only window the button's sign-in page hands a code to

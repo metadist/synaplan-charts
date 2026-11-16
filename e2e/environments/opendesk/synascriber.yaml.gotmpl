@@ -2,6 +2,10 @@
 # (E2E_OPENDESK_SYNASCRIBER=false leaves it out): speech-to-text on CPU, the
 # plugin, transcriber and Secrets through the synaplan release, and Jitsi's
 # part through helmfile/opendesk/synascriber-jitsi.yaml.gotmpl.
+#
+# sttModel is the proof that the registration Job writes the model name.
+# Plugin 0.4.1 (Synaplan 5.6.0 or later) accepts it; the image is the chart
+# appVersion.
 apps:
   synaplanStt:
     enabled: true
@@ -9,6 +13,7 @@ technical:
   synaplan:
     synascriber:
       enabled: true
+      sttModel: whisper
       # The e2e speech server is whisper.cpp on CPU. A live preview every
       # 1.5s queues more audio than that server finishes before the caption
       # wait ends, so the test commits one window instead.
