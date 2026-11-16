@@ -49,7 +49,8 @@ Word, Excel, and PowerPoint thumbnails, PDF export, preview, and combine need
 chart does not deploy Collabora. Set `office.convertUrl` to CODE you already
 run (openDesk, Nextcloud, OpenCloud, another namespace). The chart emits
 `OFFICE_CONVERT_URL` and `OFFICE_CONVERT_TIMEOUT_MS` on the web, worker, and
-scheduler pods.
+scheduler pods. The editor stays off until `office.publicUrl` and
+`office.wopiUrl` are both set.
 
 Convert-to is server-to-server. Collabora does not see Synaplan users.
 
@@ -73,6 +74,7 @@ An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 | `triton.url` | `""` |
 | `qdrant.url` | `""` (memories and Qdrant search stay off; the chart does not deploy Qdrant) |
 | `office.convertUrl` | `""` |
+| `office.publicUrl` and `office.wopiUrl` | both `""`. One of the pair alone fails the render |
 | `compute.url` plus `compute.tokenSecretRef` | URL empty, or the token Secret is absent |
 | `tika.enabled` | `false` |
 | `tts.enabled` | `false` |

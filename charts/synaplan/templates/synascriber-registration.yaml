@@ -32,7 +32,7 @@ data:
         || { echo "synascriber.registration.settings.sttModel and synascriber.secrets.sttApiKey need plugin 0.4.1 (Synaplan 5.6.0 or later); this image carries plugin $plugin" >&2; exit 1; }
     fi
     php bin/console app:plugin:install-verified-users synascriber --no-interaction
-    php -r 'echo json_encode(["enabled" => true, "prosody_secret" => getenv("PROSODY_SECRET"), "transcriber_secret" => getenv("TRANSCRIBER_SECRET")] + array_filter(["stt_model" => getenv("STT_MODEL") ?: null, "stt_api_key" => getenv("STT_API_KEY") ?: null]) + json_decode(getenv("SETTINGS"), true, 8, JSON_THROW_ON_ERROR));' \
+    php -r '$stt=[]; foreach (["STT_MODEL"=>"stt_model","STT_API_KEY"=>"stt_api_key"] as $e=>$k) { $v=getenv($e); if ($v!==false && $v!=="") $stt[$k]=$v; } echo json_encode(["enabled"=>true,"prosody_secret"=>getenv("PROSODY_SECRET"),"transcriber_secret"=>getenv("TRANSCRIBER_SECRET")] + $stt + json_decode(getenv("SETTINGS"), true, 8, JSON_THROW_ON_ERROR));' \
       | php bin/console synascriber:settings --no-interaction
 ---
 # A plain Job, not a Helm hook: a hook would hold the install until the web
