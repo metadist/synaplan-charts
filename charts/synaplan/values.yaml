@@ -514,7 +514,7 @@ tts:
   # baked into the image, nothing is downloaded at startup.
   image:
     repository: ghcr.io/metadist/synaplan-tts
-    tag: "2.1.0@sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"
+    tag: "2.1.1@sha256:4cdf1d6fd2b66d4a0b91f66efda39948766e7c364b800715c815c1688c3f29c9"
     pullPolicy: IfNotPresent
   port: 10200
   defaultVoice: "en_US-lessac-medium"
