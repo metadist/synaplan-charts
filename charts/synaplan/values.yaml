@@ -83,6 +83,42 @@ worker:
   tolerations: []
   affinity: {}
 
+# Stream pump (SYNAPLAN_ROLE=pump, synaplan >= 5.8.0): holds the connection
+# to the AI provider for signed-in web chat and writes the answer to Redis,
+# so a web worker is not held for the whole answer. The pod does nothing
+# until the admin setting RUNTIME.STREAM_PUMP is "all" (Admin > System
+# configuration); with the setting on and no pump running, turns wait.
+# On SIGTERM a pump stops claiming turns and finishes the ones it holds.
+pump:
+  enabled: false
+  replicaCount: 2
+  # -- How long a stopping pump may finish the answers it holds. Long
+  # answers with tools run for minutes.
+  terminationGracePeriodSeconds: 300
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Shutdown of the web pod.
+shutdown:
+  # -- Seconds the web pod keeps serving after it is marked for termination,
+  # so the Service and the ingress stop sending it requests before PHP gets
+  # SIGTERM. 0: no preStop hook.
+  preStopSleepSeconds: 0
+  # -- (int) terminationGracePeriodSeconds of the web pod. Empty: the
+  # Kubernetes default, 30 s. With the pump on, an answer outlives the web
+  # pod and the chat picks it up again; without the pump it ends early.
+  terminationGracePeriodSeconds: null
+
+# A PodDisruptionBudget for the web pod and, when enabled, the pump, so a
+# node drain keeps one of each running. With a single replica a drain then
+# waits until you scale up; leave this off for single-replica installs.
+podDisruptionBudget:
+  enabled: false
+  # -- Pods of each kind that must stay up during a voluntary disruption.
+  minAvailable: 1
+
 # -- Scheduler (SYNAPLAN_ROLE=scheduler): periodic maintenance tasks.
 # Singleton; same uploads-volume sharing caveat as the worker.
 scheduler:
@@ -730,15 +766,39 @@ readinessProbe:
   periodSeconds: 5
   failureThreshold: 3
 
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# Autoscaling of the web pod (https://kubernetes.io/docs/concepts/workloads/autoscaling/).
 # The CPU target does not see AI streams: a server whose stream pool is full
-# uses a few percent of a processor. Scaling on held streams comes later.
+# uses a few percent of a processor. `streamSlots` adds the share of held
+# stream workers, the number that runs out first (see "Scaling Synaplan" in
+# the README). Two or more replicas share the uploads volume, so they need
+# ReadWriteMany storage or affinity that keeps them on one node.
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+  # -- Seconds the load must stay low before a web pod is removed. Long, so a
+  # pod is not stopped between two bursts while it still holds streams.
+  scaleDownStabilizationSeconds: 600
+  streamSlots:
+    # -- Scale on `synaplan_stream_slots_busy_ratio` from the watchdog: ""
+    # (off), "prometheus-adapter" (a Pods metric of the HorizontalPodAutoscaler,
+    # served by prometheus-adapter) or "keda" (a KEDA ScaledObject with a
+    # prometheus trigger instead of the HorizontalPodAutoscaler). Needs
+    # watchdog.enabled and Prometheus scraping :8098 (metrics.podMonitor or
+    # metrics.serviceMonitor).
+    source: ""
+    # -- Share of the stream workers held, averaged over the web pods, above
+    # which a pod is added. 0.6 leaves room for a burst while the new pod starts.
+    targetRatio: 0.6
+    keda:
+      # -- Prometheus address for the KEDA trigger, e.g. http://prometheus-operated.monitoring:9090. Required with source "keda".
+      serverAddress: ""
+      # -- PromQL for the trigger. Empty: the average ratio over this release's web pods.
+      query: ""
+      # -- Name of a KEDA TriggerAuthentication for a Prometheus that needs credentials.
+      authenticationRef: ""
 
 # Meeting notes for Jitsi in openDesk (synascriber): a plugin bundled with
 # Synaplan, a transcriber Jitsi's bridge streams each speaker's audio to

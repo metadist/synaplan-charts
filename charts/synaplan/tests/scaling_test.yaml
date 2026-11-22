@@ -1,0 +1,328 @@
+suite: scaling
+templates:
+  - hpa.yaml
+  - scaledobject.yaml
+  - pump-deployment.yaml
+  - pdb.yaml
+  - deployment.yaml
+  - init-scripts-configmap.yaml
+  - init-scripts-aux-configmap.yaml
+release:
+  name: synaplan
+  namespace: chat
+set:
+  appSecret: test
+  database:
+    password: test
+tests:
+  - it: renders none of it by default
+    templates:
+      - hpa.yaml
+      - scaledobject.yaml
+      - pump-deployment.yaml
+      - pdb.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: leaves the web pod's shutdown to Kubernetes by default
+    template: deployment.yaml
+    asserts:
+      - notExists:
+          path: spec.template.spec.terminationGracePeriodSeconds
+      - notExists:
+          path: spec.template.spec.containers[0].lifecycle
+
+  - it: keeps the CPU autoscaler and adds the scale-down window
+    template: hpa.yaml
+    set:
+      autoscaling:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.behavior.scaleDown.stabilizationWindowSeconds
+          value: 600
+      - lengthEqual:
+          path: spec.metrics
+          count: 1
+      - equal:
+          path: spec.metrics[0].resource.name
+          value: cpu
+
+  - it: scales on held streams through prometheus-adapter, CPU as a fallback
+    template: hpa.yaml
+    set:
+      watchdog:
+        enabled: true
+      autoscaling:
+        enabled: true
+        minReplicas: 2
+        streamSlots:
+          source: prometheus-adapter
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 2
+      - equal:
+          path: spec.metrics[0]
+          value:
+            type: Pods
+            pods:
+              metric:
+                name: synaplan_stream_slots_busy_ratio
+              target:
+                type: AverageValue
+                averageValue: 600m
+      - equal:
+          path: spec.metrics[1].resource.name
+          value: cpu
+
+  - it: hands the web Deployment to KEDA instead of an HPA
+    templates:
+      - hpa.yaml
+      - scaledobject.yaml
+    set:
+      watchdog:
+        enabled: true
+      autoscaling:
+        enabled: true
+        streamSlots:
+          source: keda
+          keda:
+            serverAddress: http://prometheus-operated.monitoring:9090
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: hpa.yaml
+      - isKind:
+          of: ScaledObject
+        template: scaledobject.yaml
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: synaplan
+        template: scaledobject.yaml
+      - equal:
+          path: spec.advanced.horizontalPodAutoscalerConfig.behavior.scaleDown.stabilizationWindowSeconds
+          value: 600
+        template: scaledobject.yaml
+      - equal:
+          path: spec.triggers[0]
+          value:
+            type: prometheus
+            metricType: Value
+            metadata:
+              serverAddress: http://prometheus-operated.monitoring:9090
+              query: avg(synaplan_stream_slots_busy_ratio{namespace="chat",pod=~"synaplan-[a-z0-9]+-[a-z0-9]+"})
+              threshold: "0.6"
+        template: scaledobject.yaml
+      - equal:
+          path: spec.triggers[1]
+          value:
+            type: cpu
+            metricType: Utilization
+            metadata:
+              value: "80"
+        template: scaledobject.yaml
+
+  - it: takes a custom query and a TriggerAuthentication for KEDA
+    template: scaledobject.yaml
+    set:
+      watchdog:
+        enabled: true
+      autoscaling:
+        enabled: true
+        targetCPUUtilizationPercentage: null
+        streamSlots:
+          source: keda
+          targetRatio: 0.5
+          keda:
+            serverAddress: https://prom.example
+            query: max(synaplan_stream_slots_busy_ratio)
+            authenticationRef: prom-auth
+    asserts:
+      - lengthEqual:
+          path: spec.triggers
+          count: 1
+      - equal:
+          path: spec.triggers[0].metadata.query
+          value: max(synaplan_stream_slots_busy_ratio)
+      - equal:
+          path: spec.triggers[0].metadata.threshold
+          value: "0.5"
+      - equal:
+          path: spec.triggers[0].authenticationRef.name
+          value: prom-auth
+
+  - it: refuses stream-slot scaling without the watchdog
+    template: scaledobject.yaml
+    set:
+      autoscaling:
+        enabled: true
+        streamSlots:
+          source: prometheus-adapter
+    asserts:
+      - failedTemplate:
+          errorPattern: needs watchdog.enabled
+
+  - it: refuses KEDA without a Prometheus address
+    template: scaledobject.yaml
+    set:
+      watchdog:
+        enabled: true
+      autoscaling:
+        enabled: true
+        streamSlots:
+          source: keda
+    asserts:
+      - failedTemplate:
+          errorPattern: serverAddress is required
+
+  - it: refuses an unknown source
+    template: scaledobject.yaml
+    set:
+      watchdog:
+        enabled: true
+      autoscaling:
+        enabled: true
+        streamSlots:
+          source: datadog
+    asserts:
+      - failedTemplate:
+          errorPattern: must be "", "prometheus-adapter" or "keda"
+
+  - it: refuses a target ratio above 1
+    template: scaledobject.yaml
+    set:
+      watchdog:
+        enabled: true
+      autoscaling:
+        enabled: true
+        streamSlots:
+          source: prometheus-adapter
+          targetRatio: 60
+    asserts:
+      - failedTemplate:
+          errorPattern: targetRatio must be above 0 and at most 1
+
+  - it: runs the pump role with a drain-length grace period and a surge rollout
+    template: pump-deployment.yaml
+    set:
+      pump:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: synaplan-pump
+      - equal:
+          path: spec.replicas
+          value: 2
+      - equal:
+          path: spec.strategy.rollingUpdate
+          value:
+            maxSurge: 1
+            maxUnavailable: 0
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 300
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: pump
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_ROLE
+            value: pump
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_WEB_HEALTH_URL
+            value: http://synaplan:80/api/health
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOCK_DSN
+          any: true
+      - notExists:
+          path: spec.template.spec.containers[0].ports
+
+  - it: opens the pump's watchdog port when the watchdog is on
+    template: pump-deployment.yaml
+    set:
+      pump:
+        enabled: true
+      watchdog:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: watchdog
+            containerPort: 8098
+            protocol: TCP
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_K8S_CONTAINER
+            value: pump
+
+  - it: refuses the pump on an image without the pump role
+    template: pump-deployment.yaml
+    set:
+      pump:
+        enabled: true
+      image:
+        tag: 5.8.1
+    asserts:
+      - failedTemplate:
+          errorPattern: pump.enabled needs synaplan >= 5.8.2
+
+  - it: keeps one web pod and one pump through a drain
+    template: pdb.yaml
+    set:
+      podDisruptionBudget:
+        enabled: true
+      pump:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: spec.selector
+          value:
+            matchLabels:
+              app.kubernetes.io/name: synaplan
+              app.kubernetes.io/instance: synaplan
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: DoesNotExist
+        documentIndex: 0
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: pump
+        documentIndex: 1
+      - equal:
+          path: spec.minAvailable
+          value: 1
+
+  - it: gives the web pod a preStop pause and its grace period
+    template: deployment.yaml
+    set:
+      shutdown:
+        preStopSleepSeconds: 5
+        terminationGracePeriodSeconds: 60
+    asserts:
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.preStop.exec.command
+          value: ["sleep", "5"]
+
+  - it: refuses a preStop pause as long as the grace period
+    template: deployment.yaml
+    set:
+      shutdown:
+        preStopSleepSeconds: 30
+    asserts:
+      - failedTemplate:
+          errorPattern: must be shorter than the web pod's grace period

@@ -347,9 +347,85 @@ and memory and processor per pod. Each of the three needs the watchdog.
 
 The resources above are starting values, not measurements from your
 installation. Set no processor limit: throttling shows up as slow answers,
-not as a visible limit. `autoscaling` still scales on processor use, which
-does not see AI streams: a pod whose stream pool is full uses a few percent
-of a processor.
+not as a visible limit. Processor use alone does not see AI streams: a pod
+whose stream pool is full uses a few percent of a processor. The next
+section scales on the streams instead.
+
+### Scaling Synaplan
+
+A web pod answers as many chats at once as it has stream workers
+(`frankenphp.streamWorkers`, 16 by default). The next chat waits up to
+`maxWaitTime` and then gets "busy". The watchdog publishes the share of
+stream workers in use as `synaplan_stream_slots_busy_ratio`, and that is
+the number to scale on. How to size a server is in the
+[capacity guide](https://github.com/metadist/synaplan/blob/main/docs/CAPACITY.md).
+Every switch below is off by default.
+
+**Scale on held streams.** `autoscaling.streamSlots.source` picks where the
+autoscaler reads the ratio. Both keep the processor target as a fallback and
+wait `scaleDownStabilizationSeconds` (10 min) before removing a pod.
+
+| `source` | What the chart renders | What the cluster needs |
+| -------- | ---------------------- | ---------------------- |
+| `prometheus-adapter` | the HorizontalPodAutoscaler with a `Pods` metric, target `targetRatio` (0.6) | prometheus-adapter serving `synaplan_stream_slots_busy_ratio` per pod, see the rule below |
+| `keda` | a KEDA `ScaledObject` with a `prometheus` trigger on the average ratio of this release's web pods, and no HorizontalPodAutoscaler (KEDA makes its own) | KEDA, and `keda.serverAddress` pointing at Prometheus |
+
+```yaml
+watchdog:
+  enabled: true
+metrics:
+  podMonitor:
+    enabled: true
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  streamSlots:
+    source: keda
+    keda:
+      serverAddress: http://prometheus-operated.monitoring:9090
+```
+
+A prometheus-adapter rule that serves the metric:
+
+```yaml
+rules:
+  - seriesQuery: 'synaplan_stream_slots_busy_ratio{namespace!="",pod!=""}'
+    resources:
+      overrides:
+        namespace: { resource: namespace }
+        pod: { resource: pod }
+    metricsQuery: 'avg_over_time(<<.Series>>{<<.LabelMatchers>>}[1m])'
+```
+
+Two web pods give a restart somewhere to go; set `minReplicas: 2` once more
+than one pod can run. The web pods share the uploads volume, so more than
+one needs ReadWriteMany storage, or affinity that keeps them on one node.
+
+**Move the waits out of the web pod.** `pump.enabled` adds the stream pump
+Deployment (synaplan >= 5.8.2). A pump holds the connection to the AI
+provider for signed-in web chat and writes the answer to Redis; the browser
+reads it from there. A stream worker is then held only while it relays the
+answer. Turn the pump on in Synaplan as well: the admin setting
+`RUNTIME.STREAM_PUMP` set to `all`, with `STREAM_PUMP_PERCENT` for a gradual
+start. Widget, guest, incognito and channel turns stay in the web pod.
+
+The pump stops claiming turns on SIGTERM and finishes the ones it holds, so
+its grace period (`pump.terminationGracePeriodSeconds`, 300 s) is the longest
+answer you want to survive a restart. A rollout starts the new pump before
+it stops an old one (`maxSurge: 1`, `maxUnavailable: 0`). Pumps do not
+autoscale yet: Synaplan does not publish a pump load metric, so set
+`pump.replicaCount` (2) by hand.
+
+**Restart without cutting answers.** `shutdown.preStopSleepSeconds` keeps a
+stopping web pod serving for a few seconds while the Service and the
+ingress stop sending it requests. `shutdown.terminationGracePeriodSeconds`
+is how long its running streams then get. With the pump on, the answer
+keeps running in the pump when the web pod stops, and the chat picks it up
+again when it is reopened, so 30 s is enough; without the pump, a longer
+grace period lets answers finish. `podDisruptionBudget.enabled` keeps one web pod
+and one pump through a node drain. With a single replica that drain waits,
+so enable it together with two replicas.
 
 An install with its database, Tika and a model backend, on its own or inside
 openDesk, is the [Helmfile](../../helmfile/).

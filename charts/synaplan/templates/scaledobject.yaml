@@ -1,0 +1,45 @@
+{{- if and .Values.autoscaling.enabled (eq (include "synaplan.streamSlotsSource" .) "keda") }}
+# KEDA creates and owns the HorizontalPodAutoscaler for the web Deployment,
+# so hpa.yaml renders nothing in this mode.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "synaplan.fullname" . }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "synaplan.fullname" . }}
+  minReplicaCount: {{ .Values.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.autoscaling.maxReplicas }}
+  {{- with .Values.autoscaling.scaleDownStabilizationSeconds }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: {{ . }}
+  {{- end }}
+  triggers:
+    - type: prometheus
+      metricType: Value
+      metadata:
+        serverAddress: {{ .Values.autoscaling.streamSlots.keda.serverAddress | quote }}
+        query: {{ include "synaplan.streamSlotsQuery" . | quote }}
+        threshold: {{ .Values.autoscaling.streamSlots.targetRatio | toString | quote }}
+      {{- with .Values.autoscaling.streamSlots.keda.authenticationRef }}
+      authenticationRef:
+        name: {{ . }}
+      {{- end }}
+    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: {{ .Values.autoscaling.targetCPUUtilizationPercentage | toString | quote }}
+    {{- end }}
+    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: {{ .Values.autoscaling.targetMemoryUtilizationPercentage | toString | quote }}
+    {{- end }}
+{{- end }}
