@@ -1,0 +1,35 @@
+# Scaling on held streams through prometheus-adapter, the stream pump, the
+# disruption budgets and the web pod's shutdown. The KEDA ScaledObject is a
+# CRD kubeconform has no schema for; the unit tests cover it.
+
+persistence:
+  enabled: true
+
+appSecret: lint
+
+database:
+  password: lint
+
+image:
+  repository: ghcr.io/metadist/synaplan
+  tag: latest
+
+watchdog:
+  enabled: true
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  streamSlots:
+    source: prometheus-adapter
+
+pump:
+  enabled: true
+
+shutdown:
+  preStopSleepSeconds: 5
+  terminationGracePeriodSeconds: 60
+
+podDisruptionBudget:
+  enabled: true

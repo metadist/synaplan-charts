@@ -1,12 +1,12 @@
 {{- /*
-Role-neutral subset of the init scripts, mounted by the worker and scheduler
-pods: only the CA setup and the .env bootstrap. The DB wait, schema update,
+Role-neutral subset of the init scripts, mounted by the worker, scheduler
+and pump pods: only the CA setup and the .env bootstrap. The DB wait, schema update,
 prompt/model seeding and user extraInitScripts stay web-only - the image's
 own role logic already makes non-web roles wait for the web pod's
 migrations, and running doctrine:schema:update from several pods at once
 would race.
 */ -}}
-{{- if or .Values.worker.enabled .Values.scheduler.enabled (and .Values.synascriber.enabled .Values.synascriber.registration.enabled) }}
+{{- if or .Values.worker.enabled .Values.scheduler.enabled .Values.pump.enabled (and .Values.synascriber.enabled .Values.synascriber.registration.enabled) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

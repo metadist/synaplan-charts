@@ -1,3 +1,7 @@
+{{- $grace := .Values.shutdown.terminationGracePeriodSeconds | default 30 | int }}
+{{- if ge (.Values.shutdown.preStopSleepSeconds | default 0 | int) $grace }}
+{{- fail (printf "shutdown.preStopSleepSeconds (%v) must be shorter than the web pod's grace period (%d s), or PHP is killed before it can stop." .Values.shutdown.preStopSleepSeconds $grace) }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,6 +31,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- with .Values.shutdown.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
       {{- with .Values.hostAliases }}
       hostAliases:
         {{- toYaml . | nindent 8 }}
@@ -86,6 +93,12 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- end }}
+          {{- with .Values.shutdown.preStopSleepSeconds }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", {{ . | toString | quote }}]
           {{- end }}
           {{- with .Values.resources }}
           resources:
