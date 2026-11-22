@@ -63,11 +63,11 @@ validate: template ## Validate charts with kubeconform
 	done
 
 .PHONY: check
-check: ## Unit-test the synaplan chart; render the Helmfile
+check: ## Unit-test the charts; render the Helmfile
 	@$(HELM) unittest --help >/dev/null 2>&1 || { echo "helm-unittest not installed. Run 'make install-helm-unittest'"; exit 1; }
 	@command -v helmfile >/dev/null 2>&1 || { echo "helmfile not installed. Run 'make install-helmfile'"; exit 1; }
 	@command -v kubeconform >/dev/null 2>&1 || { echo "kubeconform not installed. Run 'make install-kubeconform'"; exit 1; }
-	$(HELM) unittest charts/synaplan
+	$(HELM) unittest charts/synaplan charts/synaplan-opencloud
 	$(HELM) template charts/synaplan --set appSecret=check,database.password=check | kubeconform -strict -summary -
 	MASTER_PASSWORD=check $(HELMFILE) -e standalone template | kubeconform -strict -summary -
 	MASTER_PASSWORD=check $(HELMFILE) -e standalone --state-values-set apps.triton.enabled=true,technical.triton.mode=cpu template | kubeconform -strict -summary -
