@@ -368,8 +368,14 @@ wait `scaleDownStabilizationSeconds` (10 min) before removing a pod.
 
 | `source` | What the chart renders | What the cluster needs |
 | -------- | ---------------------- | ---------------------- |
-| `prometheus-adapter` | the HorizontalPodAutoscaler with a `Pods` metric, target `targetRatio` (0.6) | prometheus-adapter serving `synaplan_stream_slots_busy_ratio` per pod, see the rule below |
-| `keda` | a KEDA `ScaledObject` with a `prometheus` trigger on the average ratio of this release's web pods, and no HorizontalPodAutoscaler (KEDA makes its own) | KEDA, and `keda.serverAddress` pointing at Prometheus |
+| `prometheus-adapter` | the HorizontalPodAutoscaler with an `External` metric, `synaplan_stream_slots_busy` for this release, target `targetRatio` (0.6) per pod | prometheus-adapter serving that metric, see the rule below |
+| `keda` | a KEDA `ScaledObject` with a `prometheus` trigger on the ratio summed over this release's web pods, target `targetRatio` per pod, and no HorizontalPodAutoscaler (KEDA makes its own) | KEDA, and `keda.serverAddress` pointing at Prometheus |
+
+Both read the ratio summed over the web pods and add a pod for every
+`targetRatio` of it, so three web pods at 0.9 ask for five. The sum matters:
+the web Deployment's selector also matches the worker, scheduler, Redis and
+pump pods, which publish no ratio, and a per-pod average over that selector
+would count them as idle.
 
 ```yaml
 watchdog:
@@ -387,16 +393,20 @@ autoscaling:
       serverAddress: http://prometheus-operated.monitoring:9090
 ```
 
-A prometheus-adapter rule that serves the metric:
+A prometheus-adapter external rule that serves the metric. The autoscaler
+selects this release by `app_kubernetes_io_instance`, which
+`metrics.podMonitor` and `metrics.serviceMonitor` copy from the pod; a
+Prometheus scraping the pods by other means has to set that label itself.
 
 ```yaml
-rules:
-  - seriesQuery: 'synaplan_stream_slots_busy_ratio{namespace!="",pod!=""}'
+externalRules:
+  - seriesQuery: 'synaplan_stream_slots_busy_ratio{namespace!="",app_kubernetes_io_instance!=""}'
     resources:
       overrides:
         namespace: { resource: namespace }
-        pod: { resource: pod }
-    metricsQuery: 'avg_over_time(<<.Series>>{<<.LabelMatchers>>}[1m])'
+    name:
+      as: synaplan_stream_slots_busy
+    metricsQuery: 'sum(avg_over_time(<<.Series>>{<<.LabelMatchers>>}[1m]))'
 ```
 
 Two web pods give a restart somewhere to go; set `minReplicas: 2` once more
@@ -451,9 +461,9 @@ openDesk, is the [Helmfile](../../helmfile/).
 | autoscaling.minReplicas | int | `1` |  |
 | autoscaling.scaleDownStabilizationSeconds | int | `600` | Seconds the load must stay low before a web pod is removed. Long, so a pod is not stopped between two bursts while it still holds streams. |
 | autoscaling.streamSlots.keda.authenticationRef | string | `""` | Name of a KEDA TriggerAuthentication for a Prometheus that needs credentials. |
-| autoscaling.streamSlots.keda.query | string | `""` | PromQL for the trigger. Empty: the average ratio over this release's web pods. |
+| autoscaling.streamSlots.keda.query | string | `""` | PromQL for the trigger; it must return the ratio summed over the web pods. Empty: the sum over this release's web pods. |
 | autoscaling.streamSlots.keda.serverAddress | string | `""` | Prometheus address for the KEDA trigger, e.g. http://prometheus-operated.monitoring:9090. Required with source "keda". |
-| autoscaling.streamSlots.source | string | `""` | Scale on `synaplan_stream_slots_busy_ratio` from the watchdog: "" (off), "prometheus-adapter" (a Pods metric of the HorizontalPodAutoscaler, served by prometheus-adapter) or "keda" (a KEDA ScaledObject with a prometheus trigger instead of the HorizontalPodAutoscaler). Needs watchdog.enabled and Prometheus scraping :8098 (metrics.podMonitor or metrics.serviceMonitor). |
+| autoscaling.streamSlots.source | string | `""` | Scale on `synaplan_stream_slots_busy_ratio` from the watchdog: "" (off), "prometheus-adapter" (an External metric of the HorizontalPodAutoscaler, served by prometheus-adapter) or "keda" (a KEDA ScaledObject with a prometheus trigger instead of the HorizontalPodAutoscaler). Needs watchdog.enabled and Prometheus scraping :8098 (metrics.podMonitor or metrics.serviceMonitor). |
 | autoscaling.streamSlots.targetRatio | float | `0.6` | Share of the stream workers held, averaged over the web pods, above which a pod is added. 0.6 leaves room for a burst while the new pod starts. |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
 | bootstrapAdmin.email | string | `""` | Email of the first administrator, instead of secretRef. Empty = off. |
@@ -594,6 +604,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | pump.affinity | object | `{}` |  |
 | pump.enabled | bool | `false` |  |
 | pump.nodeSelector | object | `{}` |  |
+| pump.readinessProbe | object | `{"exec":{"command":["/usr/local/bin/container-healthcheck"]},"failureThreshold":3,"periodSeconds":10}` | Ready only once the stream pump process runs, not while the entrypoint still waits for the web pod's migrations, so a surge rollout or the disruption budget never counts a pump that claims no turns. |
 | pump.replicaCount | int | `2` |  |
 | pump.resources | object | `{}` |  |
 | pump.terminationGracePeriodSeconds | int | `300` | How long a stopping pump may finish the answers it holds. Long answers with tools run for minutes. |

@@ -12,16 +12,19 @@ spec:
     name: {{ include "synaplan.fullname" . }}
   minReplicaCount: {{ .Values.autoscaling.minReplicas }}
   maxReplicaCount: {{ .Values.autoscaling.maxReplicas }}
-  {{- with .Values.autoscaling.scaleDownStabilizationSeconds }}
+  {{- if not (kindIs "invalid" .Values.autoscaling.scaleDownStabilizationSeconds) }}
   advanced:
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
-          stabilizationWindowSeconds: {{ . }}
+          stabilizationWindowSeconds: {{ .Values.autoscaling.scaleDownStabilizationSeconds }}
   {{- end }}
   triggers:
+    # AverageValue on the summed ratio: replicas = ceil(sum / threshold).
+    # Value would multiply by the pods the web Deployment's selector matches,
+    # which include the worker, scheduler, Redis and pump.
     - type: prometheus
-      metricType: Value
+      metricType: AverageValue
       metadata:
         serverAddress: {{ .Values.autoscaling.streamSlots.keda.serverAddress | quote }}
         query: {{ include "synaplan.streamSlotsQuery" . | quote }}

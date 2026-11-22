@@ -95,6 +95,14 @@ pump:
   # -- How long a stopping pump may finish the answers it holds. Long
   # answers with tools run for minutes.
   terminationGracePeriodSeconds: 300
+  # -- Ready only once the stream pump process runs, not while the entrypoint
+  # still waits for the web pod's migrations, so a surge rollout or the
+  # disruption budget never counts a pump that claims no turns.
+  readinessProbe:
+    exec:
+      command: ["/usr/local/bin/container-healthcheck"]
+    periodSeconds: 10
+    failureThreshold: 3
   resources: {}
   nodeSelector: {}
   tolerations: []
@@ -783,8 +791,8 @@ autoscaling:
   scaleDownStabilizationSeconds: 600
   streamSlots:
     # -- Scale on `synaplan_stream_slots_busy_ratio` from the watchdog: ""
-    # (off), "prometheus-adapter" (a Pods metric of the HorizontalPodAutoscaler,
-    # served by prometheus-adapter) or "keda" (a KEDA ScaledObject with a
+    # (off), "prometheus-adapter" (an External metric of the
+    # HorizontalPodAutoscaler, served by prometheus-adapter) or "keda" (a KEDA ScaledObject with a
     # prometheus trigger instead of the HorizontalPodAutoscaler). Needs
     # watchdog.enabled and Prometheus scraping :8098 (metrics.podMonitor or
     # metrics.serviceMonitor).
@@ -795,7 +803,8 @@ autoscaling:
     keda:
       # -- Prometheus address for the KEDA trigger, e.g. http://prometheus-operated.monitoring:9090. Required with source "keda".
       serverAddress: ""
-      # -- PromQL for the trigger. Empty: the average ratio over this release's web pods.
+      # -- PromQL for the trigger; it must return the ratio summed over the
+      # web pods. Empty: the sum over this release's web pods.
       query: ""
       # -- Name of a KEDA TriggerAuthentication for a Prometheus that needs credentials.
       authenticationRef: ""

@@ -13,17 +13,24 @@ spec:
     name: {{ include "synaplan.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
-  {{- with .Values.autoscaling.scaleDownStabilizationSeconds }}
+  {{- if not (kindIs "invalid" .Values.autoscaling.scaleDownStabilizationSeconds) }}
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: {{ . }}
+      stabilizationWindowSeconds: {{ .Values.autoscaling.scaleDownStabilizationSeconds }}
   {{- end }}
   metrics:
     {{- if eq $source "prometheus-adapter" }}
-    - type: Pods
-      pods:
+    # The web Deployment's selector also matches the worker, scheduler, Redis
+    # and pump pods, which publish no ratio. An External metric summed over
+    # this release with an AverageValue target does not depend on that pod
+    # count: replicas = ceil(sum of ratios / targetRatio).
+    - type: External
+      external:
         metric:
-          name: synaplan_stream_slots_busy_ratio
+          name: synaplan_stream_slots_busy
+          selector:
+            matchLabels:
+              app_kubernetes_io_instance: {{ .Release.Name | quote }}
         target:
           type: AverageValue
           averageValue: {{ printf "%dm" (mulf .Values.autoscaling.streamSlots.targetRatio 1000 | int) }}

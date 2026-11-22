@@ -367,8 +367,14 @@ wait `scaleDownStabilizationSeconds` (10 min) before removing a pod.
 
 | `source` | What the chart renders | What the cluster needs |
 | -------- | ---------------------- | ---------------------- |
-| `prometheus-adapter` | the HorizontalPodAutoscaler with a `Pods` metric, target `targetRatio` (0.6) | prometheus-adapter serving `synaplan_stream_slots_busy_ratio` per pod, see the rule below |
-| `keda` | a KEDA `ScaledObject` with a `prometheus` trigger on the average ratio of this release's web pods, and no HorizontalPodAutoscaler (KEDA makes its own) | KEDA, and `keda.serverAddress` pointing at Prometheus |
+| `prometheus-adapter` | the HorizontalPodAutoscaler with an `External` metric, `synaplan_stream_slots_busy` for this release, target `targetRatio` (0.6) per pod | prometheus-adapter serving that metric, see the rule below |
+| `keda` | a KEDA `ScaledObject` with a `prometheus` trigger on the ratio summed over this release's web pods, target `targetRatio` per pod, and no HorizontalPodAutoscaler (KEDA makes its own) | KEDA, and `keda.serverAddress` pointing at Prometheus |
+
+Both read the ratio summed over the web pods and add a pod for every
+`targetRatio` of it, so three web pods at 0.9 ask for five. The sum matters:
+the web Deployment's selector also matches the worker, scheduler, Redis and
+pump pods, which publish no ratio, and a per-pod average over that selector
+would count them as idle.
 
 ```yaml
 watchdog:
@@ -386,16 +392,20 @@ autoscaling:
       serverAddress: http://prometheus-operated.monitoring:9090
 ```
 
-A prometheus-adapter rule that serves the metric:
+A prometheus-adapter external rule that serves the metric. The autoscaler
+selects this release by `app_kubernetes_io_instance`, which
+`metrics.podMonitor` and `metrics.serviceMonitor` copy from the pod; a
+Prometheus scraping the pods by other means has to set that label itself.
 
 ```yaml
-rules:
-  - seriesQuery: 'synaplan_stream_slots_busy_ratio{namespace!="",pod!=""}'
+externalRules:
+  - seriesQuery: 'synaplan_stream_slots_busy_ratio{namespace!="",app_kubernetes_io_instance!=""}'
     resources:
       overrides:
         namespace: { resource: namespace }
-        pod: { resource: pod }
-    metricsQuery: 'avg_over_time(<<.Series>>{<<.LabelMatchers>>}[1m])'
+    name:
+      as: synaplan_stream_slots_busy
+    metricsQuery: 'sum(avg_over_time(<<.Series>>{<<.LabelMatchers>>}[1m]))'
 ```
 
 Two web pods give a restart somewhere to go; set `minReplicas: 2` once more

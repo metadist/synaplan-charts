@@ -1335,7 +1335,7 @@ Validates autoscaling.streamSlots and returns its source ("" when off).
 {{- end }}
 
 {{/*
-PromQL the KEDA trigger reads: the average held-stream ratio over this
+PromQL the KEDA trigger reads: the held-stream ratio summed over this
 release's web pods. Web pod names are <fullname>-<replicaset>-<pod>; the
 worker, scheduler and pump add their role, so the pattern leaves them out.
 */}}
@@ -1343,7 +1343,7 @@ worker, scheduler and pump add their role, so the pattern leaves them out.
 {{- with .Values.autoscaling.streamSlots.keda.query }}
 {{- . }}
 {{- else }}
-{{- printf "avg(synaplan_stream_slots_busy_ratio{namespace=\"%s\",pod=~\"%s-[a-z0-9]+-[a-z0-9]+\"})" .Release.Namespace (include "synaplan.fullname" .) }}
+{{- printf "sum(synaplan_stream_slots_busy_ratio{namespace=\"%s\",pod=~\"%s-[a-z0-9]+-[a-z0-9]+\"})" .Release.Namespace (include "synaplan.fullname" .) }}
 {{- end }}
 {{- end }}
 

@@ -75,6 +75,10 @@ spec:
             - name: SYNAPLAN_WEB_HEALTH_URL
               value: "http://{{ include "synaplan.fullname" . }}:{{ .Values.service.port }}/api/health"
             {{- include "synaplan.env" . | nindent 12 }}
+          {{- with .Values.pump.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.pump.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
