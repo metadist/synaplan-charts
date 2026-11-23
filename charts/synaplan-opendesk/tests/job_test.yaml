@@ -27,3 +27,21 @@ tests:
           content:
             name: PORTAL_ACTION
             value: delete
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ums-ldap-server-admin
+                key: password
+                optional: true
+
+  - it: keeps a long release name inside the 63-character Job limit
+    set:
+      fullnameOverride: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: metadata.name
+          value: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-remove
