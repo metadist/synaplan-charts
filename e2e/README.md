@@ -28,9 +28,10 @@ Three ideas from the original plan stay out, on purpose.
 - **Removal.** `helmfile destroy`, the database volume and
   `synaplan-credentials` are the Remove section of that README. The suite
   does not assert them.
-- **Upgrade from the previous chart release.** The database moves forward
-  with the application's migrations when the new image starts. This suite
-  does not install an older chart first.
+- **Upgrade from the previous chart release.** The chart's startup script
+  runs `doctrine:schema:update --force`. That is not the application's
+  versioned migrations, and an upgrade from an older chart release is
+  untested here. This suite does not install an older chart first.
 
 ## Environments
 
