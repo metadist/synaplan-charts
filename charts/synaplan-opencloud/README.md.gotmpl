@@ -17,10 +17,11 @@ through when set. `oidc.issuer` is the identity provider OpenCloud and
 Synaplan share. Plugin 1.2.0 keeps offline tokens, and the settings people
 save, in OpenCloud's NATS: set `store.nodes` to that address. The image
 default is `127.0.0.1:9233`, which is this pod, so a Kubernetes install that
-leaves it empty cannot keep tokens across a restart. `store.encryptionSecret`
-is the key those tokens are encrypted with. `machineAuthSecret` is OpenCloud's
-machine auth key; watches, folder reads and copies Synaplan sends need it
-while a person is away. An install with its own PKI names the Secret with the
+leaves it empty cannot keep tokens across a restart. `store.encryptionSecretRef`
+names the Secret with the key those tokens are encrypted with.
+`machineAuthSecretRef` names the Secret with OpenCloud's machine auth key;
+watches, folder reads and copies Synaplan sends need it while a person is
+away. An install with its own PKI names the Secret with the
 CA in `customRootCA.secretRef`: the service then trusts it for Keycloak,
 Synaplan and OpenCloud (`SSL_CERT_FILE`); `insecure` skips the check towards
 OpenCloud instead. `extraEnv`, `extraVolumes` and `extraVolumeMounts` carry

@@ -33,9 +33,9 @@ tests:
         issuer: https://id.example.org/realms/opendesk
       store:
         nodes: nats.opencloud.svc:9233
-        encryptionSecret: synaplan-store
+        encryptionSecretRef: synaplan-store
         encryptionSecretKey: secret
-      machineAuthSecret: opencloud-machine-auth
+      machineAuthSecretRef: opencloud-machine-auth
       machineAuthSecretKey: api-key
     asserts:
       - contains:
@@ -68,3 +68,18 @@ tests:
                 name: opencloud-machine-auth
                 key: api-key
           count: 1
+
+  - it: rejects a value under its old name
+    set:
+      oidc:
+        exchangeSecretSecret: synaplan-opencloud-oidc
+    asserts:
+      - failedTemplate:
+          errorMessage: oidc.exchangeSecretSecret was renamed to oidc.exchangeClientSecretRef
+
+  - it: rejects a top-level value under its old name
+    set:
+      jwtSecretSecret: rolling-secrets
+    asserts:
+      - failedTemplate:
+          errorMessage: jwtSecretSecret was renamed to jwtSecretRef
