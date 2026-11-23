@@ -104,7 +104,8 @@ Neighbour services are switched on by their URL and off by leaving it empty:
 `ollama.baseUrl`, `triton.url`, `qdrant.url`, `office.convertUrl`,
 `office.publicUrl` with `office.wopiUrl`,
 `compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`,
-`c2paSigner.enabled`.
+`c2paSigner.enabled`. `qdrant.url` alone gives memories; `qdrant.documentVectors`
+also moves the vectors of uploaded files from MariaDB to Qdrant.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`

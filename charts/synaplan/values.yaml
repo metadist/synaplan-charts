@@ -171,12 +171,14 @@ tika:
   enabled: false
   url: "http://tika.synaplan.svc.cluster.local:9998"
 
-# Qdrant vector database: user memories and Qdrant-backed vector search. The
-# chart does not deploy Qdrant.
+# Qdrant vector database: user memories and, with documentVectors, the
+# vectors of uploaded files. The chart does not deploy Qdrant.
 qdrant:
   # -- Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333).
   # Empty = off: the application switches memories and Qdrant search off.
   url: ""
+  # -- Keep the vectors of uploaded files in Qdrant as well (VECTOR_STORAGE_PROVIDER=qdrant) instead of MariaDB, the application default. Needs url. Files vectorized before the switch stay in MariaDB until they are migrated, file by file (POST /api/v1/files/{id}/migrate). A provider chosen in the application's system config wins over this value.
+  documentVectors: false
 
 # Office engine: Collabora CODE convert-to for thumbnails, PDF export, preview
 # and combine. The chart does not deploy Collabora; on openDesk point at the

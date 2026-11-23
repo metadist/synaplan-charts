@@ -828,6 +828,13 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 - name: QDRANT_URL
   value: {{ . | quote }}
 {{- end }}
+{{- if .Values.qdrant.documentVectors }}
+{{- if not .Values.qdrant.url }}
+{{- fail "qdrant.documentVectors is set without qdrant.url" }}
+{{- end }}
+- name: VECTOR_STORAGE_PROVIDER
+  value: "qdrant"
+{{- end }}
 {{- with .Values.office.convertUrl }}
 # Office engine (Collabora convert-to)
 - name: OFFICE_CONVERT_URL

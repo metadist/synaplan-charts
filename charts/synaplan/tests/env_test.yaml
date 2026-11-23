@@ -58,6 +58,41 @@ tests:
             value: http://synaplan:80
           count: 1
 
+  - it: leaves the vectors of uploaded files in MariaDB
+    template: deployment.yaml
+    set:
+      qdrant:
+        url: http://qdrant:6333
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VECTOR_STORAGE_PROVIDER
+          any: true
+
+  - it: moves the vectors of uploaded files to Qdrant
+    template: deployment.yaml
+    set:
+      qdrant:
+        url: http://qdrant:6333
+        documentVectors: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VECTOR_STORAGE_PROVIDER
+            value: qdrant
+          count: 1
+
+  - it: refuses document vectors in Qdrant without its URL
+    template: deployment.yaml
+    set:
+      qdrant:
+        documentVectors: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "qdrant.documentVectors is set without qdrant.url"
+
   - it: refuses a public editor URL without the callback URL
     template: deployment.yaml
     set:

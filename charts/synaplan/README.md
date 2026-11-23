@@ -105,7 +105,8 @@ Neighbour services are switched on by their URL and off by leaving it empty:
 `ollama.baseUrl`, `triton.url`, `qdrant.url`, `office.convertUrl`,
 `office.publicUrl` with `office.wopiUrl`,
 `compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`,
-`c2paSigner.enabled`.
+`c2paSigner.enabled`. `qdrant.url` alone gives memories; `qdrant.documentVectors`
+also moves the vectors of uploaded files from MariaDB to Qdrant.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`
@@ -623,6 +624,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | pump.resources | object | `{}` |  |
 | pump.terminationGracePeriodSeconds | int | `300` | How long a stopping pump may finish the answers it holds. Long answers with tools run for minutes. |
 | pump.tolerations | list | `[]` |  |
+| qdrant.documentVectors | bool | `false` | Keep the vectors of uploaded files in Qdrant as well (VECTOR_STORAGE_PROVIDER=qdrant) instead of MariaDB, the application default. Needs url. Files vectorized before the switch stay in MariaDB until they are migrated, file by file (POST /api/v1/files/{id}/migrate). A provider chosen in the application's system config wins over this value. |
 | qdrant.url | string | `""` | Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333). Empty = off: the application switches memories and Qdrant search off. |
 | readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":30,"periodSeconds":5}` | Web pod readiness probe while the watchdog is off. Same static file, so it cannot see a full server; turn on the watchdog for that. |
 | redis.dsn | string | `""` | External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379). Takes precedence over the bundled Redis. Must not carry a path - the Messenger transports append their stream names to it. Plain value ends up in the pod spec; use dsnSecretRef for DSNs carrying credentials. |
