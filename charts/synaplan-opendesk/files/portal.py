@@ -133,6 +133,37 @@ def append_dn(kind, dn, prop, entry_dn):
     print(f"added the tile to {prop}")
 
 
+def drop_dn(kind, dn, prop, entry_dn):
+    status, payload = call("GET", f"/portals/{kind}/{quote(dn)}")
+    if status == 404:
+        print(f"portal {kind} is already gone")
+        return
+    if status != 200:
+        raise SystemExit(f"reading the portal {kind} failed ({status})")
+    values = list(payload.get("properties", {}).get(prop, []))
+    kept = [item for item in values if item != entry_dn and "synaplan" not in item]
+    if kept == values:
+        print(f"tile was not listed in {prop}")
+        return
+    status, _ = call("PATCH", f"/portals/{kind}/{quote(dn)}", {"properties": {prop: kept}})
+    if status not in (200, 204):
+        raise SystemExit(f"updating {prop} failed ({status})")
+    print(f"removed the tile from {prop}")
+
+
+def delete_entry():
+    dn = find_entry()
+    if not dn:
+        print("no portal tile")
+        return
+    drop_dn("category", CATEGORY_DN, "entries", dn)
+    drop_dn("portal", PORTAL_DN, "centralNavigation", dn)
+    status, _ = call("DELETE", f"/portals/entry/{quote(dn)}")
+    if status not in (200, 204, 404):
+        raise SystemExit(f"deleting the portal tile failed ({status})")
+    print(f"removed portal tile {dn}")
+
+
 def restart(api, name):
     # A content change in LDAP is picked up after the portal processes restart.
     body = json.dumps(
@@ -171,10 +202,7 @@ def restart(api, name):
         print(f"could not restart {api}/{name} ({error.code}); the portal refreshes on its own", file=sys.stderr)
 
 
-def main():
-    entry = ensure_entry()
-    append_dn("category", CATEGORY_DN, "entries", entry)
-    append_dn("portal", PORTAL_DN, "centralNavigation", entry)
+def refresh():
     restarts = json.loads(
         os.environ.get("PORTAL_RESTARTS")
         or '[{"api":"statefulsets","name":"ums-portal-consumer"},'
@@ -183,6 +211,25 @@ def main():
     )
     for item in restarts:
         restart(item["api"], item["name"])
+
+
+def main():
+    if os.environ.get("PORTAL_ACTION") == "delete":
+        try:
+            delete_entry()
+        except SystemExit as stopped:
+            # The portal may already be gone. Uninstall of Synaplan must not stick on it.
+            if "unavailable" in str(stopped):
+                print(f"{stopped}; leaving uninstall to continue", file=sys.stderr)
+                return
+            raise
+        refresh()
+        print("portal tile is removed")
+        return
+    entry = ensure_entry()
+    append_dn("category", CATEGORY_DN, "entries", entry)
+    append_dn("portal", PORTAL_DN, "centralNavigation", entry)
+    refresh()
     print("portal tile is in place")
 
 

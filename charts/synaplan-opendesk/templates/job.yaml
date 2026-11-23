@@ -1,27 +1,31 @@
 {{- if not .Values.synaplanUrl }}
 {{- fail "synaplanUrl is required" }}
 {{- end }}
+{{- range $i, $job := list (dict "suffix" "" "hook" "post-install,post-upgrade" "action" "apply" "deletePolicy" "before-hook-creation") (dict "suffix" "-remove" "hook" "pre-delete" "action" "delete" "deletePolicy" "before-hook-creation,hook-succeeded") }}
+{{- if $i }}
+---
+{{- end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "synaplan-opendesk.fullname" . }}
+  name: {{ include "synaplan-opendesk.fullname" $ }}{{ $job.suffix }}
   labels:
-    {{- include "synaplan-opendesk.labels" . | nindent 4 }}
+    {{- include "synaplan-opendesk.labels" $ | nindent 4 }}
   annotations:
-    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook: {{ $job.hook }}
     helm.sh/hook-weight: "10"
-    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-delete-policy: {{ $job.deletePolicy }}
 spec:
   backoffLimit: 2
   ttlSecondsAfterFinished: 86400
   template:
     metadata:
       labels:
-        {{- include "synaplan-opendesk.selectorLabels" . | nindent 8 }}
+        {{- include "synaplan-opendesk.selectorLabels" $ | nindent 8 }}
         app.kubernetes.io/component: portal
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ include "synaplan-opendesk.fullname" . }}
+      serviceAccountName: {{ include "synaplan-opendesk.fullname" $ }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -30,34 +34,36 @@ spec:
           type: RuntimeDefault
       containers:
         - name: portal
-          image: {{ .Values.image | quote }}
-          imagePullPolicy: {{ .Values.pullPolicy }}
+          image: {{ $.Values.image | quote }}
+          imagePullPolicy: {{ $.Values.pullPolicy }}
           command: ["python3", "/scripts/portal.py"]
           env:
             - name: PYTHONDONTWRITEBYTECODE
               value: "1"
+            - name: PORTAL_ACTION
+              value: {{ $job.action | quote }}
             - name: PORTAL_RESTARTS
-              value: {{ .Values.restarts | toJson | quote }}
+              value: {{ $.Values.restarts | toJson | quote }}
             - name: UDM_URL
-              value: {{ .Values.udmUrl | quote }}
+              value: {{ $.Values.udmUrl | quote }}
             - name: LDAP_BASE
-              value: {{ .Values.ldapBase | quote }}
+              value: {{ $.Values.ldapBase | quote }}
             - name: LDAP_ADMIN_DN
-              value: {{ .Values.adminDn | quote }}
+              value: {{ $.Values.adminDn | quote }}
             - name: SYNAPLAN_URL
-              value: {{ .Values.synaplanUrl | quote }}
+              value: {{ $.Values.synaplanUrl | quote }}
             - name: LDAP_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.adminSecret | quote }}
-                  key: {{ .Values.adminSecretKey | quote }}
+                  name: {{ $.Values.adminSecret | quote }}
+                  key: {{ $.Values.adminSecretKey | quote }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml $.Values.resources | nindent 12 }}
           volumeMounts:
             - name: script
               mountPath: /scripts
@@ -68,14 +74,15 @@ spec:
       volumes:
         - name: script
           configMap:
-            name: {{ include "synaplan-opendesk.fullname" . }}
+            name: {{ include "synaplan-opendesk.fullname" $ }}
             items:
               - key: portal.py
                 path: portal.py
             defaultMode: 0555
         - name: icon
           configMap:
-            name: {{ include "synaplan-opendesk.fullname" . }}
+            name: {{ include "synaplan-opendesk.fullname" $ }}
             items:
               - key: bird.svg
                 path: bird.svg
+{{- end }}
