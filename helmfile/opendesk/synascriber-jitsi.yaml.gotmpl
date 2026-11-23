@@ -15,8 +15,9 @@
 # so Jitsi needs nothing from that release at start.
 #
 # Environment: MASTER_PASSWORD, DOMAIN (openDesk's global.domain),
-# SYNAPLAN_TRANSCRIBER_IMAGE (default below, keep in step with
-# images.synaplanTranscriber), SYNAPLAN_HOST, KEYCLOAK_HOST, KEYCLOAK_REALM,
+# SYNAPLAN_TRANSCRIBER_IMAGE (default below; the transcriber Deployment
+# uses images.synaplanTranscriber, whose empty tag is the chart appVersion),
+# SYNAPLAN_HOST, KEYCLOAK_HOST, KEYCLOAK_REALM,
 # SYNAPLAN_RELEASE.
 {{- $masterPassword := requiredEnv "MASTER_PASSWORD" }}
 {{- $domain := env "DOMAIN" | default "opendesk.internal" }}
