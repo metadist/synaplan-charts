@@ -403,6 +403,18 @@ openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only
 those users can start or receive notes. The e2e suite runs all of this with
 `E2E_OPENDESK_SYNASCRIBER=true`, see [e2e](../e2e/).
 
+### Turn meeting notes off
+
+Set `technical.synaplan.synascriber.enabled` to false and apply. Remove
+`synascriber-client.yaml.gotmpl` from openDesk's environment and the
+`customization.release.jitsi` entry that points at
+`synascriber-jitsi.yaml.gotmpl`, then re-run the Keycloak bootstrap and
+Jitsi's release. Jitsi does not mount a Secret from the Synaplan release.
+The module and the token live in Jitsi's own values, derived from
+`MASTER_PASSWORD`, so Jitsi still starts after meeting notes are gone.
+
+The synaScriber repository is not this deployment. The Helmfile here is.
+
 ## Nextcloud and the portal
 
 The combination openDesk publishes with Synaplan is Synaplan itself, the
