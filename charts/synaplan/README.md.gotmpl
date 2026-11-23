@@ -119,6 +119,20 @@ Any other flag the application pins from the environment goes into
 `MULTITASK.MCP_FETCH_ENABLED`, `MODULES.GATE_TIKA`, …); the chart derives the
 `FEATURE_*` variable the same way the application does.
 
+Each setting has one home. A neighbour is its URL. A product flag is a
+`features` pin or a `featurePins` entry. An admin setting that lives in the
+database is `settings` or `settingSecrets`. A secret is a reference to a
+Secret.
+
+A database change that Git must keep applying is an idempotent init command.
+The model script is the pattern. A seeder that only inserts a missing row
+does not follow a later change. A values and image mismatch fails the render.
+The pod does not discover it.
+
+`features.groupPolicies` only pins `FEATURE_IAM_GROUP_POLICIES_ENABLED`. The
+chart does not write per-group rows. That waits until the application has a
+command an init container can run.
+
 ### Content credentials
 
 `c2paSigner.enabled` turns on the signer that already ships in the Synaplan

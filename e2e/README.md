@@ -16,6 +16,23 @@ The suite overrides as little as possible: the cluster is built to fit the
 deployment (its ingress controller, its certificates), not the other way
 round.
 
+## What this suite does not run
+
+Three ideas from the original plan stay out, on purpose.
+
+- **Next to openDesk.** Inside openDesk is the deployment under test: this
+  checkout's apps, pulled by openDesk's Helmfile, with the same sign-in.
+  A second cluster that installs Synaplan's own Helmfile beside a running
+  openDesk would repeat that sign-in. The guide for that layout stays in
+  the Helmfile README.
+- **Removal.** `helmfile destroy`, the database volume and
+  `synaplan-credentials` are the Remove section of that README. The suite
+  does not assert them.
+- **Upgrade from the previous chart release.** The chart's startup script
+  runs `doctrine:schema:update --force`. That is not the application's
+  versioned migrations, and an upgrade from an older chart release is
+  untested here. This suite does not install an older chart first.
+
 ## Environments
 
 An environment is a directory in `environments/` with:

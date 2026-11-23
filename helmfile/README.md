@@ -145,6 +145,17 @@ does not change, apart from the Keycloak client.
    helmfile apply -e <env> -n <openDesk namespace> -l name=opendesk-keycloak-bootstrap
    ```
 
+   That file is the registration path openDesk ships. The bootstrap reads
+   clients from the environment (`functional.authentication.oidc.clients`)
+   and deletes every client the environment does not name. Two changes would
+   let an add-on register a client without this copy: clients discovered from
+   a labeled Secret or ConfigMap, or a name prefix the reconciliation leaves
+   alone. An optional mount of a Secret that does not exist yet would only
+   let the bootstrap start before that Secret is created. The client would
+   still have to be declared in the environment, so the copy step would stay.
+   openDesk has added none of these. This repository keeps the environment
+   file, for the `synaplan` client and for `synascriber`.
+
 4. Sign in at `https://synaplan.<domain>` with an openDesk account. Members
    of openDesk's group **Domain Admins** (e.g. openDesk's `Administrator`)
    become Synaplan administrators; openDesk asks them to set up a second
@@ -395,13 +406,28 @@ Two more files go into openDesk's environment folder:
   image, and Jicofo streams audio to the transcriber. Prosody's and Jicofo's
   secrets are derived from `MASTER_PASSWORD` exactly as the `synaplan`
   release derives them, so Jitsi may be deployed before Synaplan. It reads
-  `MASTER_PASSWORD`, `DOMAIN`, `SYNAPLAN_TRANSCRIBER_IMAGE` (keep in step
-  with `images.synaplanTranscriber`), `SYNAPLAN_HOST`, `KEYCLOAK_HOST`,
+  `MASTER_PASSWORD`, `DOMAIN`, `SYNAPLAN_TRANSCRIBER_IMAGE` (default
+  `ghcr.io/metadist/synaplan-transcriber:5.8.9`, the image Jitsi copies the
+  Prosody module from; the transcriber Deployment uses
+  `images.synaplanTranscriber`, and an empty tag there is the chart
+  appVersion), `SYNAPLAN_HOST`, `KEYCLOAK_HOST`,
   `KEYCLOAK_REALM` and `SYNAPLAN_RELEASE`.
 
 openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only
 those users can start or receive notes. The e2e suite runs all of this with
 `E2E_OPENDESK_SYNASCRIBER=true`, see [e2e](../e2e/).
+
+### Turn meeting notes off
+
+Set `technical.synaplan.synascriber.enabled` to false and apply. Remove
+`synascriber-client.yaml.gotmpl` from openDesk's environment and the
+`customization.release.jitsi` entry that points at
+`synascriber-jitsi.yaml.gotmpl`, then re-run the Keycloak bootstrap and
+Jitsi's release. Jitsi does not mount a Secret from the Synaplan release.
+The module and the token live in Jitsi's own values, derived from
+`MASTER_PASSWORD`, so Jitsi still starts after meeting notes are gone.
+
+The synaScriber repository is not this deployment. The Helmfile here is.
 
 ## Nextcloud and the portal
 
