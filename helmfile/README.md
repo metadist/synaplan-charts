@@ -145,6 +145,17 @@ does not change, apart from the Keycloak client.
    helmfile apply -e <env> -n <openDesk namespace> -l name=opendesk-keycloak-bootstrap
    ```
 
+   That file is the registration path openDesk ships. The bootstrap reads
+   clients from the environment (`functional.authentication.oidc.clients`)
+   and deletes every client the environment does not name. Two changes would
+   let an add-on register a client without this copy: clients discovered from
+   a labeled Secret or ConfigMap, or a name prefix the reconciliation leaves
+   alone. An optional mount of a Secret that does not exist yet would only
+   let the bootstrap start before that Secret is created. The client would
+   still have to be declared in the environment, so the copy step would stay.
+   openDesk has added none of these. This repository keeps the environment
+   file, for the `synaplan` client and for `synascriber`.
+
 4. Sign in at `https://synaplan.<domain>` with an openDesk account. Members
    of openDesk's group **Domain Admins** (e.g. openDesk's `Administrator`)
    become Synaplan administrators; openDesk asks them to set up a second
