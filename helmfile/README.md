@@ -492,16 +492,16 @@ apps:
 technical:
   synaplanOpencloud:
     revaGateway: "kubernetes://opencloud-gateway:9142"
-    jwtSecretSecret: rolling-secrets
-    machineAuthSecret: opencloud-machine-auth
+    jwtSecretRef: rolling-secrets
+    machineAuthSecretRef: opencloud-machine-auth
     store:
       nodes: "opencloud-nats:9233"
-      encryptionSecret: synaplan-store
+      encryptionSecretRef: synaplan-store
     oidc:
       issuer: "https://id.example.org/realms/opendesk"
       tokenEndpoint: "https://id.example.org/realms/opendesk/protocol/openid-connect/token"
       exchangeClientId: synaplan-opencloud
-      exchangeSecretSecret: synaplan-opencloud-oidc
+      exchangeClientSecretRef: synaplan-opencloud-oidc
       targetAudience: synaplan
 ```
 

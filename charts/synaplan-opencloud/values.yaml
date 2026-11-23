@@ -22,16 +22,16 @@ port: 9106
 # -- Log level of the service (SYNAPLAN_LOG_LEVEL): debug, info, warn or error
 logLevel: info
 # -- Optional shared API key Secret. Leave the name empty to use token exchange or to configure the key later.
-apiKeySecret: ""
-# -- Key in apiKeySecret
+apiKeySecretRef: ""
+# -- Key in apiKeySecretRef
 apiKeySecretKey: api-key
 
 # The plugin's own OpenCloud settings, passed through when set.
 # -- OpenCloud CS3 gateway (OC_REVA_GATEWAY). Empty leaves it unset.
 revaGateway: ""
 # -- Secret holding the OpenCloud JWT (OC_JWT_SECRET). Empty leaves it unset.
-jwtSecretSecret: ""
-# -- Key in jwtSecretSecret
+jwtSecretRef: ""
+# -- Key in jwtSecretRef
 jwtSecretKey: jwt-secret
 # -- (bool) Skip TLS verification towards OpenCloud (OC_INSECURE), for an install with
 # self-signed certificates. null leaves it unset.
@@ -44,9 +44,9 @@ oidc:
   # -- Confidential client id for token exchange. Empty leaves it unset.
   exchangeClientId: ""
   # -- Secret holding the exchange client secret. Empty leaves it unset.
-  exchangeSecretSecret: ""
-  # -- Key in exchangeSecretSecret
-  exchangeSecretKey: client-secret
+  exchangeClientSecretRef: ""
+  # -- Key in exchangeClientSecretRef
+  exchangeClientSecretKey: client-secret
   # -- Audience of the exchanged token, usually the Synaplan client id. Empty leaves it unset.
   targetAudience: ""
 
@@ -56,13 +56,13 @@ store:
   # -- Address of OpenCloud's NATS (SYNAPLAN_STORE_NODES), host:port. Comma-separated when there is more than one. Empty leaves the image default, 127.0.0.1:9233.
   nodes: ""
   # -- Secret holding the key that encrypts offline tokens (SYNAPLAN_STORE_ENCRYPTION_SECRET). Empty uses the exchange client secret, so rotating that secret makes everyone allow again.
-  encryptionSecret: ""
-  # -- Key in encryptionSecret
+  encryptionSecretRef: ""
+  # -- Key in encryptionSecretRef
   encryptionSecretKey: encryption-secret
 
 # -- Secret holding OpenCloud's machine auth API key (OC_MACHINE_AUTH_API_KEY). Watches, folder reads and copies Synaplan sends use it while a person is away. Empty leaves that off.
-machineAuthSecret: ""
-# -- Key in machineAuthSecret
+machineAuthSecretRef: ""
+# -- Key in machineAuthSecretRef
 machineAuthSecretKey: machine-auth-api-key
 
 # A private PKI: the CA the plugin trusts when it calls Keycloak, Synaplan

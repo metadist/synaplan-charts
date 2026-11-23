@@ -12,7 +12,7 @@ imagePullSecrets:
   - name: {{ . | quote }}
   {{- end }}
 {{- end }}
-# The plugin's OpenCloud settings (revaGateway, jwtSecretSecret, oidc, ...),
+# The plugin's OpenCloud settings (revaGateway, jwtSecretRef, oidc, ...),
 # as the environment sets them
 {{- with dig "technical" "synaplanOpencloud" dict .Values }}
 {{ toYaml . }}

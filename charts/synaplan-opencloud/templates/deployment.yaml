@@ -1,6 +1,17 @@
 {{- if not .Values.synaplanUrl }}
 {{- fail "synaplanUrl is required" }}
 {{- end }}
+{{- $renamed := dict "apiKeySecret" "apiKeySecretRef" "jwtSecretSecret" "jwtSecretRef" "machineAuthSecret" "machineAuthSecretRef" "oidc.exchangeSecretSecret" "oidc.exchangeClientSecretRef" "oidc.exchangeSecretKey" "oidc.exchangeClientSecretKey" "store.encryptionSecret" "store.encryptionSecretRef" }}
+{{- range $old, $new := $renamed }}
+{{- $parts := splitList "." $old }}
+{{- $scope := $.Values }}
+{{- if eq (len $parts) 2 }}
+{{- $scope = index $.Values (first $parts) }}
+{{- end }}
+{{- if hasKey $scope (last $parts) }}
+{{- fail (printf "%s was renamed to %s" $old $new) }}
+{{- end }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,22 +61,22 @@ spec:
             - name: SSL_CERT_FILE
               value: /etc/synaplan-opencloud/ca/ca.crt
             {{- end }}
-            {{- if .Values.apiKeySecret }}
+            {{- if .Values.apiKeySecretRef }}
             - name: SYNAPLAN_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.apiKeySecret | quote }}
+                  name: {{ .Values.apiKeySecretRef | quote }}
                   key: {{ .Values.apiKeySecretKey | quote }}
             {{- end }}
             {{- with .Values.revaGateway }}
             - name: OC_REVA_GATEWAY
               value: {{ . | quote }}
             {{- end }}
-            {{- if .Values.jwtSecretSecret }}
+            {{- if .Values.jwtSecretRef }}
             - name: OC_JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.jwtSecretSecret | quote }}
+                  name: {{ .Values.jwtSecretRef | quote }}
                   key: {{ .Values.jwtSecretKey | quote }}
             {{- end }}
             {{- with .Values.oidc.issuer }}
@@ -80,12 +91,12 @@ spec:
             - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_ID
               value: {{ . | quote }}
             {{- end }}
-            {{- if .Values.oidc.exchangeSecretSecret }}
+            {{- if .Values.oidc.exchangeClientSecretRef }}
             - name: SYNAPLAN_OIDC_EXCHANGE_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.oidc.exchangeSecretSecret | quote }}
-                  key: {{ .Values.oidc.exchangeSecretKey | quote }}
+                  name: {{ .Values.oidc.exchangeClientSecretRef | quote }}
+                  key: {{ .Values.oidc.exchangeClientSecretKey | quote }}
             {{- end }}
             {{- with .Values.oidc.targetAudience }}
             - name: SYNAPLAN_OIDC_TARGET_AUDIENCE
@@ -95,18 +106,18 @@ spec:
             - name: SYNAPLAN_STORE_NODES
               value: {{ . | quote }}
             {{- end }}
-            {{- if .Values.store.encryptionSecret }}
+            {{- if .Values.store.encryptionSecretRef }}
             - name: SYNAPLAN_STORE_ENCRYPTION_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.store.encryptionSecret | quote }}
+                  name: {{ .Values.store.encryptionSecretRef | quote }}
                   key: {{ .Values.store.encryptionSecretKey | quote }}
             {{- end }}
-            {{- if .Values.machineAuthSecret }}
+            {{- if .Values.machineAuthSecretRef }}
             - name: OC_MACHINE_AUTH_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.machineAuthSecret | quote }}
+                  name: {{ .Values.machineAuthSecretRef | quote }}
                   key: {{ .Values.machineAuthSecretKey | quote }}
             {{- end }}
             {{- with .Values.extraEnv }}
