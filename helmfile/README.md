@@ -542,7 +542,9 @@ kubectl -n synaplan delete secret synaplan-credentials
 reinstall finds the same passwords. Delete it only together with the
 database volume: MariaDB keeps the root password it started with. Next to or
 inside openDesk, also remove the client file (and the apps in
-`helmfile-defaults.yaml.gotmpl`) from openDesk.
+`helmfile-defaults.yaml.gotmpl`) from openDesk. Destroying
+`synaplan-opendesk` runs its pre-delete Job, which removes the portal tile.
+Standalone never installs that release.
 
 ## Check the installation
 

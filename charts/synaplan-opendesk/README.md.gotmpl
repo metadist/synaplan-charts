@@ -7,8 +7,12 @@
 A Job runs after install and upgrade, in the namespace of an openDesk that
 already has the portal: a tile named Synaplan, with the Synaplan bird, is
 added to the applications category and the central navigation (UDM REST
-API), and the portal workloads in `restarts` are restarted. Signing in is
-openDesk's Keycloak; the tile does not ship an API key.
+API), and the portal workloads in `restarts` are restarted. A second Job
+runs before delete and takes that tile out again. If the portal API is
+already gone, uninstall continues. Signing in is openDesk's Keycloak; the
+tile does not ship an API key. Standalone leaves `apps.synaplanOpendesk`
+off, so nothing calls a portal. The tile is a UDM object this Job owns. The
+next install or upgrade puts it back if an openDesk deployment has dropped it.
 
 The Nextcloud app is the `synaplan-nextcloud` chart, the OpenCloud plugin
 the `synaplan-opencloud` chart, meeting notes (the transcriber) the

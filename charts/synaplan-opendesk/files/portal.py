@@ -13,7 +13,10 @@ import urllib.request
 UDM = os.environ["UDM_URL"].rstrip("/")
 BASE = os.environ["LDAP_BASE"]
 ADMIN_DN = os.environ["LDAP_ADMIN_DN"]
-PASSWORD = os.environ["LDAP_PASSWORD"]
+PASSWORD = os.environ.get("LDAP_PASSWORD", "")
+# Install keeps a long wait for a portal that is still starting. Removal must
+# finish inside Helm's hook timeout, so the delete path shortens this.
+LIMITS = {"attempts": 30, "pause": 10, "timeout": 30}
 URL = os.environ["SYNAPLAN_URL"].rstrip("/")
 ICON = base64.b64encode(open("/icon/bird.svg", "rb").read()).decode()
 
@@ -23,43 +26,41 @@ CATEGORY_DN = f"cn=od.applications,cn=category,{PORTALS}"
 PORTAL_DN = f"cn=domain,cn=portal,{PORTALS}"
 
 
-def request(method, path, body=None):
+def request(method, path, body=None, etag=None):
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Basic "
+        + base64.b64encode(f"{ADMIN_DN}:{PASSWORD}".encode()).decode(),
+    }
+    if etag:
+        headers["If-Match"] = etag
     data = None if body is None else json.dumps(body).encode()
-    req = urllib.request.Request(
-        f"{UDM}{path}",
-        data=data,
-        method=method,
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": "Basic "
-            + base64.b64encode(f"{ADMIN_DN}:{PASSWORD}".encode()).decode(),
-        },
-    )
+    req = urllib.request.Request(f"{UDM}{path}", data=data, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=LIMITS["timeout"]) as response:
             raw = response.read().decode()
-            return response.status, json.loads(raw) if raw else {}
+            payload = json.loads(raw) if raw else {}
+            return response.status, payload, response.headers.get("ETag")
     except urllib.error.HTTPError as error:
-        raw = error.read().decode(errors="replace")
         # The body can echo the request. Do not print it.
         print(f"UDM {method} {path} returned {error.code}", file=sys.stderr)
-        return error.code, {}
+        return error.code, {}, error.headers.get("ETag")
 
 
-def call(method, path, body=None):
+def call(method, path, body=None, etag=None):
     last = 0
-    for attempt in range(30):
+    for _ in range(LIMITS["attempts"]):
         try:
-            status, payload = request(method, path, body)
+            status, payload, got = request(method, path, body, etag)
         except urllib.error.URLError as error:
             print(f"UDM is not reachable yet ({error.reason})", file=sys.stderr)
-            time.sleep(10)
+            time.sleep(LIMITS["pause"])
             continue
         if status < 500:
-            return status, payload
+            return status, payload, got
         last = status
-        time.sleep(10)
+        time.sleep(LIMITS["pause"])
     raise SystemExit(f"UDM stayed unavailable (last status {last})")
 
 
@@ -68,14 +69,37 @@ def quote(value):
 
 
 def find_entry():
+    """DN of this installation's tile. Empty when a successful lookup finds none."""
     for name in ("synaplan", "synaplan-ai"):
-        status, payload = call("GET", f"/portals/entry/?filter={quote('name=' + name)}")
-        if status != 200:
+        status, payload, _ = call("GET", f"/portals/entry/?filter={quote('name=' + name)}")
+        if status == 404:
             continue
+        if status != 200:
+            raise SystemExit(f"looking up the portal tile failed ({status})")
         objects = payload.get("_embedded", {}).get("udm:object", [])
         if objects:
             return objects[0]["dn"]
     return ""
+
+
+def write_list(path, prop, change):
+    """Apply change(values) with the object's ETag. None means leave the list."""
+    for _ in range(3):
+        status, payload, etag = call("GET", path)
+        if status == 404:
+            return "missing"
+        if status != 200:
+            raise SystemExit(f"reading {path} failed ({status})")
+        values = list(payload.get("properties", {}).get(prop, []))
+        updated = change(values)
+        if updated is None:
+            return "unchanged"
+        status, _, _ = call("PATCH", path, {"properties": {prop: updated}}, etag=etag)
+        if status in (200, 204):
+            return "updated"
+        if status != 412:
+            raise SystemExit(f"updating {prop} failed ({status})")
+    raise SystemExit(f"updating {prop} kept conflicting")
 
 
 def properties(include_name):
@@ -102,12 +126,19 @@ def properties(include_name):
 def ensure_entry():
     dn = find_entry()
     if dn:
-        status, _ = call("PATCH", f"/portals/entry/{quote(dn)}", {"properties": properties(False)})
-        if status not in (200, 204):
-            raise SystemExit(f"updating the portal tile failed ({status})")
-        print(f"updated portal tile {dn}")
-        return dn
-    status, payload = call(
+        path = f"/portals/entry/{quote(dn)}"
+        for _ in range(3):
+            status, _, etag = call("GET", path)
+            if status != 200:
+                raise SystemExit(f"reading the portal tile failed ({status})")
+            status, _, _ = call("PATCH", path, {"properties": properties(False)}, etag=etag)
+            if status in (200, 204):
+                print(f"updated portal tile {dn}")
+                return dn
+            if status != 412:
+                raise SystemExit(f"updating the portal tile failed ({status})")
+        raise SystemExit("updating the portal tile kept conflicting")
+    status, payload, _ = call(
         "POST",
         "/portals/entry/",
         {"position": ENTRY_POSITION, "properties": properties(True)},
@@ -119,18 +150,57 @@ def ensure_entry():
 
 
 def append_dn(kind, dn, prop, entry_dn):
-    status, payload = call("GET", f"/portals/{kind}/{quote(dn)}")
-    if status != 200:
-        raise SystemExit(f"reading the portal {kind} failed ({status})")
-    values = list(payload.get("properties", {}).get(prop, []))
-    if entry_dn in values or any("synaplan" in item for item in values):
-        print(f"tile already listed in {prop}")
+    def change(values):
+        if entry_dn in values:
+            print(f"tile already listed in {prop}")
+            return None
+        return values + [entry_dn]
+
+    outcome = write_list(f"/portals/{kind}/{quote(dn)}", prop, change)
+    if outcome == "missing":
+        raise SystemExit(f"reading the portal {kind} failed (404)")
+    if outcome == "updated":
+        print(f"added the tile to {prop}")
+
+
+def drop_dn(kind, dn, prop, entry_dn):
+    def change(values):
+        kept = [item for item in values if item != entry_dn]
+        if kept == values:
+            print(f"tile was not listed in {prop}")
+            return None
+        return kept
+
+    outcome = write_list(f"/portals/{kind}/{quote(dn)}", prop, change)
+    if outcome == "missing":
+        print(f"portal {kind} is already gone")
         return
-    values.append(entry_dn)
-    status, _ = call("PATCH", f"/portals/{kind}/{quote(dn)}", {"properties": {prop: values}})
-    if status not in (200, 204):
-        raise SystemExit(f"updating {prop} failed ({status})")
-    print(f"added the tile to {prop}")
+    if outcome == "updated":
+        print(f"removed the tile from {prop}")
+
+
+def delete_entry():
+    dn = find_entry()
+    if not dn:
+        print("no portal tile")
+        return
+    drop_dn("category", CATEGORY_DN, "entries", dn)
+    drop_dn("portal", PORTAL_DN, "centralNavigation", dn)
+    path = f"/portals/entry/{quote(dn)}"
+    for _ in range(3):
+        status, _, etag = call("GET", path)
+        if status == 404:
+            print("portal tile is already gone")
+            return
+        if status != 200:
+            raise SystemExit(f"reading the portal tile failed ({status})")
+        status, _, _ = call("DELETE", path, etag=etag)
+        if status in (200, 204, 404):
+            print(f"removed portal tile {dn}")
+            return
+        if status != 412:
+            raise SystemExit(f"deleting the portal tile failed ({status})")
+    raise SystemExit("deleting the portal tile kept conflicting")
 
 
 def restart(api, name):
@@ -171,10 +241,7 @@ def restart(api, name):
         print(f"could not restart {api}/{name} ({error.code}); the portal refreshes on its own", file=sys.stderr)
 
 
-def main():
-    entry = ensure_entry()
-    append_dn("category", CATEGORY_DN, "entries", entry)
-    append_dn("portal", PORTAL_DN, "centralNavigation", entry)
+def refresh():
     restarts = json.loads(
         os.environ.get("PORTAL_RESTARTS")
         or '[{"api":"statefulsets","name":"ums-portal-consumer"},'
@@ -183,6 +250,31 @@ def main():
     )
     for item in restarts:
         restart(item["api"], item["name"])
+
+
+def main():
+    if os.environ.get("PORTAL_ACTION") == "delete":
+        LIMITS["attempts"] = 3
+        LIMITS["pause"] = 2
+        LIMITS["timeout"] = 5
+        if not PASSWORD:
+            print("portal administrator secret is missing; leaving the tile", file=sys.stderr)
+            return
+        try:
+            delete_entry()
+        except SystemExit as stopped:
+            # The portal may already be gone. Uninstall of Synaplan must not stick on it.
+            if "unavailable" in str(stopped):
+                print(f"{stopped}; leaving uninstall to continue", file=sys.stderr)
+                return
+            raise
+        refresh()
+        print("portal tile is removed")
+        return
+    entry = ensure_entry()
+    append_dn("category", CATEGORY_DN, "entries", entry)
+    append_dn("portal", PORTAL_DN, "centralNavigation", entry)
+    refresh()
     print("portal tile is in place")
 
 
