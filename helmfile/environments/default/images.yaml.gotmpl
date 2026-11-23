@@ -14,11 +14,10 @@ images:
     repository: ""
     tag: ""
   # Meeting notes (technical.synaplan.synascriber): the transcriber, which
-  # also carries mod_synascriber.lua for Jitsi's Prosody. Released together
-  # with Synaplan. Empty tag uses the synaplan chart appVersion.
-  # helmfile/opendesk/synascriber-jitsi.yaml.gotmpl defaults
-  # SYNAPLAN_TRANSCRIBER_IMAGE to the same version. Keep that default in step
-  # when the appVersion changes. Jitsi copies the Prosody module out of this image.
+  # also carries mod_synascriber.lua for Jitsi's Prosody. Empty tag uses the
+  # synaplan chart appVersion. Jitsi's values file defaults
+  # SYNAPLAN_TRANSCRIBER_IMAGE on its own; that image is what Jitsi copies
+  # the Prosody module from, and it can move ahead of this tag.
   synaplanTranscriber:
     registry: "ghcr.io"
     repository: "metadist/synaplan-transcriber"

@@ -395,8 +395,11 @@ Two more files go into openDesk's environment folder:
   image, and Jicofo streams audio to the transcriber. Prosody's and Jicofo's
   secrets are derived from `MASTER_PASSWORD` exactly as the `synaplan`
   release derives them, so Jitsi may be deployed before Synaplan. It reads
-  `MASTER_PASSWORD`, `DOMAIN`, `SYNAPLAN_TRANSCRIBER_IMAGE` (keep in step
-  with `images.synaplanTranscriber`), `SYNAPLAN_HOST`, `KEYCLOAK_HOST`,
+  `MASTER_PASSWORD`, `DOMAIN`, `SYNAPLAN_TRANSCRIBER_IMAGE` (default
+  `ghcr.io/metadist/synaplan-transcriber:5.8.9`, the image Jitsi copies the
+  Prosody module from; the transcriber Deployment uses
+  `images.synaplanTranscriber`, and an empty tag there is the chart
+  appVersion), `SYNAPLAN_HOST`, `KEYCLOAK_HOST`,
   `KEYCLOAK_REALM` and `SYNAPLAN_RELEASE`.
 
 openDesk grants Jitsi per user (`opendeskVideoconferenceEnabled`); only
