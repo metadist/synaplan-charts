@@ -58,7 +58,7 @@ const api = (page: Page, url: string) => page.evaluate(async (url) => (await fet
 const text = (page: Page, url: string) => page.evaluate(async (url) => (await fetch(url)).text(), url)
 
 test('meeting notes: speech in a Jitsi room becomes a transcript in Synaplan for every participant', async () => {
-  test.setTimeout(300_000)
+  test.setTimeout(420_000)
   const browser: Browser = await chromium.launch({
     args: [
       `--host-resolver-rules=MAP *.${synaplanHost.split('.').slice(1).join('.')} ${process.env.E2E_INGRESS_IP}`,
@@ -89,7 +89,11 @@ test('meeting notes: speech in a Jitsi room becomes a transcript in Synaplan for
   const synaplanA = await signInSynaplan(ctxA, process.env.E2E_USER_USERNAME ?? '')
   const synaplanB = await signInSynaplan(ctxB, process.env.E2E_USER2_USERNAME ?? '')
   const sessions = () => api(synaplanA, '/api/v1/plugins/synascriber/me/sessions').then((r) => r.sessions?.find((s: any) => s.room === room))
-  await expect.poll(sessions, { timeout: 120_000 }).toMatchObject({ state: 'saved', recipients: 2, notDelivered: 0 })
+  // Stop returns while the transcriber is still flushing windows. On the
+  // openDesk CI node that flush has taken about two and a half minutes:
+  // the session is still "stopping" when a two-minute poll ends, and the
+  // transcriber logs "finished" about thirty seconds later.
+  await expect.poll(sessions, { timeout: 240_000 }).toMatchObject({ state: 'saved', recipients: 2, notDelivered: 0 })
   const session = await sessions()
   expect(session.segments).toBeGreaterThan(0)
 
