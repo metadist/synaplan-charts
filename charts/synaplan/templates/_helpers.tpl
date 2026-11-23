@@ -1301,6 +1301,53 @@ synaplan.settingsEnv: >=5.6.0-0 rejects 5.5.4 and its prereleases and accepts
 {{- end }}
 
 {{/*
+Fails on a semver image tag older than 5.8.2, the first release whose image
+knows SYNAPLAN_ROLE=pump. Non-semver tags (latest, a digest) are accepted.
+*/}}
+{{- define "synaplan.requirePumpImage" -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion | toString | trimPrefix "v" }}
+{{- if and (regexMatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` $tag) (not (semverCompare ">=5.8.2-0" $tag)) }}
+{{- fail (printf "pump.enabled needs synaplan >= 5.8.2, the first release with the stream pump role; effective image tag is %q. Set image.tag to 5.8.2 or newer, or leave the pump off." $tag) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Validates autoscaling.streamSlots and returns its source ("" when off).
+*/}}
+{{- define "synaplan.streamSlotsSource" -}}
+{{- $s := .Values.autoscaling.streamSlots }}
+{{- $source := $s.source | default "" | toString }}
+{{- if and .Values.autoscaling.enabled $source }}
+{{- if not (has $source (list "prometheus-adapter" "keda")) }}
+{{- fail (printf "autoscaling.streamSlots.source must be \"\", \"prometheus-adapter\" or \"keda\"; got %q." $source) }}
+{{- end }}
+{{- if not .Values.watchdog.enabled }}
+{{- fail "autoscaling.streamSlots needs watchdog.enabled: the watchdog publishes synaplan_stream_slots_busy_ratio." }}
+{{- end }}
+{{- if or (le (float64 $s.targetRatio) 0.0) (gt (float64 $s.targetRatio) 1.0) }}
+{{- fail (printf "autoscaling.streamSlots.targetRatio must be above 0 and at most 1; got %v." $s.targetRatio) }}
+{{- end }}
+{{- if and (eq $source "keda") (not $s.keda.serverAddress) }}
+{{- fail "autoscaling.streamSlots.keda.serverAddress is required with source \"keda\"." }}
+{{- end }}
+{{- $source }}
+{{- end }}
+{{- end }}
+
+{{/*
+PromQL the KEDA trigger reads: the held-stream ratio summed over this
+release's web pods. Web pod names are <fullname>-<replicaset>-<pod>; the
+worker, scheduler and pump add their role, so the pattern leaves them out.
+*/}}
+{{- define "synaplan.streamSlotsQuery" -}}
+{{- with .Values.autoscaling.streamSlots.keda.query }}
+{{- . }}
+{{- else }}
+{{- printf "sum(synaplan_stream_slots_busy_ratio{namespace=\"%s\",pod=~\"%s-[a-z0-9]+-[a-z0-9]+\"})" .Release.Namespace (include "synaplan.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
 Refuses an env entry for a name the chart emits itself: server-side apply
 rejects a duplicate env key. Called with (dict "ctx" $ "names" (list ...) "from" "watchdog.*").
 */}}

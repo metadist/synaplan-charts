@@ -348,9 +348,95 @@ and memory and processor per pod. Each of the three needs the watchdog.
 
 The resources above are starting values, not measurements from your
 installation. Set no processor limit: throttling shows up as slow answers,
-not as a visible limit. `autoscaling` still scales on processor use, which
-does not see AI streams: a pod whose stream pool is full uses a few percent
-of a processor.
+not as a visible limit. Processor use alone does not see AI streams: a pod
+whose stream pool is full uses a few percent of a processor. The next
+section scales on the streams instead.
+
+### Scaling Synaplan
+
+A web pod answers as many chats at once as it has stream workers
+(`frankenphp.streamWorkers`, 16 by default). The next chat waits up to
+`maxWaitTime` and then gets "busy". The watchdog publishes the share of
+stream workers in use as `synaplan_stream_slots_busy_ratio`, and that is
+the number to scale on. How to size a server is in the
+[capacity guide](https://github.com/metadist/synaplan/blob/main/docs/CAPACITY.md).
+Every switch below is off by default.
+
+**Scale on held streams.** `autoscaling.streamSlots.source` picks where the
+autoscaler reads the ratio. Both keep the processor target as a fallback and
+wait `scaleDownStabilizationSeconds` (10 min) before removing a pod.
+
+| `source` | What the chart renders | What the cluster needs |
+| -------- | ---------------------- | ---------------------- |
+| `prometheus-adapter` | the HorizontalPodAutoscaler with an `External` metric, `synaplan_stream_slots_busy` for this release, target `targetRatio` (0.6) per pod | prometheus-adapter serving that metric, see the rule below |
+| `keda` | a KEDA `ScaledObject` with a `prometheus` trigger on the ratio summed over this release's web pods, target `targetRatio` per pod, and no HorizontalPodAutoscaler (KEDA makes its own) | KEDA, and `keda.serverAddress` pointing at Prometheus |
+
+Both read the ratio summed over the web pods and add a pod for every
+`targetRatio` of it, so three web pods at 0.9 ask for five. The sum matters:
+the web Deployment's selector also matches the worker, scheduler, Redis and
+pump pods, which publish no ratio, and a per-pod average over that selector
+would count them as idle.
+
+```yaml
+watchdog:
+  enabled: true
+metrics:
+  podMonitor:
+    enabled: true
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  streamSlots:
+    source: keda
+    keda:
+      serverAddress: http://prometheus-operated.monitoring:9090
+```
+
+A prometheus-adapter external rule that serves the metric. The autoscaler
+selects this release by `app_kubernetes_io_instance`, which
+`metrics.podMonitor` and `metrics.serviceMonitor` copy from the pod; a
+Prometheus scraping the pods by other means has to set that label itself.
+
+```yaml
+externalRules:
+  - seriesQuery: 'synaplan_stream_slots_busy_ratio{namespace!="",app_kubernetes_io_instance!=""}'
+    resources:
+      overrides:
+        namespace: { resource: namespace }
+    name:
+      as: synaplan_stream_slots_busy
+    metricsQuery: 'sum(avg_over_time(<<.Series>>{<<.LabelMatchers>>}[1m]))'
+```
+
+Two web pods give a restart somewhere to go; set `minReplicas: 2` once more
+than one pod can run. The web pods share the uploads volume, so more than
+one needs ReadWriteMany storage, or affinity that keeps them on one node.
+
+**Move the waits out of the web pod.** `pump.enabled` adds the stream pump
+Deployment (synaplan >= 5.8.2). A pump holds the connection to the AI
+provider for signed-in web chat and writes the answer to Redis; the browser
+reads it from there. A stream worker is then held only while it relays the
+answer. Turn the pump on in Synaplan as well: the admin setting
+`RUNTIME.STREAM_PUMP` set to `all`, with `STREAM_PUMP_PERCENT` for a gradual
+start. Widget, guest, incognito and channel turns stay in the web pod.
+
+The pump stops claiming turns on SIGTERM and finishes the ones it holds, so
+its grace period (`pump.terminationGracePeriodSeconds`, 300 s) is the longest
+answer you want to survive a restart. A rollout starts the new pump before
+it stops an old one (`maxSurge: 1`, `maxUnavailable: 0`). Pumps do not
+autoscale yet: Synaplan does not publish a pump load metric, so set
+`pump.replicaCount` (2) by hand.
+
+**Restart without cutting answers.** `shutdown.preStopSleepSeconds` keeps a
+stopping web pod serving for a few seconds while the Service and the
+ingress stop sending it requests. `shutdown.terminationGracePeriodSeconds`
+is how long its running streams then get. With the pump on, the answer
+keeps running in the pump when the web pod stops, and the chat picks it up
+again when it is reopened, so 30 s is enough; without the pump, a longer
+grace period lets answers finish. `podDisruptionBudget.enabled` keeps one web pod
+and one pump through a node drain. With a single replica that drain waits,
+so enable it together with two replicas.
 
 An install with its database, Tika and a model backend, on its own or inside
 openDesk, is the [Helmfile](../../helmfile/).
@@ -373,6 +459,12 @@ openDesk, is the [Helmfile](../../helmfile/).
 | autoscaling.enabled | bool | `false` |  |
 | autoscaling.maxReplicas | int | `100` |  |
 | autoscaling.minReplicas | int | `1` |  |
+| autoscaling.scaleDownStabilizationSeconds | int | `600` | Seconds the load must stay low before a web pod is removed. Long, so a pod is not stopped between two bursts while it still holds streams. |
+| autoscaling.streamSlots.keda.authenticationRef | string | `""` | Name of a KEDA TriggerAuthentication for a Prometheus that needs credentials. |
+| autoscaling.streamSlots.keda.query | string | `""` | PromQL for the trigger; it must return the ratio summed over the web pods. Empty: the sum over this release's web pods. |
+| autoscaling.streamSlots.keda.serverAddress | string | `""` | Prometheus address for the KEDA trigger, e.g. http://prometheus-operated.monitoring:9090. Required with source "keda". |
+| autoscaling.streamSlots.source | string | `""` | Scale on `synaplan_stream_slots_busy_ratio` from the watchdog: "" (off), "prometheus-adapter" (an External metric of the HorizontalPodAutoscaler, served by prometheus-adapter) or "keda" (a KEDA ScaledObject with a prometheus trigger instead of the HorizontalPodAutoscaler). Needs watchdog.enabled and Prometheus scraping :8098 (metrics.podMonitor or metrics.serviceMonitor). |
+| autoscaling.streamSlots.targetRatio | float | `0.6` | Share of the stream workers held, averaged over the web pods, above which a pod is added. 0.6 leaves room for a burst while the new pod starts. |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
 | bootstrapAdmin.email | string | `""` | Email of the first administrator, instead of secretRef. Empty = off. |
 | bootstrapAdmin.forcePasswordChange | bool | `nil` | BOOTSTRAP_ADMIN_FORCE_PASSWORD_CHANGE: the password is one-time use. null = application default. |
@@ -503,10 +595,20 @@ openDesk, is the [Helmfile](../../helmfile/).
 | persistence.uploads.size | string | `"10Gi"` |  |
 | persistence.uploads.storageClass | string | `""` |  |
 | podAnnotations | object | `{}` |  |
+| podDisruptionBudget.enabled | bool | `false` |  |
+| podDisruptionBudget.minAvailable | int | `1` | Pods of each kind that must stay up during a voluntary disruption. |
 | podLabels | object | `{}` |  |
 | podSecurityContext | object | `{}` |  |
 | prompts.seed | bool | `true` |  |
 | publicUrl | string | `""` |  |
+| pump.affinity | object | `{}` |  |
+| pump.enabled | bool | `false` |  |
+| pump.nodeSelector | object | `{}` |  |
+| pump.readinessProbe | object | `{"exec":{"command":["/usr/local/bin/container-healthcheck"]},"failureThreshold":3,"periodSeconds":10}` | Ready only once the stream pump process runs, not while the entrypoint still waits for the web pod's migrations, so a surge rollout or the disruption budget never counts a pump that claims no turns. |
+| pump.replicaCount | int | `2` |  |
+| pump.resources | object | `{}` |  |
+| pump.terminationGracePeriodSeconds | int | `300` | How long a stopping pump may finish the answers it holds. Long answers with tools run for minutes. |
+| pump.tolerations | list | `[]` |  |
 | qdrant.url | string | `""` | Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333). Empty = off: the application switches memories and Qdrant search off. |
 | readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":30,"periodSeconds":5}` | Web pod readiness probe while the watchdog is off. Same static file, so it cannot see a full server; turn on the watchdog for that. |
 | redis.dsn | string | `""` | External Redis DSN (e.g. redis://user:pass@redis.example.svc:6379). Takes precedence over the bundled Redis. Must not carry a path - the Messenger transports append their stream names to it. Plain value ends up in the pod spec; use dsnSecretRef for DSNs carrying credentials. |
@@ -528,6 +630,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | serviceAccount.name | string | `""` |  |
 | settingSecrets | object | `{}` | BCONFIG admin settings whose value comes from a Secret ({name, key}). Requires synaplan >= 5.1.0. |
 | settings | object | `{}` | BCONFIG admin settings (GROUP.SETTING -> CONFIG_*). Empty = database default. Requires synaplan >= 5.1.0. |
+| shutdown.preStopSleepSeconds | int | `0` | Seconds the web pod keeps serving after it is marked for termination, so the Service and the ingress stop sending it requests before PHP gets SIGTERM. 0: no preStop hook. |
+| shutdown.terminationGracePeriodSeconds | int | `nil` | terminationGracePeriodSeconds of the web pod. Empty: the Kubernetes default, 30 s. With the pump on, an answer outlives the web pod and the chat picks it up again; without the pump it ends early. |
 | signup.globalLimit | int | `nil` | SIGNUP_GLOBAL_LIMIT (synaplan >= 5.6.0), new accounts for the whole installation per 10 minutes. null = application default (20). |
 | signup.ipLimit | int | `nil` | SIGNUP_IP_LIMIT (synaplan >= 5.6.0), new accounts per client address per hour. null = application default (5). The address is the visitor's only when trustedProxies names the ingress. |
 | signup.mode | string | `""` | REGISTRATION_MODE (synaplan >= 5.6.0). open creates an active account. admission requires a plan or an invitation code. Empty = application default (open). Set admission only when codes or Stripe exist. |
@@ -588,7 +692,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | tritonMode | string | `"gpu"` | Triton deployment mode (cpu or gpu) - determines which model to register in database |
 | trustedHeaders | string | `""` | SYMFONY_TRUSTED_HEADERS. Comma-separated string or YAML list, used only together with trustedProxies. Empty = x-forwarded-for. Must include x-forwarded-for (forwarded is refused). CF-Connecting-IP counts on synaplan >= 5.7.2 only when that hop is a Cloudflare address listed in trustedProxies. |
 | trustedProxies | string | `""` | SYMFONY_TRUSTED_PROXIES. Comma-separated string or YAML list of addresses/CIDRs of the hop that connects to Synaplan. Empty = ignore X-Forwarded-For, so every visitor shares the ingress address. Refuses *, REMOTE_ADDR, PRIVATE_SUBNETS, private_ranges, 0.0.0.0/0 and wide private/pod networks. |
-| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.15-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.0@sha256:86bb9e9b89ea239c1ffcdfc53ada07f333fefa3da5639d21000454b6759829fc"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
+| tts | object | `{"defaultVoice":"en_US-lessac-medium","enabled":false,"extraVoices":{"accessMode":"ReadWriteOnce","enabled":false,"existingClaim":"","size":"1Gi","storageClass":""},"huggingfaceVoices":{"image":{"repository":"python","tag":"3.15-slim"},"repo":"rhasspy/piper-voices","revision":"","voices":[]},"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/metadist/synaplan-tts","tag":"2.1.1@sha256:4cdf1d6fd2b66d4a0b91f66efda39948766e7c364b800715c815c1688c3f29c9"},"maxTextLength":"5000","port":10200,"synthWorkers":"4"}` | TTS (text-to-speech) sub-deployment using Piper voices |
 | volumeMounts | list | `[]` |  |
 | volumes | list | `[]` |  |
 | watchdog.enabled | bool | `false` | Run the watchdog and let the web pod's probes follow PHP capacity: liveness asks the watchdog, readiness turns false when PHP stops answering its own probe within 2 s or Redis is down, and a startup probe gives the first boot's migrations time. Off: SYNAPLAN_WATCHDOG=0, Admin > Capacity is absent, and the web pod keeps `livenessProbe` / `readinessProbe` below. Needs synaplan >= 5.6.0; the render fails on an older semver tag. |

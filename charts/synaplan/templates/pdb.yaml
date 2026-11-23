@@ -1,0 +1,33 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "synaplan.fullname" . }}
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    # Web pods carry no component label; the worker, scheduler and pump do.
+    matchLabels:
+      {{- include "synaplan.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: DoesNotExist
+{{- if .Values.pump.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "synaplan.fullname" . }}-pump
+  labels:
+    {{- include "synaplan.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pump
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "synaplan.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: pump
+{{- end }}
+{{- end }}

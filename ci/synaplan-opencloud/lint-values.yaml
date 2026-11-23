@@ -7,10 +7,15 @@ customRootCA:
 revaGateway: "kubernetes://opencloud-gateway:9142"
 jwtSecretSecret: rolling-secrets
 oidc:
+  issuer: https://id.example.org/realms/opendesk
   tokenEndpoint: https://id.example.org/realms/opendesk/protocol/openid-connect/token
   exchangeClientId: synaplan-opencloud
   exchangeSecretSecret: synaplan-opencloud-oidc
   targetAudience: synaplan
+store:
+  nodes: nats.opencloud.svc.cluster.local:9233
+  encryptionSecret: synaplan-store
+machineAuthSecret: opencloud-machine-auth
 imagePullSecrets:
   - name: registry
 extraEnv:

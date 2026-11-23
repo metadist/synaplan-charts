@@ -17,6 +17,10 @@ spec:
   selector:
     matchLabels:
       {{- include "synaplan.selectorLabels" . | nindent 6 }}
+  # Becomes app_kubernetes_io_instance, which the stream-slot autoscaler's
+  # External metric selects this release by.
+  podTargetLabels:
+    - app.kubernetes.io/instance
   podMetricsEndpoints:
     - port: watchdog
       path: /metrics

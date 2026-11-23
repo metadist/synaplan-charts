@@ -1,0 +1,70 @@
+suite: env
+templates:
+  - deployment.yaml
+set:
+  synaplanUrl: https://synaplan.example.org
+tests:
+  - it: leaves NATS, token encryption, machine auth and the issuer unset
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_STORE_NODES
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_STORE_ENCRYPTION_SECRET
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OC_MACHINE_AUTH_API_KEY
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OC_OIDC_ISSUER
+          any: true
+
+  - it: points the plugin at OpenCloud's NATS and reads the secrets
+    set:
+      oidc:
+        issuer: https://id.example.org/realms/opendesk
+      store:
+        nodes: nats.opencloud.svc:9233
+        encryptionSecret: synaplan-store
+        encryptionSecretKey: secret
+      machineAuthSecret: opencloud-machine-auth
+      machineAuthSecretKey: api-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OC_OIDC_ISSUER
+            value: https://id.example.org/realms/opendesk
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_STORE_NODES
+            value: nats.opencloud.svc:9233
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SYNAPLAN_STORE_ENCRYPTION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: synaplan-store
+                key: secret
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OC_MACHINE_AUTH_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: opencloud-machine-auth
+                key: api-key
+          count: 1
