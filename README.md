@@ -203,7 +203,7 @@ in the cluster unless you allow cloud providers, and runs in three ways:
 
 ## Working with openDesk
 
-We test this deployment on Kubernetes against openDesk **v1.20.2** (the pin in
+We test this deployment on Kubernetes against openDesk **v1.20.4** (the pin in
 [`e2e/environments/opendesk/env.sh`](e2e/environments/opendesk/env.sh)). That
 edition keeps files in Nextcloud and meetings in Jitsi. Synaplan is **5.8.3**.
 
