@@ -632,7 +632,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | redis.enabled | bool | `true` | Deploy a bundled single-node Redis. NOT persistent: queued async jobs are lost when it restarts. Disable to use an external Redis via dsn. |
 | redis.image.pullPolicy | string | `"IfNotPresent"` |  |
 | redis.image.repository | string | `"redis"` |  |
-| redis.image.tag | string | `"8.10-alpine"` |  |
+| redis.image.tag | string | `"8.12-alpine"` |  |
 | redis.resources | object | `{}` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` | Resources of the web pod. Empty by default so the chart installs on small clusters. Starting values for production (see "Capacity and probes" in the README): memory request 1Gi, memory limit 3Gi, processor request 1 and no processor limit, because throttling shows up as slow answers, not as a visible limit. With the watchdog on, the declared processor request and memory limit appear on Admin > Capacity. |
