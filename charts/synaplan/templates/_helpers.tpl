@@ -839,8 +839,8 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- if not $.Values.qdrant.url }}
 {{- fail "qdrant.apiKeySecretRef is set without qdrant.url" }}
 {{- end }}
-{{- if and (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.11.0" $tag) }}
-{{- fail (printf "qdrant.apiKeySecretRef needs synaplan >= 5.11.0; effective image tag is %q, which does not send the key. Set image.tag to 5.11.0 or newer, or to a non-semver tag built with Qdrant API key support." $tag) }}
+{{- if and (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.10.2" $tag) }}
+{{- fail (printf "qdrant.apiKeySecretRef needs synaplan >= 5.10.2; effective image tag is %q, which does not send the key. Set image.tag to 5.10.2 or newer, or to a non-semver tag built with Qdrant API key support." $tag) }}
 {{- end }}
 # Qdrant service API key (api-key header). Same secret as QDRANT__SERVICE__API_KEY.
 - name: QDRANT_API_KEY

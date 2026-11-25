@@ -179,7 +179,7 @@ qdrant:
   url: ""
   # -- Keep the vectors of uploaded files in Qdrant as well (VECTOR_STORAGE_PROVIDER=qdrant) instead of MariaDB, the application default. Needs url. Files vectorized before the switch stay in MariaDB until they are migrated, file by file (POST /api/v1/files/{id}/migrate). A provider chosen in the application's system config wins over this value.
   documentVectors: false
-  # -- Name of an existing Secret. The key `qdrant-api-key` is sent as QDRANT_API_KEY (the `api-key` header), and must equal QDRANT__SERVICE__API_KEY on Qdrant. Empty sends no credential. Needs url. synaplan >= 5.11.0 reads it; a non-semver tag such as `latest` built after 2026-11-24 does too. A semver tag below 5.11.0 fails the render, because that image would ignore the key.
+  # -- Name of an existing Secret. The key `qdrant-api-key` is sent as QDRANT_API_KEY (the `api-key` header), and must equal QDRANT__SERVICE__API_KEY on Qdrant. Empty sends no credential. Needs url. synaplan >= 5.10.2 reads it; a non-semver tag such as `latest` built after 2026-11-24 does too. A semver tag below 5.10.2 fails the render, because that image would ignore the key.
   apiKeySecretRef: ""
 
 # Office engine: Collabora CODE convert-to for thumbnails, PDF export, preview

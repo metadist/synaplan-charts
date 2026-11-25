@@ -1,6 +1,6 @@
 # synaplan
 
-![Version: 0.13.0](https://img.shields.io/badge/Version-0.13.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.10.1](https://img.shields.io/badge/AppVersion-5.10.1-informational?style=flat-square)
+![Version: 0.13.0](https://img.shields.io/badge/Version-0.13.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.10.2](https://img.shields.io/badge/AppVersion-5.10.2-informational?style=flat-square)
 
 Synaplan - AI-powered document analysis and planning platform
 
@@ -109,8 +109,8 @@ Neighbour services are switched on by their URL and off by leaving it empty:
 also moves the vectors of uploaded files from MariaDB to Qdrant.
 `qdrant.apiKeySecretRef` sends `QDRANT_API_KEY` from the Secret key
 `qdrant-api-key`. It needs `qdrant.url` and an image that sends the key
-(synaplan >= 5.11.0, or a non-semver tag such as `latest` built after
-2026-11-24). A semver tag below 5.11.0 fails the render.
+(synaplan >= 5.10.2, or a non-semver tag such as `latest` built after
+2026-11-24). A semver tag below 5.10.2 fails the render.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`
@@ -628,7 +628,7 @@ openDesk, is the [Helmfile](../../helmfile/).
 | pump.resources | object | `{}` |  |
 | pump.terminationGracePeriodSeconds | int | `300` | How long a stopping pump may finish the answers it holds. Long answers with tools run for minutes. |
 | pump.tolerations | list | `[]` |  |
-| qdrant.apiKeySecretRef | string | `""` | Name of an existing Secret. The key `qdrant-api-key` is sent as QDRANT_API_KEY (the `api-key` header), and must equal QDRANT__SERVICE__API_KEY on Qdrant. Empty sends no credential. Needs url. synaplan >= 5.11.0 reads it; a non-semver tag such as `latest` built after 2026-11-24 does too. A semver tag below 5.11.0 fails the render, because that image would ignore the key. |
+| qdrant.apiKeySecretRef | string | `""` | Name of an existing Secret. The key `qdrant-api-key` is sent as QDRANT_API_KEY (the `api-key` header), and must equal QDRANT__SERVICE__API_KEY on Qdrant. Empty sends no credential. Needs url. synaplan >= 5.10.2 reads it; a non-semver tag such as `latest` built after 2026-11-24 does too. A semver tag below 5.10.2 fails the render, because that image would ignore the key. |
 | qdrant.documentVectors | bool | `false` | Keep the vectors of uploaded files in Qdrant as well (VECTOR_STORAGE_PROVIDER=qdrant) instead of MariaDB, the application default. Needs url. Files vectorized before the switch stay in MariaDB until they are migrated, file by file (POST /api/v1/files/{id}/migrate). A provider chosen in the application's system config wins over this value. |
 | qdrant.url | string | `""` | Qdrant REST URL (e.g. http://qdrant.synaplan.svc.cluster.local:6333). Empty = off: the application switches memories and Qdrant search off. |
 | readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/","port":"http"},"initialDelaySeconds":30,"periodSeconds":5}` | Web pod readiness probe while the watchdog is off. Same static file, so it cannot see a full server; turn on the watchdog for that. |

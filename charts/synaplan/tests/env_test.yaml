@@ -88,7 +88,7 @@ tests:
     template: deployment.yaml
     set:
       image:
-        tag: "5.11.0"
+        tag: "5.10.2"
       qdrant:
         url: http://qdrant:6333
         apiKeySecretRef: qdrant-credentials
@@ -119,7 +119,7 @@ tests:
     template: deployment.yaml
     set:
       image:
-        tag: "5.11.0"
+        tag: "5.10.2"
       qdrant:
         apiKeySecretRef: qdrant-credentials
     asserts:
@@ -136,7 +136,7 @@ tests:
         apiKeySecretRef: qdrant-credentials
     asserts:
       - failedTemplate:
-          errorPattern: "qdrant.apiKeySecretRef needs synaplan >= 5.11.0"
+          errorPattern: "qdrant.apiKeySecretRef needs synaplan >= 5.10.2"
 
   - it: refuses a Qdrant API key written into env
     template: deployment.yaml

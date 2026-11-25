@@ -11,7 +11,7 @@ The value reference for the application chart is
 
 | Chart | Version in this repo | What it runs |
 | ----- | -------------------- | ------------ |
-| [synaplan](charts/synaplan/) | 0.13.0 | Synaplan 5.10.1 (whisper.cpp transcription in the image), plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech (image 2.1.1) and optional meeting notes for Jitsi |
+| [synaplan](charts/synaplan/) | 0.13.0 | Synaplan 5.10.2 (whisper.cpp transcription in the image), plus bundled Redis, a Messenger worker, a scheduler, optional Piper text-to-speech (image 2.1.1) and optional meeting notes for Jitsi |
 | [synaplan-nextcloud](charts/synaplan-nextcloud/) | 0.2.0 | Nextcloud app 2.0.0, installed into a Nextcloud in the same namespace ([app](https://github.com/metadist/synaplan-nextcloud)) |
 | [synaplan-opendesk](charts/synaplan-opendesk/) | 0.3.0 | Portal tile for Synaplan on openDesk |
 | [synaplan-opencloud](charts/synaplan-opencloud/) | 0.2.0 | OpenCloud plugin 1.2.0: the token-exchange service and the web extension ([image](https://github.com/metadist/synaplan-opencloud/releases/tag/v1.2.0)) |
@@ -80,7 +80,7 @@ An empty URL turns a neighbour off. There is no second `enabled` flag for these:
 | `tts.enabled` | `false` |
 | `speech.whisperServerUrl` | `""` (speech-to-text runs on the whisper.cpp binary in the pod) |
 
-Speech (`synaplan` >= 5.0.0). Synaplan 5.10.1 includes whisper.cpp
+Speech (`synaplan` >= 5.0.0). Synaplan 5.10.2 includes whisper.cpp
 (`/usr/local/bin/whisper`, built into the image by synaplan-base-php). The
 Helmfile turns `speech.whisper` on and allow-lists the `whisper` provider
 when cloud providers are off. The separate whisper-server, for a GPU or a
@@ -205,7 +205,7 @@ in the cluster unless you allow cloud providers, and runs in three ways:
 
 We test this deployment on Kubernetes against openDesk **v1.20.4** (the pin in
 [`e2e/environments/opendesk/env.sh`](e2e/environments/opendesk/env.sh)). That
-edition keeps files in Nextcloud and meetings in Jitsi. Synaplan is **5.10.1**.
+edition keeps files in Nextcloud and meetings in Jitsi. Synaplan is **5.10.2**.
 
 - The **Synaplan Nextcloud plugin** (app 2.0.0) adds the AI actions on files:
   summaries, translations, and chat about a document. It watches a folder or a
@@ -214,10 +214,10 @@ edition keeps files in Nextcloud and meetings in Jitsi. Synaplan is **5.10.1**.
   watches, and token exchange so the calls stay that person's.
 - The **synascriber plugin** transcribes Jitsi meetings and writes the notes
   into Synaplan. Jitsi's values file defaults the image it copies the Prosody
-  module from to transcriber **5.8.9**. The transcriber Deployment follows
+  module from to transcriber **5.10.2**. The transcriber Deployment follows
   `images.synaplanTranscriber`, and an empty tag there is still the chart
-  appVersion (**5.10.1**). Speech-to-text in the application itself is
-  whisper.cpp in the 5.10.1 image.
+  appVersion (**5.10.2**). Speech-to-text in the application itself is
+  whisper.cpp in the 5.10.2 image.
 
 Set the file target at the end of the environment. openDesk community edition
 is `nextcloud`. A target that serves files from OpenCloud is `opencloud`.
