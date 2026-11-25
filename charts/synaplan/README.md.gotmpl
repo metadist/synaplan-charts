@@ -106,6 +106,10 @@ Neighbour services are switched on by their URL and off by leaving it empty:
 `compute.url` (plus `compute.tokenSecretRef`), `tika.enabled`, `tts.enabled`,
 `c2paSigner.enabled`. `qdrant.url` alone gives memories; `qdrant.documentVectors`
 also moves the vectors of uploaded files from MariaDB to Qdrant.
+`qdrant.apiKeySecretRef` sends `QDRANT_API_KEY` from the Secret key
+`qdrant-api-key`. It needs `qdrant.url` and an image that sends the key
+(synaplan >= 5.11.0, or a non-semver tag such as `latest` built after
+2026-11-24). A semver tag below 5.11.0 fails the render.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`

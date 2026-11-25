@@ -733,7 +733,7 @@ role deployments add SYNAPLAN_ROLE on top.
   value: {{ .Values.c2paSigner.alg | default "ps256" | toString | trim | lower | quote }}
 {{- end }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" "C2PA_SIGNER_TOKEN" "C2PA_ALG" "REGISTRATION_MODE" "SIGNUP_IP_LIMIT" "SIGNUP_GLOBAL_LIMIT" "SIGNUP_PAUSED" "SYMFONY_TRUSTED_PROXIES" "SYMFONY_TRUSTED_HEADERS" "TURNSTILE_SITE_KEY" "TURNSTILE_SECRET_KEY" "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "GITHUB_CLIENT_ID" "GITHUB_CLIENT_SECRET" "APPLE_CLIENT_ID" "APPLE_TEAM_ID" "APPLE_KEY_ID" "APPLE_PRIVATE_KEY" "APPLE_APP_BUNDLE_ID" }}
+{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" "C2PA_SIGNER_TOKEN" "C2PA_ALG" "REGISTRATION_MODE" "SIGNUP_IP_LIMIT" "SIGNUP_GLOBAL_LIMIT" "SIGNUP_PAUSED" "SYMFONY_TRUSTED_PROXIES" "SYMFONY_TRUSTED_HEADERS" "TURNSTILE_SITE_KEY" "TURNSTILE_SECRET_KEY" "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "GITHUB_CLIENT_ID" "GITHUB_CLIENT_SECRET" "APPLE_CLIENT_ID" "APPLE_TEAM_ID" "APPLE_KEY_ID" "APPLE_PRIVATE_KEY" "APPLE_APP_BUNDLE_ID" "QDRANT_API_KEY" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
@@ -834,6 +834,20 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- end }}
 - name: VECTOR_STORAGE_PROVIDER
   value: "qdrant"
+{{- end }}
+{{- with .Values.qdrant.apiKeySecretRef }}
+{{- if not $.Values.qdrant.url }}
+{{- fail "qdrant.apiKeySecretRef is set without qdrant.url" }}
+{{- end }}
+{{- if and (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.11.0" $tag) }}
+{{- fail (printf "qdrant.apiKeySecretRef needs synaplan >= 5.11.0; effective image tag is %q, which does not send the key. Set image.tag to 5.11.0 or newer, or to a non-semver tag built with Qdrant API key support." $tag) }}
+{{- end }}
+# Qdrant service API key (api-key header). Same secret as QDRANT__SERVICE__API_KEY.
+- name: QDRANT_API_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ . | quote }}
+      key: qdrant-api-key
 {{- end }}
 {{- with .Values.office.convertUrl }}
 # Office engine (Collabora convert-to)
