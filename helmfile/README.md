@@ -343,21 +343,14 @@ kubectl get nodes -o json | grep nvidia.com/gpu
 
 ## Meeting notes
 
-Meeting notes write notes of Jitsi meetings in openDesk: the `synascriber`
-plugin bundled with Synaplan, a transcriber Jitsi's bridge streams each
-speaker's audio to, a Prosody module and a loader script in Jitsi, all from
-[metadist/synaplan](https://github.com/metadist/synaplan) (`plugins/synascriber`,
-`sidecars/synaplan-transcriber`). It is part of the `synaplan` release, not
-an app of its own, and needs two images only: Synaplan itself, with the
-plugin under `/plugins/synascriber`, and the transcriber
-(`images.synaplanTranscriber`), which also carries the Prosody module.
-Nothing is cloned or downloaded at start.
+Subtitles in Jitsi. Add the block below, put
+`helmfile/opendesk/synascriber-client.yaml.gotmpl` next to the other Keycloak
+files, and apply. The **Meeting notes** button is then in Jitsi. You do not
+edit Jitsi by hand.
 
-OpenTalk subtitles are not this release. OpenTalk 26.3 uses the same plugin
-and the same image, as a second process with `TRANSCRIBER_MODE=opentalk`.
-The steps are in Synaplan's
-[OpenTalk subtitles](https://github.com/metadist/synaplan/blob/main/docs/OPENTALK_MEETING_NOTES.md).
-Jitsi and OpenTalk do not share one transcriber.
+OpenTalk is not this block. It is a second container. Both installs are
+written out at
+[docs.synaplan.com/meeting-notes](https://docs.synaplan.com/meeting-notes).
 
 ```yaml
 apps:
