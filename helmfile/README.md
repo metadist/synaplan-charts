@@ -353,6 +353,12 @@ plugin under `/plugins/synascriber`, and the transcriber
 (`images.synaplanTranscriber`), which also carries the Prosody module.
 Nothing is cloned or downloaded at start.
 
+OpenTalk subtitles are not this release. OpenTalk 26.3 uses the same plugin
+and the same image, as a second process with `TRANSCRIBER_MODE=opentalk`.
+The steps are in Synaplan's
+[OpenTalk subtitles](https://github.com/metadist/synaplan/blob/main/docs/OPENTALK_MEETING_NOTES.md).
+Jitsi and OpenTalk do not share one transcriber.
+
 ```yaml
 apps:
   synaplanStt:
