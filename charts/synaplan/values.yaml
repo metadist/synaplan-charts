@@ -833,6 +833,10 @@ synascriber:
     transcriberSecret: ""
     # -- API key of the speech-to-text server (plugin setting stt_api_key). Sent as a bearer token, for a vLLM server or a cloud service. Empty sends nothing, and a key already stored by the plugin stays. Needs plugin 0.4.1 (Synaplan 5.6.0 or later). An older image makes the Job refuse
     sttApiKey: ""
+    # -- id:secret the OpenTalk transcriber uses to call the controller. Empty keeps the Secret value, or generates one on first install. Only used when opentalk.enabled
+    opentalkServiceKey: ""
+    # -- id:secret OpenTalk uses to call this transcriber. The same pair is the controller's transcription api_key. Empty keeps the Secret value, or generates one on first install
+    opentalkInitKey: ""
   transcriber:
     image:
       # -- Registry of the transcriber image
@@ -916,6 +920,15 @@ synascriber:
       prosodyUrl: ""
       # -- Jitsi as the participants reach it, e.g. https://meet.example.org: the only window the button's sign-in page hands a code to
       jitsiUrl: ""
+  # A second transcriber for OpenTalk. Off until the four values are set.
+  # Jitsi keeps the transcriber above. One process cannot do both.
+  opentalk:
+    # -- Start the OpenTalk transcriber and turn on OpenTalk meetings in the plugin
+    enabled: false
+    # -- OpenTalk controller the transcriber calls, e.g. https://talk.example
+    controllerUrl: ""
+    # -- LiveKit the transcriber joins. OpenTalk's popout token does not carry this address
+    livekitUrl: ""
 
 # Additional init containers on the web, worker and scheduler Deployments
 # (same shape as the triton chart's additionalInitContainers), e.g. to seed

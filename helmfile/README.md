@@ -376,6 +376,25 @@ folder, timezone, captions, the speech-to-text, Prosody and Jitsi URLs, the
 Prosody and transcriber secrets). No account is involved: the settings, the
 sessions and the loader script belong to the installation (plugin 0.4.0).
 
+OpenTalk is a second transcriber. Leave it off until you have the controller
+and LiveKit addresses. The chart then starts the process, turns **OpenTalk
+meetings** on, and keeps the two API keys in the meeting-notes Secret
+(`opentalk-service-key`, `opentalk-init-key`). Put that init id and secret
+into OpenTalk's `[roomserver.modules.transcription]`, and point `url` at
+`<release>-synaplan-synascriber-opentalk:8095` when OpenTalk can reach the
+cluster. The transcript is saved when the subtitles stop.
+
+```yaml
+technical:
+  synaplan:
+    synascriber:
+      enabled: true
+      opentalk:
+        enabled: true
+        controllerUrl: https://talk.example
+        livekitUrl: http://livekit:7880
+```
+
 The speech-to-text server is whisper.cpp from the `stt` release by default.
 Any server with the OpenAI transcription API works
 (`technical.synaplan.speech.whisperServerUrl`); vLLM and the cloud services
