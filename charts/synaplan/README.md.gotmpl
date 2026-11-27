@@ -108,8 +108,9 @@ Neighbour services are switched on by their URL and off by leaving it empty:
 also moves the vectors of uploaded files from MariaDB to Qdrant.
 `qdrant.apiKeySecretRef` sends `QDRANT_API_KEY` from the Secret key
 `qdrant-api-key`. It needs `qdrant.url` and an image that sends the key
-(synaplan >= 5.10.2, or a non-semver tag such as `latest` built after
-2026-11-24). A semver tag below 5.10.2 fails the render.
+(synaplan >= 5.10.2, or a tag that is not a complete semver, such as
+`latest`, built after 2026-11-24). A complete semver tag below 5.10.2,
+including an older prerelease, fails the render.
 
 Product features are pinned in `features.*` and `speech.*`. `true` or `false`
 pins the feature for the whole installation and locks the admin toggle; `null`

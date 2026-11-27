@@ -138,6 +138,56 @@ tests:
       - failedTemplate:
           errorPattern: "qdrant.apiKeySecretRef needs synaplan >= 5.10.2"
 
+  - it: refuses a Qdrant API key on an older prerelease
+    template: deployment.yaml
+    set:
+      image:
+        tag: "5.10.1-alpine"
+      qdrant:
+        url: http://qdrant:6333
+        apiKeySecretRef: qdrant-credentials
+    asserts:
+      - failedTemplate:
+          errorPattern: "qdrant.apiKeySecretRef needs synaplan >= 5.10.2"
+
+  - it: sends the Qdrant API key for a tag that is not a complete semver
+    template: deployment.yaml
+    set:
+      image:
+        tag: "5.10.2_qdrant"
+      qdrant:
+        url: http://qdrant:6333
+        apiKeySecretRef: qdrant-credentials
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QDRANT_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: qdrant-credentials
+                key: qdrant-api-key
+          count: 1
+
+  - it: sends the Qdrant API key for a digest tag
+    template: deployment.yaml
+    set:
+      image:
+        tag: "5.10.2@sha256:0123456789abcdef"
+      qdrant:
+        url: http://qdrant:6333
+        apiKeySecretRef: qdrant-credentials
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QDRANT_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: qdrant-credentials
+                key: qdrant-api-key
+          count: 1
+
   - it: refuses a Qdrant API key written into env
     template: deployment.yaml
     set:
