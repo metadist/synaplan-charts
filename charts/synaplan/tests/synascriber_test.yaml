@@ -2,6 +2,7 @@ suite: synascriber speech-to-text settings
 templates:
   - synascriber-registration.yaml
   - synascriber-secrets.yaml
+  - synascriber-transcriber.yaml
 values:
   - ../../../ci/synaplan/lint-values-synascriber.yaml
 tests:
@@ -58,3 +59,26 @@ tests:
         documentIndex: 0
         notExists:
           path: stringData.stt-api-key
+
+  - it: starts the OpenTalk transcriber and turns the plugin on
+    set:
+      synascriber:
+        opentalk:
+          enabled: true
+          controllerUrl: https://talk.example
+          livekitUrl: http://livekit:7880
+    asserts:
+      - template: synascriber-transcriber.yaml
+        documentIndex: 2
+        equal:
+          path: spec.template.spec.containers[0].env[0].value
+          value: opentalk
+      - template: synascriber-secrets.yaml
+        documentIndex: 0
+        exists:
+          path: stringData.opentalk-init-key
+      - template: synascriber-registration.yaml
+        documentIndex: 1
+        matchRegex:
+          path: spec.template.spec.containers[0].env[2].value
+          pattern: "opentalk_enabled.:true"

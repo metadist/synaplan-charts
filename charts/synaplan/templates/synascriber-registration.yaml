@@ -3,6 +3,9 @@
 {{- $r := .Values.synascriber.registration }}
 {{- $name := printf "%s-registration" (include "synaplan.synascriber.name" .) }}
 {{- $settings := dict "languages" $r.settings.languages "default_language" $r.settings.defaultLanguage "default_folder" $r.settings.folder "timezone" $r.settings.timezone "captions" $r.settings.captions "stt_url" ($r.settings.sttUrl | default .Values.speech.whisperServerUrl) "prosody_url" $r.settings.prosodyUrl "jitsi_url" $r.settings.jitsiUrl }}
+{{- if .Values.synascriber.opentalk.enabled }}
+{{- $_ := set $settings "opentalk_enabled" true }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -669,6 +669,9 @@ openDesk, is the [Helmfile](../../helmfile/).
 | speech.whisperModel | string | `""` | Whisper model name (e.g. base, small). Only emitted when set. |
 | speech.whisperServerUrl | string | `""` | Whisper server URL (`WHISPER_SERVER_URL`), e.g. the `stt` chart's `http://stt.synaplan.svc.cluster.local:8080`. Speech-to-text then runs there (GPU) instead of the whisper.cpp binary in the pod. Needs Synaplan with the Whisper server mode; older images ignore it. Empty = off. |
 | synascriber.enabled | bool | `false` | Deploy meeting notes: the transcriber, the Secrets for Jitsi, the registration Job, and DEFAULT_USER_PLUGINS for Synaplan |
+| synascriber.opentalk.controllerUrl | string | `""` | OpenTalk controller the transcriber calls, e.g. https://talk.example |
+| synascriber.opentalk.enabled | bool | `false` | Start the OpenTalk transcriber and turn on OpenTalk meetings in the plugin |
+| synascriber.opentalk.livekitUrl | string | `""` | LiveKit the transcriber joins. OpenTalk's popout token does not carry this address |
 | synascriber.registration.affinity | object | `{}` | Affinity of the Job's pod. With a ReadWriteOnce uploads volume, pin it to the node of the web pod like the worker and the scheduler |
 | synascriber.registration.enabled | bool | `true` | Run the registration Job after install and upgrade |
 | synascriber.registration.resources | object | `{"limits":{"memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resources of the Job |
@@ -681,6 +684,8 @@ openDesk, is the [Helmfile](../../helmfile/).
 | synascriber.registration.settings.sttModel | string | `""` | Model name the plugin sends to the speech-to-text server (plugin setting stt_model). whisper.cpp ignores it. vLLM needs the name it serves. Empty sends nothing, and the plugin keeps its default of whisper. Needs plugin 0.4.1 (Synaplan 5.6.0 or later). An older image makes the Job refuse |
 | synascriber.registration.settings.sttUrl | string | `""` | Speech-to-text server with the OpenAI transcription API (whisper.cpp whisper-server, vLLM, a cloud service). Empty: speech.whisperServerUrl |
 | synascriber.registration.settings.timezone | string | `"Europe/Berlin"` | Times in the transcript |
+| synascriber.secrets.opentalkInitKey | string | `""` | id:secret OpenTalk uses to call this transcriber. The same pair is the controller's transcription api_key. Empty keeps the Secret value, or generates one on first install |
+| synascriber.secrets.opentalkServiceKey | string | `""` | id:secret the OpenTalk transcriber uses to call the controller. Empty keeps the Secret value, or generates one on first install. Only used when opentalk.enabled |
 | synascriber.secrets.prosodySecret | string | `""` | Shared secret between the plugin and the Prosody module (Secret synascriber-prosody, SYNASCRIBER_SECRET) |
 | synascriber.secrets.sttApiKey | string | `""` | API key of the speech-to-text server (plugin setting stt_api_key). Sent as a bearer token, for a vLLM server or a cloud service. Empty sends nothing, and a key already stored by the plugin stays. Needs plugin 0.4.1 (Synaplan 5.6.0 or later). An older image makes the Job refuse |
 | synascriber.secrets.transcriberSecret | string | `""` | Shared secret between the plugin and the transcriber (plugin setting transcriber_secret, transcriber env SYNAPLAN_TRANSCRIBER_SECRET) |
