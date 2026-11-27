@@ -733,7 +733,7 @@ role deployments add SYNAPLAN_ROLE on top.
   value: {{ .Values.c2paSigner.alg | default "ps256" | toString | trim | lower | quote }}
 {{- end }}
 {{- $switchEnv := include "synaplan.switchesEnv" . }}
-{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" "C2PA_SIGNER_TOKEN" "C2PA_ALG" "REGISTRATION_MODE" "SIGNUP_IP_LIMIT" "SIGNUP_GLOBAL_LIMIT" "SIGNUP_PAUSED" "SYMFONY_TRUSTED_PROXIES" "SYMFONY_TRUSTED_HEADERS" "TURNSTILE_SITE_KEY" "TURNSTILE_SECRET_KEY" "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "GITHUB_CLIENT_ID" "GITHUB_CLIENT_SECRET" "APPLE_CLIENT_ID" "APPLE_TEAM_ID" "APPLE_KEY_ID" "APPLE_PRIVATE_KEY" "APPLE_APP_BUNDLE_ID" }}
+{{- $managed := list "TIKA_BASE_URL" "C2PA_SIGNER_URL" "C2PA_SIGNER_TOKEN" "C2PA_ALG" "REGISTRATION_MODE" "SIGNUP_IP_LIMIT" "SIGNUP_GLOBAL_LIMIT" "SIGNUP_PAUSED" "SYMFONY_TRUSTED_PROXIES" "SYMFONY_TRUSTED_HEADERS" "TURNSTILE_SITE_KEY" "TURNSTILE_SECRET_KEY" "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "GITHUB_CLIENT_ID" "GITHUB_CLIENT_SECRET" "APPLE_CLIENT_ID" "APPLE_TEAM_ID" "APPLE_KEY_ID" "APPLE_PRIVATE_KEY" "APPLE_APP_BUNDLE_ID" "QDRANT_API_KEY" }}
 {{- range regexFindAll "(?m)^- name: \\S+" $switchEnv -1 }}
 {{- $managed = append $managed (trimPrefix "- name: " .) }}
 {{- end }}
@@ -818,10 +818,11 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- end }}
 {{- /* FEATURE_* pins for the September 2026 feature waves are read by
        synaplan >= 5.0.0; an older image ignores them, so the operator would
-       believe a feature is off that is not. Non-semver tags skip the check. */}}
-{{- $tag := .Values.image.tag | default .Chart.AppVersion | toString | trimPrefix "v" }}
-{{- if and $featurePinned (regexMatch `^\d+\.\d+\.\d+` $tag) (semverCompare "< 5.0.0" $tag) }}
-{{- fail (printf "features.* / featurePins need synaplan >= 5.0.0; effective image tag is %q, which ignores them. Set image.tag to 5.0.0 or newer, or leave them unset." $tag) }}
+       believe a feature is off that is not. A tag that is not a complete
+       semver skips the check. freeApi is pinned by default, so this runs
+       on a normal render. */}}
+{{- if $featurePinned }}
+{{- include "synaplan.requireMinImage" (dict "ctx" . "what" "features.* / featurePins" "min" "5.0.0" "why" "; an older image ignores them" "leave" "leave them unset") }}
 {{- end }}
 {{- with .Values.qdrant.url }}
 # Qdrant (memories, vector search)
@@ -834,6 +835,19 @@ feature pins (null = not emitted). Shared by every role through synaplan.env.
 {{- end }}
 - name: VECTOR_STORAGE_PROVIDER
   value: "qdrant"
+{{- end }}
+{{- with .Values.qdrant.apiKeySecretRef }}
+{{- if not $.Values.qdrant.url }}
+{{- fail "qdrant.apiKeySecretRef is set without qdrant.url" }}
+{{- end }}
+{{- /* Same rule as the other image gates: a complete semver is compared with a prerelease-aware minimum, and a suffix or a digest is left to the operator. */}}
+{{- include "synaplan.requireMinImage" (dict "ctx" $ "what" "qdrant.apiKeySecretRef" "min" "5.10.2" "why" ", the first release that sends QDRANT_API_KEY" "leave" "leave qdrant.apiKeySecretRef empty, or use a non-semver tag built with Qdrant API key support") }}
+# Qdrant service API key (api-key header). Same secret as QDRANT__SERVICE__API_KEY.
+- name: QDRANT_API_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ . | quote }}
+      key: qdrant-api-key
 {{- end }}
 {{- with .Values.office.convertUrl }}
 # Office engine (Collabora convert-to)
