@@ -214,7 +214,7 @@ edition keeps files in Nextcloud and meetings in Jitsi. Synaplan is **5.10.2**.
   watches, and token exchange so the calls stay that person's.
 - The **synascriber plugin** transcribes Jitsi meetings and writes the notes
   into Synaplan. Jitsi's values file defaults the image it copies the Prosody
-  module from to transcriber **5.10.2**. The transcriber Deployment follows
+  module from to transcriber **5.10.5**. The transcriber Deployment follows
   `images.synaplanTranscriber`, and an empty tag there is still the chart
   appVersion (**5.10.2**). Speech-to-text in the application itself is
   whisper.cpp in the 5.10.2 image.
